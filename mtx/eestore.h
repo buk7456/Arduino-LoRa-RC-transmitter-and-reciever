@@ -182,7 +182,7 @@ void eeReadSysConfig()
   activeModel      = EEPROM.read(_LASTMODEL);
   rfModuleEnabled  = EEPROM.read(_RADIOENABLED);
   backlightEnabled = EEPROM.read(_BACKLIGHT);
-  sysSoundsMode    = EEPROM.read(_SYSSOUNDSMODE);
+  soundMode    = EEPROM.read(_SYSSOUNDSMODE);
 
   thrtlMin       = EEPROMReadInt(_THRTLMIN);
   thrtlMax       = EEPROMReadInt(_THRTLMAX);
@@ -209,7 +209,7 @@ void eeUpdateSysConfig()
   EEPROM.update(_LASTMODEL, activeModel);
   EEPROM.update(_RADIOENABLED, rfModuleEnabled);
   EEPROM.update(_BACKLIGHT, backlightEnabled);
-  EEPROM.update(_SYSSOUNDSMODE, sysSoundsMode);
+  EEPROM.update(_SYSSOUNDSMODE, soundMode);
 
   EEPROMWriteInt(_THRTLMAX, thrtlMax);
   EEPROMWriteInt(_THRTLMIN, thrtlMin);
