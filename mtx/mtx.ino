@@ -87,7 +87,7 @@ void setup()
   readSwitchesAndButtons();
   if(buttonCode == UP_KEY)
   {
-    sysSoundsMode = SYSSOUNDS_OFF;
+    soundMode = SOUND_OFF;
     eeUpdateSysConfig();
   }
   
@@ -116,6 +116,8 @@ void setup()
 void loop()
 {
   unsigned long loopStartTime = millis();
+  
+  thisLoopNum++;
   
   /// -------- CHECk BATTERY --------------------
   checkBattery();
@@ -207,19 +209,11 @@ void sendToSlaveMCU()
   else Serial.write(207);
   
   //Sounds
-  if(sysSoundsMode == SYSSOUNDS_OFF)    //Override
+  if((soundMode == SOUND_OFF)
+      || (soundMode == SOUND_ALERTS && (audioToPlay == AUDIO_KEYTONE || audioToPlay == AUDIO_SWITCHMOVED))
+      || (soundMode == SOUND_ALERTS_SWITCHES && audioToPlay == AUDIO_KEYTONE))
     audioToPlay = AUDIO_NONE; 
-  else if(sysSoundsMode == SYSSOUNDS_ALERTS) //Override
-  {
-    switch(audioToPlay)
-    {
-      case AUDIO_KEYTONE:    
-      case AUDIO_SWITCHMOVED:
-      case AUDIO_EXTREMEREACHED:
-        audioToPlay = AUDIO_NONE;
-        break; 
-    }
-  }
+
   Serial.write(audioToPlay); 
   audioToPlay = AUDIO_NONE; //clear flag
 
@@ -263,5 +257,3 @@ void checkBattery()
     battState = _BATTHEALTHY_;
     
 }
-
-
