@@ -103,7 +103,7 @@ void readSticks()
   //play audio whenever knob crosses center 
   enum {_POS_SIDE = 0, _CENTER = 1, _NEG_SIDE = 2};
   static uint8_t _aux2Region = _CENTER;
-  if(sysSoundsMode == SYSSOUNDS_ALL && isCalibratingSticks == false)
+  if(isCalibratingSticks == false)
   {
     int _aux2Cntr = 0;
     int _posSideStart =  25;  //has deadband
@@ -112,7 +112,7 @@ void readSticks()
     if((aux2In >= _aux2Cntr && _aux2Region == _NEG_SIDE) 
       || (aux2In < _aux2Cntr && _aux2Region == _POS_SIDE)) //crossed center
     {
-      audioToPlay = AUDIO_KEYTONE;
+      audioToPlay = AUDIO_SWITCHMOVED;
       _aux2Region = _CENTER;
     }
     else if(aux2In > _posSideStart)
