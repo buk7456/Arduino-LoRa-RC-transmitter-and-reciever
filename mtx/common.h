@@ -114,9 +114,11 @@ uint8_t throttleThreshold_stopwatch = 25; // in percentage of throttle stick inp
 #define AUDIO_BATTERYWARN   0xD5  
 #define AUDIO_KEYTONE       0xD6
 #define AUDIO_SWITCHMOVED   0xD7
-#define AUDIO_EXTREMEREACHED 0xD8
 
 uint8_t audioToPlay = AUDIO_NONE;
 
-enum{SYSSOUNDS_OFF = 0, SYSSOUNDS_ALERTS = 1, SYSSOUNDS_ALL = 2};
-uint8_t sysSoundsMode = SYSSOUNDS_ALL; 
+enum{SOUND_OFF = 0, SOUND_ALERTS = 1, SOUND_ALERTS_SWITCHES = 2, SOUND_ALL = 3};
+uint8_t soundMode = SOUND_ALL; 
+
+//-------------------------------
+uint32_t thisLoopNum = 0; //main loop counter
