@@ -20,8 +20,10 @@ void drawToast();
 void drawWarning(const __FlashStringHelper* text);
 void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
-uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap,bool _keyState);
-enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, WRAP = true, NOWRAP = false}; 
+uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state);
+enum {WRAP = true, NOWRAP = false};
+enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
+
 
 ///================================================================================================
 
@@ -153,9 +155,6 @@ bool stopwatchIsPaused = true;
 //toast
 const __FlashStringHelper* toastText;
 unsigned long toastExpireTime;
-
-//
-uint8_t tooltipChNo = 0;
 
 
 //================================== EEPROM messages ===============================================
@@ -310,7 +309,7 @@ void HandleMainUI()
           display.drawBitmap(97, 0, rf_icon, 7, 7, 1);
         
         //--------show mute icon------------
-        if (sysSoundsMode == SYSSOUNDS_OFF)
+        if (soundMode == SOUND_OFF)
           display.drawBitmap(41, 0, mute_icon, 7, 7, 1);
 
         //------show model name-----------
@@ -554,10 +553,10 @@ void HandleMainUI()
         toggleEditModeOnSelectPressed();
         drawCursor(41, (focusedItem * 10) + 2);
         
-        if (focusedItem == 1)      //action
+        if (focusedItem == 1) 
           _action_ = incrDecrU8tOnUPDOWN(_action_, 1, 5, WRAP, PRESSED_ONLY);
-        else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYMODEL)) //model
-          _thisMdl_ = incrDecrU8tOnUPDOWN(_thisMdl_, 1, 5, WRAP, PRESSED_OR_HELD);
+        else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYMODEL))
+          _thisMdl_ = incrDecrU8tOnUPDOWN(_thisMdl_, 1, 5, WRAP, SLOW_CHANGE);
         else if (focusedItem == 3 && isEditMode) //confirm action
         {
           if(_action_ == RENAMEMODEL)
@@ -635,8 +634,8 @@ void HandleMainUI()
         else if(thisChar >= 65 && thisChar <= 90) thisChar -= 64; //map ascii 65..90 to 1..26
         else if(thisChar >= 45 && thisChar <= 57) thisChar -= 18; //map ascii 45..57 to 27..39
 
-        thisChar = incrDecrU8tOnUPDOWN(thisChar, 0, 39, WRAP, PRESSED_OR_HELD);
-        
+        thisChar = incrDecrU8tOnUPDOWN(thisChar, 0, 39, NOWRAP, SLOW_CHANGE);
+
         //map back
         if(thisChar == 0) thisChar = 32; //map 0 to ascii 32 (space)
         else if(thisChar >= 1 && thisChar <= 26) thisChar += 64; //map 1..26 to ascii 65..90
@@ -646,7 +645,7 @@ void HandleMainUI()
         *(modelName+charPos) = thisChar;
         
         //draw blinking cursor
-        if(millis() % 1000 < 500)
+        if ((millis() - buttonReleasedTime) % 1000 < 500 || heldButton > 0)
           display.fillRect(61 + 6*charPos, 31, 5, 2, BLACK);
         
         //change to next character
@@ -655,7 +654,7 @@ void HandleMainUI()
         else if(heldButton == SELECT_KEY && charPos > 0)
         {
           charPos--;
-          heldButton = 0; //override
+          heldButton = 0; //override. prevents false triggers
         }
           
         if(charPos == (sizeof(modelName)/sizeof(modelName[0])) - 1) //done renaming. Exit
@@ -948,9 +947,9 @@ void HandleMainUI()
         if (focusedItem == 1)     //Change to another mixer slot
           thisMixNum = incrDecrU8tOnUPDOWN(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 2) //change output
-          MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(MixOut[thisMixNum], 9, 23, NOWRAP, PRESSED_OR_HELD);
+          MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(MixOut[thisMixNum], 9, 23, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 3) //change input 1
-          MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1[thisMixNum], 0, 23, NOWRAP, PRESSED_OR_HELD);
+          MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1[thisMixNum], 0, 23, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 4) //adjust weight 1
           MixIn1Weight[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 5) //adjust differential 1
@@ -960,7 +959,7 @@ void HandleMainUI()
         else if(focusedItem == 7) //change operator
           MixOperator[thisMixNum] = incrDecrU8tOnUPDOWN(MixOperator[thisMixNum], 0, 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 8) //change input 2
-          MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2[thisMixNum], 0, 23, NOWRAP, PRESSED_OR_HELD);
+          MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2[thisMixNum], 0, 23, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 9) //adjust weight 2
           MixIn2Weight[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 10) //adjust differential 2
@@ -1076,11 +1075,11 @@ void HandleMainUI()
         drawCursor(59, (focusedItem*18) + 5);
         
         if(focusedItem == 1)
-          destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, PRESSED_OR_HELD);
+          destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 2 && pressedButton == SELECT_KEY)
         {
-          uint8_t oldPos = thisMixNum;
-          uint8_t newPos = destMixNum;
+          uint8_t oldPostn = thisMixNum;
+          uint8_t newPostn = destMixNum;
           
           //If we have an array [a,b,c,d,e] and we would like to move c to a's position,
           //we achieve this by temporarily storing c, shifting b to c's position, then shifting
@@ -1089,68 +1088,68 @@ void HandleMainUI()
           //position, shift c to b's position, then write our temp stored a to the new position. 
         
           //first store temporarily the old position's data
-          uint8_t _mixout      =   MixOut[oldPos];
-          uint8_t _mix1in      =   MixIn1[oldPos];
-          uint8_t _mix1weight  =   MixIn1Weight[oldPos];
-          uint8_t _mix1offset1 =   MixIn1Offset[oldPos];
-          uint8_t _mix1diff    =   MixIn1Diff[oldPos];
-          uint8_t _mixOper     =   MixOperator[oldPos];
-          uint8_t _mix2in      =   MixIn2[oldPos];
-          uint8_t _mix2weight  =   MixIn2Weight[oldPos];
-          uint8_t _mix2offset1 =   MixIn2Offset[oldPos];
-          uint8_t _mix2diff    =   MixIn2Diff[oldPos];
+          uint8_t _mixout      =   MixOut[oldPostn];
+          uint8_t _mix1in      =   MixIn1[oldPostn];
+          uint8_t _mix1weight  =   MixIn1Weight[oldPostn];
+          uint8_t _mix1offset1 =   MixIn1Offset[oldPostn];
+          uint8_t _mix1diff    =   MixIn1Diff[oldPostn];
+          uint8_t _mixOper     =   MixOperator[oldPostn];
+          uint8_t _mix2in      =   MixIn2[oldPostn];
+          uint8_t _mix2weight  =   MixIn2Weight[oldPostn];
+          uint8_t _mix2offset1 =   MixIn2Offset[oldPostn];
+          uint8_t _mix2diff    =   MixIn2Diff[oldPostn];
           
-          uint8_t posCntr = oldPos;
-          if(newPos < oldPos)
+          uint8_t thisPostn = oldPostn;
+          if(newPostn < oldPostn)
           {
-            while(posCntr > newPos)
+            while(thisPostn > newPostn)
             {
-              MixOut[posCntr]       = MixOut[posCntr-1];
-              MixIn1[posCntr]       = MixIn1[posCntr-1];
-              MixIn1Weight[posCntr] = MixIn1Weight[posCntr-1];
-              MixIn1Offset[posCntr] = MixIn1Offset[posCntr-1];
-              MixIn1Diff[posCntr]   = MixIn1Diff[posCntr-1];
-              MixOperator[posCntr]  = MixOperator[posCntr-1];
-              MixIn2[posCntr]       = MixIn2[posCntr-1];
-              MixIn2Weight[posCntr] = MixIn2Weight[posCntr-1];
-              MixIn2Offset[posCntr] = MixIn2Offset[posCntr-1];
-              MixIn2Diff[posCntr]   = MixIn2Diff[posCntr-1];
+              MixOut[thisPostn]       = MixOut[thisPostn-1];
+              MixIn1[thisPostn]       = MixIn1[thisPostn-1];
+              MixIn1Weight[thisPostn] = MixIn1Weight[thisPostn-1];
+              MixIn1Offset[thisPostn] = MixIn1Offset[thisPostn-1];
+              MixIn1Diff[thisPostn]   = MixIn1Diff[thisPostn-1];
+              MixOperator[thisPostn]  = MixOperator[thisPostn-1];
+              MixIn2[thisPostn]       = MixIn2[thisPostn-1];
+              MixIn2Weight[thisPostn] = MixIn2Weight[thisPostn-1];
+              MixIn2Offset[thisPostn] = MixIn2Offset[thisPostn-1];
+              MixIn2Diff[thisPostn]   = MixIn2Diff[thisPostn-1];
               
-              posCntr--;
+              thisPostn--;
             }
           }
-          else if(newPos > oldPos) 
+          else if(newPostn > oldPostn) 
           {
-            while(posCntr < newPos)
+            while(thisPostn < newPostn)
             {
-              MixOut[posCntr]       = MixOut[posCntr+1];
-              MixIn1[posCntr]       = MixIn1[posCntr+1];
-              MixIn1Weight[posCntr] = MixIn1Weight[posCntr+1];
-              MixIn1Offset[posCntr] = MixIn1Offset[posCntr+1];
-              MixIn1Diff[posCntr]   = MixIn1Diff[posCntr+1];
-              MixOperator[posCntr]  = MixOperator[posCntr+1];
-              MixIn2[posCntr]       = MixIn2[posCntr+1];
-              MixIn2Weight[posCntr] = MixIn2Weight[posCntr+1];
-              MixIn2Offset[posCntr] = MixIn2Offset[posCntr+1];
-              MixIn2Diff[posCntr]   = MixIn2Diff[posCntr+1];
+              MixOut[thisPostn]       = MixOut[thisPostn+1];
+              MixIn1[thisPostn]       = MixIn1[thisPostn+1];
+              MixIn1Weight[thisPostn] = MixIn1Weight[thisPostn+1];
+              MixIn1Offset[thisPostn] = MixIn1Offset[thisPostn+1];
+              MixIn1Diff[thisPostn]   = MixIn1Diff[thisPostn+1];
+              MixOperator[thisPostn]  = MixOperator[thisPostn+1];
+              MixIn2[thisPostn]       = MixIn2[thisPostn+1];
+              MixIn2Weight[thisPostn] = MixIn2Weight[thisPostn+1];
+              MixIn2Offset[thisPostn] = MixIn2Offset[thisPostn+1];
+              MixIn2Diff[thisPostn]   = MixIn2Diff[thisPostn+1];
               
-              posCntr++;
+              thisPostn++;
             }
           }
           
           //copy from temporary into new position
-          MixOut[newPos]       = _mixout;     
-          MixIn1[newPos]       = _mix1in;    
-          MixIn1Weight[newPos] = _mix1weight;
-          MixIn1Offset[newPos] = _mix1offset1;
-          MixIn1Diff[newPos]   = _mix1diff;  
-          MixOperator[newPos]  = _mixOper;   
-          MixIn2[newPos]       = _mix2in;    
-          MixIn2Weight[newPos] = _mix2weight; 
-          MixIn2Offset[newPos] = _mix2offset1;
-          MixIn2Diff[newPos]   = _mix2diff;  
+          MixOut[newPostn]       = _mixout;     
+          MixIn1[newPostn]       = _mix1in;    
+          MixIn1Weight[newPostn] = _mix1weight;
+          MixIn1Offset[newPostn] = _mix1offset1;
+          MixIn1Diff[newPostn]   = _mix1diff;  
+          MixOperator[newPostn]  = _mixOper;   
+          MixIn2[newPostn]       = _mix2in;    
+          MixIn2Weight[newPostn] = _mix2weight; 
+          MixIn2Offset[newPostn] = _mix2offset1;
+          MixIn2Diff[newPostn]   = _mix2diff;  
 
-          thisMixNum = destMixNum; //display the destination when we go back to mixer screen
+          thisMixNum = destMixNum; //display the destination mix slot when we go back to mixer screen
           destMixNum = thisMixNum;
           changeToScreen(MODE_MIXER);
         }
@@ -1178,7 +1177,7 @@ void HandleMainUI()
         drawCursor(59, (focusedItem * 18) + 5);
         
         if(focusedItem == 1)
-          destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, PRESSED_OR_HELD);
+          destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 2 && pressedButton == SELECT_KEY)
         {
           MixOut[destMixNum]       = MixOut[thisMixNum];
@@ -1299,13 +1298,15 @@ void HandleMainUI()
         
         display.setCursor(31, 28);
         display.print(F("Sound:  "));
-        if (sysSoundsMode == SYSSOUNDS_OFF)
-          display.print(F("Off"));
-        else if (sysSoundsMode == SYSSOUNDS_ALERTS)
-          display.print(F("Alerts"));
-        else if (sysSoundsMode == SYSSOUNDS_ALL)
+        if (soundMode == SOUND_OFF)
+          display.print(F("Quiet"));
+        else if (soundMode == SOUND_ALERTS)
+          display.print(F("Alarm"));
+        else if (soundMode == SOUND_ALERTS_SWITCHES)
+          display.print(F("NoKey"));
+        else if (soundMode == SOUND_ALL)
           display.print(F("All"));
-        
+
         display.setCursor(25, 37);
         display.print(F("Sticks:  "));
         display.print(F("Calib?"));
@@ -1319,7 +1320,7 @@ void HandleMainUI()
         else if (focusedItem == 2)
           backlightEnabled = incrDecrU8tOnUPDOWN(backlightEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          sysSoundsMode = incrDecrU8tOnUPDOWN(sysSoundsMode, 0, 2, WRAP, PRESSED_ONLY);
+          soundMode = incrDecrU8tOnUPDOWN(soundMode, 0, 3, WRAP, PRESSED_ONLY);
         else if (focusedItem == 4 && pressedButton == SELECT_KEY)
           changeToScreen(MODE_CALIB);
 
@@ -1638,19 +1639,20 @@ void printTimeAsHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
 }
 
 //--------------------------------------------------------------------------------------------------
-uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, bool _keyState)
+uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state)
 {
   //Increments/decrements the passed uint8_t value between the specified limit. 
   //If wrap is enabled, wraps around when either limit is reached.
-  
+
   if(isEditMode == false)
+  {
     return _val;
-  
-  uint8_t _heldBtn;
-  if(_keyState == PRESSED_ONLY) 
-    _heldBtn = 0;
-  else if(_keyState == PRESSED_OR_HELD)
-    _heldBtn = heldButton;
+  }
+
+  uint8_t _heldBtn = 0;
+  if(_state == PRESSED_ONLY)         _heldBtn = 0;
+  else if(_state == PRESSED_OR_HELD) _heldBtn = heldButton;
+  else if(_state == SLOW_CHANGE && thisLoopNum % 4 == 1) _heldBtn = heldButton;
 
   //Default -- UP_KEY increments, DOWN_KEY decrements
   uint8_t incrKey = UP_KEY;
@@ -1673,21 +1675,18 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
   int lowerLim = _lowerLimit;
   int delta = 1;
   if(_heldBtn > 0 && ((millis() - buttonStartTime) > (LONGPRESSTIME + 1000UL)))
-    delta = 2; //speeds up increment if button is held long enough
-
+  {
+    if(_state != SLOW_CHANGE) delta = 2; //speed up increment
+  }
+  
   //inc dec
   if (pressedButton == incrKey || _heldBtn == incrKey)
   {
     value += delta;
     if(value > upperLim)
     {
-      if(_enableWrap)
-        value = lowerLim;
-      else
-      {
-        value = upperLim;
-        audioToPlay = AUDIO_EXTREMEREACHED;
-      }
+      if(_enableWrap) value = lowerLim;
+      else value = upperLim;
     }
   }
   else if (pressedButton == decrKey || _heldBtn == decrKey)
@@ -1695,13 +1694,8 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
     value -= delta;
     if(value < lowerLim)
     {
-      if(_enableWrap)
-        value = upperLim;
-      else
-      {
-        value = lowerLim;
-        audioToPlay = AUDIO_EXTREMEREACHED;
-      }
+      if(_enableWrap) value = upperLim;
+      else value = lowerLim;
     }
   }
 
@@ -1731,13 +1725,9 @@ void changeToScreen(int8_t _theScrn)
 //--------------------------------------------------------------------------------------------------
 void drawCursor(int16_t _xpos, int16_t _ypos)
 {
-  static unsigned long blinkOffsetTime = 0; 
   if(isEditMode) //draw blinking cursor
   {
-    if (pressedButton > 0 || heldButton > 0) //freeze cursor blinking
-      blinkOffsetTime = millis();
-    unsigned long qq = (millis() - blinkOffsetTime) % 1000;
-    if (qq < 500)
+    if ((millis() - buttonReleasedTime) % 1000 < 500 || heldButton > 0)
       display.fillRect(_xpos + 3, _ypos - 1, 2, 9, BLACK);
   }
   else 
@@ -1906,3 +1896,5 @@ void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val)
   else
     display.drawBitmap(_xcord, _ycord, checkbox_unchecked, 7, 7, 1);
 }
+
+//--------------------------------------------------------------------------------------------------
