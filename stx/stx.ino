@@ -41,7 +41,7 @@ unsigned long validMsgCount = 0;
 #define AUDIO_BATTERYWARN   0xD5  
 #define AUDIO_KEYTONE       0xD6
 #define AUDIO_SWITCHMOVED   0xD7
-#define AUDIO_EXTREMEREACHED 0xD8
+
 
 uint8_t audioToPlay = AUDIO_NONE;
 uint8_t lastAudioToPlay = AUDIO_NONE;
@@ -50,7 +50,6 @@ uint8_t lastAudioToPlay = AUDIO_NONE;
 const char* battLowSound = "battlow2:d=4,o=5,b=290:4c6,32p,4a#,32p,4g.";
 const char* warnSound = "warn:d=4,o=4,b=160:4b5";
 const char* shortBeepSound = "shortBeep:d=4,o=4,b=250:16c#7";
-const char* longBeepSound = "longBeep:d=4,o=4,b=250:6c#7";
 const char* timerElapsedSound = "timerElapsed:d=4,o=5,b=210:16b6,16p,8b6";
 
 //-----------------------------------------
@@ -173,7 +172,6 @@ void loop()
       case AUDIO_THROTTLEWARN:   rtttl::begin(buzzerPin, warnSound); break;
       case AUDIO_BATTERYWARN:    rtttl::begin(buzzerPin, battLowSound); break;
       case AUDIO_TIMERELAPSED:   rtttl::begin(buzzerPin, timerElapsedSound); break;
-      case AUDIO_EXTREMEREACHED: rtttl::begin(buzzerPin, longBeepSound); break;
       case AUDIO_KEYTONE:        rtttl::begin(buzzerPin, shortBeepSound); break;
       case AUDIO_SWITCHMOVED:    rtttl::begin(buzzerPin, shortBeepSound); break;
     }
