@@ -36,9 +36,9 @@ LCDCGM12864G_595 display = LCDCGM12864G_595(9, 8, 7, 10);
 #define THROTTLEINPIN A0
 
 //---------------- Battery ---------------------------------------------------------------
-#define BATTVFACTOR 4.87 //determined experimentally
-#define BATTV_MIN 3400  //in millivolts
-#define BATTV_MAX 3850 //in millivolts
+#define BATTVFACTOR 487  //determined experimentally. Whole numbers only
+#define BATTV_MIN   3400 //in millivolts. Whole numbers only
+#define BATTV_MAX   3850 //in millivolts Whole numbers only
 
 //----------------------------------------------------------------------------------------
-#define _SKETCHVERSION "1.1.0mod"
+#define _SKETCHVERSION "1.2.0"
