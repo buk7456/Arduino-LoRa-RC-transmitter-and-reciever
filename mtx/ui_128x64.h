@@ -839,32 +839,31 @@ void HandleMainUI()
           //draw the axes
           display.drawLine(100, 11, 100, 61, BLACK);
           display.drawLine(74, 36, 125, 36, BLACK);
+          
           //Interpolate and draw points. We use x cordinate to estimate corresponding y cordinate
-          float xpts[5] = {0.0, 12.5, 25.0, 37.5, 50.0};
-          float ypts[5] = { ThrottlePts[0]/3.95,
-                            ThrottlePts[1]/3.95,
-                            ThrottlePts[2]/3.95,
-                            ThrottlePts[3]/3.95,
-                            ThrottlePts[4]/3.95 };
+          //Actual plot area is 50x50.
+          int xpts[5] = {0, 250, 500, 750, 1000};
+          int ypts[5];
+          for(int i = 0; i < 5; i++)
+            ypts[i] = (int)ThrottlePts[i] * 5;
+                            
           for (int xval = 0; xval <= 50; xval++) //plot
           {
-            int yval = int(linearInterpolate(xpts, ypts, 5, float(xval)));
-            yval = constrain(yval, 0, 50); //limit points to plot area
+            int yval = linearInterpolate(xpts, ypts, 5, xval * 20) / 20;
             display.drawPixel(75 + xval, 61 - yval, BLACK); //plot points
           }
-          //draw throttle stick input indication and point weve selected
-          float _thrIn = (throttleIn + 500) / 20.0;
-          int _thrQout = int(linearInterpolate(xpts, ypts, 5, _thrIn));
-          _thrQout = constrain(_thrQout, 0, 100);
-          display.fillRect(74 + int(_thrIn), 60 - _thrQout ,3, 3, BLACK);
+          
+          //draw throttle stick input indication and point selected
+          int _thrOut = linearInterpolate(xpts, ypts, 5, throttleIn + 500) / 20;
+          display.fillRect(74 + ((throttleIn + 500) / 20), 60 - _thrOut ,3, 3, BLACK);
           
           //show point we are adjusting
           if(focusedItem >= 2)
           {
             int _pt = 6 - focusedItem;
-            int _qq = int(linearInterpolate(xpts, ypts, 5, _pt * 12.5));
-            display.fillRect(74 + int(xpts[_pt]), 60 - _qq ,3, 3, WHITE);
-            display.drawRect(74 + int(xpts[_pt]), 60 - _qq ,3, 3, BLACK);
+            int _qq = linearInterpolate(xpts, ypts, 5, _pt * 250) / 20;
+            display.fillRect(74 + xpts[_pt]/20, 60 - _qq ,3, 3, WHITE);
+            display.drawRect(74 + xpts[_pt]/20, 60 - _qq ,3, 3, BLACK);
           }
         }
         
@@ -1548,6 +1547,17 @@ void HandleMainUI()
 
   ///----------------- TOAST ----------------------------------
   drawToast();
+  
+  ///----------------- Pkts per second ------------------------
+  if(showPktsPerSec == true)
+  {
+    display.fillRect(116,0,12,7,WHITE);
+    display.setCursor(117,0);
+    uint8_t pktRate = returnedByte & 0x3F;
+    if(pktRate < 10)
+      display.print(F(" "));
+    display.print(pktRate);
+  }
   
   ///----------------- SHOW ON PHYSICAL LCD -------------------
   display.display(); //show on real lcd
