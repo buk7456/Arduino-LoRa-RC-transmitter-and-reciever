@@ -72,7 +72,9 @@ void setup()
     EEPROM.write(_EEPROM_INIT, EE_INITFLAG);
     delay(1000);
     
-    changeToScreen(MODE_CALIB); //## Set to sticks calib screen  
+    changeToScreen(MODE_CALIB); //## Set to sticks calib screen
+
+    buttonCode = 0;    
   }
 
   ///--------- Load data from eeprom -----------
@@ -83,7 +85,7 @@ void setup()
   eeReadMixData(activeModel); 
   eeReadModelName(activeModel);
   
-  ///--------- Override sounds mode if up key pressed while powering on ----------
+  ///--------- Override sounds mode if up key held while starting up ----------
   readSwitchesAndButtons();
   if(buttonCode == UP_KEY)
   {
@@ -91,7 +93,11 @@ void setup()
     eeUpdateSysConfig();
   }
   
-  ///----------Warn throttle if throttle position is more than 5% above minimum----------
+  ///----------Show packets per second if down key held while starting up ----
+  if(buttonCode == DOWN_KEY)
+    showPktsPerSec = true; 
+  
+  ///----------Warn throttle if throttle position is more than 5% above minimum---
   readSwitchesAndButtons();
   readSticks();
   bool _rfState = rfModuleEnabled; //temporarily store rf state as we are going to override it
@@ -244,10 +250,8 @@ void checkBattery()
   response. For step input, it would take about these cycles for reading to get there.
   Formula x = x - (x/n) + (a/n)  */
   
-  int anaRd = int(float(analogRead(BATTVOLTSPIN)) * BATTVFACTOR);
-  long battV = (long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd; 
-  battV /= _NUM_SAMPLES;
-  
+  long anaRd = ((long)analogRead(BATTVOLTSPIN) * BATTVFACTOR) / 100;
+  long battV = ((long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd) / _NUM_SAMPLES; 
   battVoltsNow = int(battV); 
   
   //add some hysterisis to battState
@@ -255,5 +259,4 @@ void checkBattery()
     battState = _BATTLOW_;
   else if (battState == _BATTLOW_ && battVoltsNow > (BATTV_MIN + 100)) //100mV hysteris
     battState = _BATTHEALTHY_;
-    
 }
