@@ -122,3 +122,5 @@ uint8_t soundMode = SOUND_ALL;
 
 //-------------------------------
 uint32_t thisLoopNum = 0; //main loop counter
+
+bool showPktsPerSec = false; //### debug
