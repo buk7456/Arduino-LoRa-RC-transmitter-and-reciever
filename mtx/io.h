@@ -7,7 +7,7 @@ void computeChannelOutputs();
 //Helpers
 int deadzoneAndMap(int _theInpt, int _minVal, int _centerVal, int _maxVal, int _deadzn, int _mapMin, int _mapMax);
 int calcRateExpo(int _input_, int _rate_, int _expo_);
-float linearInterpolate(float xValues[], float yValues[], int numValues, float pointX);
+int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX);
 long weightAndOffset(int _input, int _weight, int _diff, int _offset);
 
 
@@ -214,15 +214,12 @@ void computeChannelOutputs()
   else
     MixSources[IdxRud] = calcRateExpo(yawIn,   RateSport[RUDRTE], ExpoSport[RUDRTE]);
   //apply throttle curve
-  float x[5] = {-500.0, -250.0, 0.0, 250.0, 500.0};
-  float y[5] = {
-    float((ThrottlePts[0] - 100) * 5),
-    float((ThrottlePts[1] - 100) * 5),
-    float((ThrottlePts[2] - 100) * 5),
-    float((ThrottlePts[3] - 100) * 5),
-    float((ThrottlePts[4] - 100) * 5)
-  };
-  MixSources[IdxThrt] = int(linearInterpolate(x,y,5,float(throttleIn)));
+  int xpoints[5] = {-500, -250, 0, 250, 500};
+  int ypoints[5];
+  for(int i = 0; i < 5; i++)
+    ypoints[i] = ((int)ThrottlePts[i] - 100) * 5;
+  
+  MixSources[IdxThrt] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
 
   ///Predefined mixes
   //So we dont waste the limited mixer slots
@@ -297,10 +294,9 @@ void computeChannelOutputs()
 
 int deadzoneAndMap(int _theInpt, int _minVal, int _centerVal, int _maxVal, int _deadzn, int _mapMin, int _mapMax)
 {
-  float _ddZnVal_f = float(_maxVal) - float(_minVal);
-  _ddZnVal_f *= float(_deadzn);
-  _ddZnVal_f /= 100.0;
-  int _ddZnVal = int(_ddZnVal_f) / 2; //divide by 2 as deadzone is applied about center
+  long _ddZnTmp = (long)(_maxVal - _minVal) * _deadzn;
+  _ddZnTmp /= 100;
+  int _ddZnVal = int(_ddZnTmp) / 2; //divide by 2 as we apply deadzone about center
   
   int _mapCenter = (_mapMin / 2) + (_mapMax / 2);
   
@@ -317,39 +313,63 @@ int deadzoneAndMap(int _theInpt, int _minVal, int _centerVal, int _maxVal, int _
 }
 
 
-int calcRateExpo(int _input_, int _rate_, int _expo_) //Channels 1,2,4
+int calcRateExpo(int _input_, int _rate_, int _expo_)
 {
-  /*This function is for applying rate and cubic 'expo' to aileron, elevator and rudder channels.
-    The cubic equation used is y= q*x + (1-q)*x^3, where q is the factor.
-    Ranges: _input_ -500 to 500, 
-            _rate_  0 to 200. 100 is 1:1
-            _expo-  0 to 200. 100 is no expo, < 100 is negative expo, > 100 is positive expo
+  /* This function is for applying rate and cubic 'expo' to aileron, elevator and rudder channels.
+     Ranges: 
+     _input_  -500 to 500, 
+     _rate_   0 to 100
+     _expo_   0 to 200. 100 is linear, < 100 is negative expo, > 100 is positive expo 
+  */
+ 
+  /**
+    The cubic equation used is 
+    y = k*x + (1-k)*x^3  where k is expo factor. 
+    This equation applies for input output ranges from -1 to +1. 
+    k = 1 is linear. 
+    0 < k < 1    is less sensitive in center and more sensitive at ends.  
+    1 < k <= 1.5 is more sensitive in center and less senstive at outside.
+    
+    For our implementation, we only use the range 0 < k < 1 and simply 'invert' the result if 
+    positive expo is specified.
+    
+    We need to scale up this equation to avoid floating point maths. After calculation, we scale back
+    the result. 
+    Thus the modified equation taking into account the range of our parameters (to ensure no overflow)
+    is as follows. 
+    
+    y = ( (k/100 * x/500)  +  ((1 - k/100)*((x*x*x)/(500*500*500))) ) * 500
+    This simplifies to 
+    y =  (((250000*k  + x*x*(100-k)) / 250000 ) * x) / 100
+    To ensure no loss of precision, we only work with positive values of x
   */
   
-  float inputF = float(_input_) / 500.0;
-  if(_input_ < 0)
-    inputF = -inputF;
-  float rateF = float(_rate_) / 100.0;
-  float expoF = float(_expo_) / 100.0;;
+  long x = _input_;
+  if(_input_ < 0) x = -x;
+    
+  long k = _expo_;
   if(_expo_ > 100)
   {
-    inputF -= 1.0;
-    expoF = 2.0 - expoF;
+    k = 200 - k;
+    x -= 500;
   }
-    
-  //apply cubic exponential.
-  float outputF = (((1.0 - expoF) * inputF * inputF) + expoF) * inputF;
-  if(_expo_ > 100)
-    outputF += 1.0;
 
-  // apply rate
-  outputF = outputF * rateF;
-  int outputI = int(outputF * 500.0);
-  if(_input_ < 0)
-    outputI = -outputI;
+  //apply expo factor
+  long y = 250000L * k;
+  y += ((x*x)*(100-k));
+  y /= 250000L;
+  y *= x;
+  y /= 100;
+  if(_expo_ > 100) y += 500;
+
+  //apply rate
+  long rate = _rate_;
+  y *= rate;
+  y /= 100;
   
-  outputI = constrain(outputI, -500, 500);
-  return outputI;
+  if(_input_ < 0) y = -y;
+    
+  return int(y);
 }
 
 
@@ -381,29 +401,26 @@ long weightAndOffset(int _input, int _weight, int _diff, int _offset)
 }
 
 
-float linearInterpolate(float xValues[], float yValues[], int numValues, float pointX)
+int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
 {
-  int i = 0;
-  float rslt = 0;
-  
-  if (pointX <= xValues[0])
-  {
-    i = 0;
-    float t = (pointX - xValues[i]) / (xValues[i + 1] - xValues[i]);
-    rslt = yValues[i] * (1 - t) + yValues[i + 1] * t;
-  }
-  else if (pointX >= xValues[numValues - 1])
-  {
-    float t = (pointX - xValues[numValues - 2]) / (xValues[numValues - 1] - xValues[numValues - 2]);
-    rslt = yValues[numValues - 2] * (1 - t) + yValues[numValues - 1] * t;
-  }
-  else
-  {
-    while (pointX >= xValues[i + 1]) i++;
-    float t = (pointX - xValues[i]) / (xValues[i + 1] - xValues[i]);
-    rslt = yValues[i] * (1 - t) + yValues[i + 1] * t;
-  }
-  
-  return rslt;
-}
+  //Implementation of linear Interpolation using integers
+  //Formula used is y = ((x-x0)*(y1-y0))/(x1-x0) + y0;
 
+  for(int i = 0; i < numValues - 1; i++)
+  {
+    if(pointX >= xValues[i] && pointX <= xValues[i+1])
+    {
+      long x0 = xValues[i];
+      long x1 = xValues[i+1];
+      long y0 = yValues[i];
+      long y1 = yValues[i+1];
+      
+      long x = pointX;
+      long y = ((x - x0) * (y1 - y0)) + (y0 * (x1 - x0));
+      y /= (x1 - x0);
+      return int(y); 
+    }
+  }
+  
+  return pointX; //point lies outside range. Just return it
+}
