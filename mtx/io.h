@@ -405,16 +405,16 @@ int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
 {
   //Implementation of linear Interpolation using integers
   //Formula used is y = ((x - x0)*(y1 - y0))/(x1 - x0) + y0;
-	
-	long y = 0;
-	
-	if(pointX < xValues[0])
+  
+  long y = 0;
+  
+  if(pointX < xValues[0])
     y = yValues[0]; 
-	else if(pointX > xValues[numValues - 1])
-		y = yValues[numValues - 1];
-	else  //point is in range, interpolate
-	{ 
-	  for(int i = 0; i < numValues - 1; i++)
+  else if(pointX > xValues[numValues - 1])
+    y = yValues[numValues - 1];
+  else  //point is in range, interpolate
+  { 
+    for(int i = 0; i < numValues - 1; i++)
     {
       if(pointX >= xValues[i] && pointX <= xValues[i+1])
       {
@@ -424,10 +424,10 @@ int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
         long y1 = yValues[i+1];
         long x = pointX;
         y = (((x - x0) * (y1 - y0)) + (y0 * (x1 - x0))) / (x1 - x0);
-	  		break;
+        break;
       }
     }
-	}
+  }
 
-	return int(y); 
+  return int(y); 
 }
