@@ -341,7 +341,7 @@ int calcRateExpo(int _input_, int _rate_, int _expo_)
     y = ( (k/100 * x/500)  +  ((1 - k/100)*((x*x*x)/(500*500*500))) ) * 500
     This simplifies to 
     y =  (((250000*k  + x*x*(100-k)) / 250000 ) * x) / 100
-    To ensure no loss of precision, we only work with positive values of x
+    To ensure no significant loss of precision, we only work with positive values of x
   */
   
   long x = _input_;
@@ -404,23 +404,30 @@ long weightAndOffset(int _input, int _weight, int _diff, int _offset)
 int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
 {
   //Implementation of linear Interpolation using integers
-  //Formula used is y = ((x-x0)*(y1-y0))/(x1-x0) + y0;
-
-  for(int i = 0; i < numValues - 1; i++)
-  {
-    if(pointX >= xValues[i] && pointX <= xValues[i+1])
+  //Formula used is y = ((x - x0)*(y1 - y0))/(x1 - x0) + y0;
+	
+	long y = 0;
+	
+	if(pointX < xValues[0])
+    y = yValues[0]; 
+	else if(pointX > xValues[numValues - 1])
+		y = yValues[numValues - 1];
+	else  //point is in range, interpolate
+	{ 
+	  for(int i = 0; i < numValues - 1; i++)
     {
-      long x0 = xValues[i];
-      long x1 = xValues[i+1];
-      long y0 = yValues[i];
-      long y1 = yValues[i+1];
-      
-      long x = pointX;
-      long y = ((x - x0) * (y1 - y0)) + (y0 * (x1 - x0));
-      y /= (x1 - x0);
-      return int(y); 
+      if(pointX >= xValues[i] && pointX <= xValues[i+1])
+      {
+        long x0 = xValues[i];
+        long x1 = xValues[i+1];
+        long y0 = yValues[i];
+        long y1 = yValues[i+1];
+        long x = pointX;
+        y = (((x - x0) * (y1 - y0)) + (y0 * (x1 - x0))) / (x1 - x0);
+	  		break;
+      }
     }
-  }
-  
-  return pointX; //point lies outside range. Just return it
+	}
+
+	return int(y); 
 }
