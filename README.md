@@ -40,10 +40,9 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 
 ## Firmware:
 The code compiles on Arduino IDE 1.8.9 and higher with board set to Arduino Uno. 
-The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in the rx folder.
+The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in the rx folder. No external libraries are required to compile.
 
 ### User Interface
-Below is a screenshot of the user interface. 
 Three buttons are used for navigation; Up, Select, Down. Long pressing Select in any screen acts as Back. 
 Long pressing up or down in mixer screen pops up a mixer context menu there. On homescreen, holding the Down key
 reveals the extra 2 digital channels (9 and 10).
@@ -114,11 +113,15 @@ Example: We would like to trim our planes elevator with the knob while in flight
 Note: This doesnt change the subtrim so we have to manually remove this mix later
 and adjust the subtrim manually when not in flight 
 
+## Testing:
+I have done various tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 35 frames a second which is sufficient to control an RC model. There are no issues with the servos either. 
+
 ## Limitations:
 1. No trim buttons. A workaround is to trim with the knob. 
 2. No basic telemetry support. 
 3. Presently the RF transmission occurs at a fixed frequency (433Mhz) thus may interfere
 with other devices. 
+4. No addressing and no binding between transmitter and receiver. No more than one active receiver can be used at a time.
 
 ## To do:
 1. Implement frequency hopping
