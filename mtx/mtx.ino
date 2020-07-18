@@ -30,8 +30,11 @@
 
 //### Declarations #####
 void sendToSlaveMCU(); //sends radio data to slave mcu
-void serialWrite14bit(int _chdat); //helper
+void serialWrite14bit(uint16_t value); //helper
 void checkBattery();
+
+//
+unsigned long _btnDownMillis = 0; //helps control backlight on button press
 
 //===================================== setup ======================================================
 void setup()
@@ -48,6 +51,7 @@ void setup()
   display.begin();
   display.setTextWrap(false);
   
+
   /********* EEPROM init **************
     Check for flag. If flag value is not what we expect, overwrite values in eeprom
     with defaults (initial values of certain global variables), Then write flag.
@@ -84,6 +88,8 @@ void setup()
   eeReadModelBasicData(activeModel);
   eeReadMixData(activeModel); 
   eeReadModelName(activeModel);
+  
+  battVoltsNow = battVoltsMax; 
   
   ///--------- Override sounds mode if up key held while starting up ----------
   readSwitchesAndButtons();
@@ -157,83 +163,99 @@ void loop()
 void sendToSlaveMCU()
 {
 
-  /* Master to Slave MCU communication format as below
-
-  - Start byte 0xBB (0d187)
-  - Channel 1 to 8 data (2bytes per channel, total 16 bytes). 0b0LLLLLLL 0b0HHHHHHH
-  - Channel 9 to 10 data (1 byte per channel, total 2 bytes)
-  - Channe1 1 to 8 failsafes (1byte each, 8 bytes total)
-  - Backlight status (1 byte) 0d202 on, 0d203 off
-  - Battery status (1 byte) 0d204 healthy, 0d205 low
-  - RF status (1 byte) 0d206 on, 0d207 off
-  - Audio tone to play (1 byte)
-  - Stop byte 0xDD (0d221)
+  /** Master to Slave MCU communication format as below
+  
+  byte 0 - Start of message 0xBB
+  byte 1 - Status byte 
+      bit7 - always 0
+      bit6 - Backlight 1 on, 0 off
+      bit5 - Battery status, 1 healthy, 0 low
+      bit4 - RF module, 1 on, 0 off 
+      bit3 - DigChA, 1 on, 0 off
+      bit2 - DigChB, 1 on, 0 off
+      bit1 - PWM mode for Channel3, 1 means servo pwm, 0 ordinary pwm
+      bit0 - Failsafe, 1 means failsafe data, 0 normal data
+      
+  byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
+  byte 18- Sound to play  (1 byte)
+  byte 19- End of message 0xDD
   */
   
-  Serial.write(0xBB); //message header
-
-  serialWrite14bit(ChOut[CH1OUT]);
-  serialWrite14bit(ChOut[CH2OUT]);
-  serialWrite14bit(ChOut[CH3OUT]);
-  serialWrite14bit(ChOut[CH4OUT]);
-  serialWrite14bit(ChOut[CH5OUT]);
-  serialWrite14bit(ChOut[CH6OUT]);
-  serialWrite14bit(ChOut[CH7OUT]);
-  serialWrite14bit(ChOut[CH8OUT]);
-
-  Serial.write(DigChA);
-  Serial.write(DigChB);
+  /// ---- message start
+  Serial.write(0xBB); 
   
-  // ----- failsafes -----------------
-  for(int i=0; i<8; i++)
+  /// ---- status byte
+  
+  uint8_t status = 0x00;
+  
+  if(buttonCode > 0) _btnDownMillis = millis();
+  unsigned long _duration = millis() - _btnDownMillis;
+  if(backlightMode == BACKLIGHT_ON 
+     || (backlightMode == BACKLIGHT_5S  && _duration < 5000UL )
+     || (backlightMode == BACKLIGHT_15S && _duration < 15000UL)
+     || (backlightMode == BACKLIGHT_60S && _duration < 60000UL)) 
+    status |= 0x40;
+  
+  status |= (battState & 0x01) << 5;
+  status |= (rfModuleEnabled & 0x01) << 4;
+  status |= DigChA << 3;
+  status |= DigChB << 2;
+  status |= PWM_Mode_Ch3 << 1;
+  
+  bool isFailsafeData = false; 
+  if(thisLoopNum % 64 == 1) 
+    isFailsafeData = true;
+
+  status |= isFailsafeData & 0x01;
+  
+  Serial.write(status); 
+  
+  /// ---- channel data and failsafes
+  if(isFailsafeData == false) 
   {
-    if(Failsafe[i] > 0) //failsafe has been specified, have to constrain to endpoints
+    for(uint8_t i = 0; i < 8; i++)
     {
-      uint16_t fsf = (Failsafe[i] - 1) * 5; 
-      uint16_t lowerLim = (100 - EndpointL[i]) * 5;
-      uint16_t upperLim = (100 + EndpointR[i]) * 5;
-      if(fsf < lowerLim) 
-        fsf = lowerLim;
-      else if(fsf > upperLim) 
-        fsf = upperLim;
-      fsf = (fsf/5) + 1;
-      uint8_t dat = fsf & 0xFF;
-      Serial.write(dat);
+      uint16_t val = (ChOut[i] + 500) & 0xFFFF; 
+      serialWrite14bit(val);
     }
-    else //not specified. Receiver will hold last servo position if rf signal is lost
-      Serial.write(0);
   }
-  //-----------
-  
-  if (backlightEnabled == true) Serial.write(202);
-  else Serial.write(203);
+  else //send failsafe
+  {
+    for(uint8_t i = 0; i < 8; i++)
+    {
+      if(Failsafe[i] == 0) //failsafe not specified, send 1023
+        serialWrite14bit(1023);
+      else //failsafe specified, send it
+      {
+        uint16_t fsf = (Failsafe[i] - 1) * 5;
+        uint16_t lowerLim = (100 - EndpointL[i]) * 5;
+        uint16_t upperLim = (100 + EndpointR[i]) * 5;
+        if(fsf < lowerLim)  fsf = lowerLim;
+        else if(fsf > upperLim) fsf = upperLim;
+        serialWrite14bit(fsf);
+      }
+    }
+  }
 
-  if (battState == _BATTHEALTHY_) Serial.write(204);
-  else Serial.write(205);
-
-  if (rfModuleEnabled == true) Serial.write(206);
-  else Serial.write(207);
-  
-  //Sounds
+  /// ---- sounds
   if((soundMode == SOUND_OFF)
-      || (soundMode == SOUND_ALERTS && (audioToPlay == AUDIO_KEYTONE || audioToPlay == AUDIO_SWITCHMOVED))
-      || (soundMode == SOUND_ALERTS_SWITCHES && audioToPlay == AUDIO_KEYTONE))
+      || (soundMode == SOUND_ALARMS && (audioToPlay == AUDIO_KEYTONE || audioToPlay == AUDIO_SWITCHMOVED))
+      || (soundMode == SOUND_NOKEY && audioToPlay == AUDIO_KEYTONE))
     audioToPlay = AUDIO_NONE; 
 
   Serial.write(audioToPlay); 
-  audioToPlay = AUDIO_NONE; //clear flag
-
-  Serial.write(0xDD); //message footer
+  audioToPlay = AUDIO_NONE; //set to none
+  
+  /// ---- end of message
+  Serial.write(0xDD); 
 }
 
 
-void serialWrite14bit(int _chdat)
+void serialWrite14bit(uint16_t value)
 {
-  /*The channel data is sent as a "14 bit" value (Two bytes) We need to transpose the data so we
-    get rid of negative values. Then write as 0b0LLLLLLL 0b0HHHHHHH */
-  _chdat = _chdat + 500; //offset to remove negative values
-  Serial.write(_chdat & 0x7f);
-  Serial.write((_chdat >> 7) & 0x7f);
+  // The data is sent as a "14 bit" value (Two bytes) as 0b0LLLLLLL 0b0HHHHHHH
+  Serial.write(value & 0x7f);
+  Serial.write((value >> 7) & 0x7f);
 }
 
 
@@ -250,13 +272,13 @@ void checkBattery()
   response. For step input, it would take about these cycles for reading to get there.
   Formula x = x - (x/n) + (a/n)  */
   
-  long anaRd = ((long)analogRead(BATTVOLTSPIN) * BATTVFACTOR) / 100;
+  long anaRd = ((long)analogRead(BATTVOLTSPIN) * battVfactor) / 100;
   long battV = ((long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd) / _NUM_SAMPLES; 
   battVoltsNow = int(battV); 
   
   //add some hysterisis to battState
-  if (battState == _BATTHEALTHY_ && battVoltsNow <= BATTV_MIN)
+  if (battState == _BATTHEALTHY_ && battVoltsNow <= battVoltsMin)
     battState = _BATTLOW_;
-  else if (battState == _BATTLOW_ && battVoltsNow > (BATTV_MIN + 100)) //100mV hysteris
+  else if (battState == _BATTLOW_ && battVoltsNow > (battVoltsMin + 100)) //100mV hysteris
     battState = _BATTHEALTHY_;
 }
