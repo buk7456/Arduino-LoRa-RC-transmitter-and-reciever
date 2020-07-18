@@ -1,6 +1,10 @@
 
+#define _SKETCHVERSION "1.3.0"
+
+//----------------------------------------------------------------------------------------
+
 //To update default values in EEPROM change the value below to anything between 0xAA and 0xAF.
-#define EE_INITFLAG 0xAB  //WARNING: Changing this will overwrite all your existing model data
+#define EE_INITFLAG 0xAE //WARNING: Changing this will overwrite all your existing model data
 
 //---------------------UART baud rate----------------------------------------------------
 // #define UARTBAUDRATE 57600
@@ -34,11 +38,3 @@ LCDCGM12864G_595 display = LCDCGM12864G_595(9, 8, 7, 10);
 #define PITCHINPIN    A2
 #define YAWINPIN      A1
 #define THROTTLEINPIN A0
-
-//---------------- Battery ---------------------------------------------------------------
-#define BATTVFACTOR 487  //determined experimentally. Whole numbers only
-#define BATTV_MIN   3400 //in millivolts. Whole numbers only
-#define BATTV_MAX   3850 //in millivolts Whole numbers only
-
-//----------------------------------------------------------------------------------------
-#define _SKETCHVERSION "1.2.0"
