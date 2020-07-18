@@ -7,7 +7,6 @@
 * Sketch should compile without warnings even with -WALL
 ***************************************************************************************************/
 
-
 //Comment to disable serial print out
 // #define DEBUG
 
@@ -37,10 +36,9 @@
 #define ORANGE_LED_PIN 6
 
 //-----------------------------------------------
-//the servo pulse range. ie between maximum and minimum 0 to 180 degrees
+
 #define SERVOPULSERANGE 1000
-#define SERVO_MAX_ANGLE_FROM_CENTER 100
-//initially was 50 but  these micro servos (tower pro) only covered 50 entirely 
+#define SERVO_MAX_ANGLE 100 
 
 #include <Servo.h>
 Servo servoCh1;
@@ -57,6 +55,9 @@ long lowerLimMicroSec;
 long upperLimMicroSec;
 
 //--------------------------------------------------
+
+uint8_t PWM_Mode_Ch3 = 1; //1 means servo pwm, 0 means ordinary pwm
+enum {PWM_SERVO = 1, PWM_NORM = 0};
 
 
 bool radioInitialised = false;
@@ -80,6 +81,24 @@ unsigned long prevValidPacketCount = 0; //debug
 int rssi = 0;  //debug
 
 
+/** Air protocol format
+  
+  byte  b0       b1      b2        b3       b4       
+      11111111 11222222 22223333 33333344 44444444 
+         b5       b6      b7        b8       b9
+      55555555 55666666 66667777 77777788 88888888
+         b10      b11
+      abpfCCCC   CCCCCCCC
+    
+  Chs 1 to 8 encoded as 10 bits      
+  a is digital ch9 bit
+  b is digital Ch10 bit 
+  p is PWM mode bit for ch3
+  f is failsafe flag
+  CCCC CCCCCCCC is the 12 bit CRC (calculated as CRC16)  
+  
+*/
+
 //==================================================================================================
 void setup()
 { 
@@ -93,12 +112,12 @@ void setup()
   digitalWrite(CH10PIN, LOW);
   
   lowerLimMicroSec = SERVOPULSERANGE/2;
-  lowerLimMicroSec *= SERVO_MAX_ANGLE_FROM_CENTER;
+  lowerLimMicroSec *= SERVO_MAX_ANGLE;
   lowerLimMicroSec /= 90;
   lowerLimMicroSec = 1500 - lowerLimMicroSec;
   
   upperLimMicroSec = SERVOPULSERANGE/2;
-  upperLimMicroSec *= SERVO_MAX_ANGLE_FROM_CENTER;
+  upperLimMicroSec *= SERVO_MAX_ANGLE;
   upperLimMicroSec /= 90;
   upperLimMicroSec += 1500;
   
@@ -132,8 +151,11 @@ void setup()
 //====================================== MAIN LOOP =================================================
 void loop()
 {
-  ///-------- READ AND VERIFY, THEN DECODE --------------
+
+  ///-------- READ AND VERIFY PACKET  ------------------
   readAndVerifyPacket();
+  
+  ///- -------DECODE THE PAYLOAD -----------------------
   decodeData(); 
   
   /// -------- CHECK TIME SINCE LAST VALID PACKET ------
@@ -160,7 +182,10 @@ void loop()
   {
     servoCh1.attach(CH1PIN);
     servoCh2.attach(CH2PIN);
-    servoCh3.attach(CH3PIN);
+    
+    if(PWM_Mode_Ch3 == PWM_SERVO)
+      servoCh3.attach(CH3PIN);
+    
     servoCh4.attach(CH4PIN);
     servoCh5.attach(CH5PIN);
     servoCh6.attach(CH6PIN);
@@ -180,7 +205,16 @@ void loop()
     }
     servoCh1.writeMicroseconds(ch1to8MicroSec[0]);
     servoCh2.writeMicroseconds(ch1to8MicroSec[1]);
-    servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
+    
+    if(PWM_Mode_Ch3 == PWM_SERVO)
+      servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
+    else if(PWM_Mode_Ch3 == PWM_NORM)
+    {
+      long qq = map(ch1to8Vals[2], -500, 500, 0, 255);
+      uint8_t val = qq & 0xFF;
+      analogWrite(CH3PIN, val);
+    }
+    
     servoCh4.writeMicroseconds(ch1to8MicroSec[3]);
     servoCh5.writeMicroseconds(ch1to8MicroSec[4]);
     servoCh6.writeMicroseconds(ch1to8MicroSec[5]);
@@ -191,59 +225,17 @@ void loop()
     digitalWrite(CH10PIN, digitalChVal[1]);
   }
   
-  //--------------------------------------------------
-
   
 #if defined (DEBUG)
-  //Calculate packets per second
-  static unsigned long ttPrevMillis = 0;
-  unsigned long ttElapsed = millis() - ttPrevMillis;
-  if (ttElapsed >= 1000)
-  {
-    ttPrevMillis = millis();
-
-    unsigned long _validPPS = (validPacketCount - prevValidPacketCount) * 1000;
-    _validPPS /= ttElapsed;
-    validPacketsPerSecond = uint8_t(_validPPS);
-    prevValidPacketCount = validPacketCount;
-  }
-   
-  static uint32_t serialLastPrintTT = millis();
-  if(millis() - serialLastPrintTT >= 40)
-  {
-    serialLastPrintTT = millis();
-    Serial.print("RSSI:");
-    Serial.print(rssi);
-    Serial.print(" PPS:");
-    Serial.print(validPacketsPerSecond);
-    Serial.print(" Ch: ");
-    Serial.print(ch1to8Vals[0]/5);  //Ch1
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[1]/5);  //Ch2
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[2]/5);  //Ch3
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[3]/5);  //Ch4
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[4]/5);  //Ch5
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[5]/5);  //Ch6
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[6]/5);  //Ch7
-    Serial.print(F(" "));
-    Serial.print(ch1to8Vals[7]/5);  //Ch8
-    Serial.print(F(" "));
-    Serial.print(digitalChVal[0]);  //Ch9
-    Serial.print(F(" "));
-    Serial.print(digitalChVal[1]);  //Ch10
-    Serial.println();
-  }
-
+  printDebugData();
 #endif
 
+  /// ------------ Reset flags ------------------------
+  hasValidPacket = false; 
 }
 
 //==================================================================================================
+
 void readAndVerifyPacket()
 {
   if(radioInitialised == false)
@@ -275,13 +267,14 @@ void readAndVerifyPacket()
     
     /// Check if the received data is valid based on crc
     
-    uint16_t crcQQ = rxBuffer[10] & 0x1F; //extract first 5 crc bits
+    uint16_t crcQQ = rxBuffer[10] & 0x0F; //extract first 4 crc bits
     crcQQ = crcQQ << 8;
     crcQQ |= rxBuffer[11]; //add next 8 crc bits
     
-    rxBuffer[10] &= 0xE0; //remove crc bits from received data
+    rxBuffer[10] &= 0xF0; //remove crc bits from received data
     
-    if(crcQQ == (crc16(rxBuffer, 11) & 0x1FFF)) //compare 
+    uint16_t computedCRC = crc16(rxBuffer, 11) & 0x0FFF;
+    if(crcQQ == computedCRC)
     {
       hasValidPacket = true;
       validPacketCount += 1;
@@ -291,7 +284,6 @@ void readAndVerifyPacket()
   }
 }
 
-//==================================================================================================
 void decodeData()
 {
   if(hasValidPacket == false)
@@ -299,64 +291,78 @@ void decodeData()
     return;
   }
   
-  /** Air protocol format
-     Chs 1 to 8 encoded as 10 bits
-
-     byte  b0       b1      b2        b3       b4       
-        11111111 11222222 22223333 33333344 44444444 
-        
-           b5       b6      b7        b8       b9
-        55555555 55666666 66667777 77777788 88888888
-
-           b10      b11
-        abfCCCCC   CCCCCCCC
-        
-     a is digital ch9, b digital Ch10,  f is failsafe flag
-     
-     CCCCC CCCCCCCC is the 13 bit CRC (calculated as CRC16)   
-  */
-  
-  //Channels 1 to 8 (rxBuffer[0] to rxBuffer[9])
-  
+  //Proportional channels
   long _ch1to8Tmp[8];
-  
   _ch1to8Tmp[0] = ((uint16_t)rxBuffer[0] << 2 & 0x3fc) | ((uint16_t)rxBuffer[1] >> 6 & 0x03); //ch1
   _ch1to8Tmp[1] = ((uint16_t)rxBuffer[1] << 4 & 0x3f0) | ((uint16_t)rxBuffer[2] >> 4 & 0x0f); //ch2
   _ch1to8Tmp[2] = ((uint16_t)rxBuffer[2] << 6 & 0x3c0) | ((uint16_t)rxBuffer[3] >> 2 & 0x3f); //ch3
   _ch1to8Tmp[3] = ((uint16_t)rxBuffer[3] << 8 & 0x300) | ((uint16_t)rxBuffer[4]      & 0xff); //ch4
- 
   _ch1to8Tmp[4] = ((uint16_t)rxBuffer[5] << 2 & 0x3fc) | ((uint16_t)rxBuffer[6] >> 6 & 0x03); //ch5
   _ch1to8Tmp[5] = ((uint16_t)rxBuffer[6] << 4 & 0x3f0) | ((uint16_t)rxBuffer[7] >> 4 & 0x0f); //ch6
   _ch1to8Tmp[6] = ((uint16_t)rxBuffer[7] << 6 & 0x3c0) | ((uint16_t)rxBuffer[8] >> 2 & 0x3f); //ch7
   _ch1to8Tmp[7] = ((uint16_t)rxBuffer[8] << 8 & 0x300) | ((uint16_t)rxBuffer[9]      & 0xff); //ch8
   
-  
-  //Channels 9 to 10
+  //digital channels
   digitalChVal[0] = (rxBuffer[10] & 0x80) >> 7;
   digitalChVal[1] = (rxBuffer[10] & 0x40) >> 6;
   
-  
-
-  if((rxBuffer[10] & 0x20) == 0x20) //check failsafe flag. If true, This is failsafe data
+  //Check if failsafe data. If so, dont modify outputs
+  if((rxBuffer[10] & 0x10) == 0x10) //failsafe values
   {
     failsafeBeenReceived = true;
-    //dont modify outputs
-    //save failsafes
     for(int i=0; i<8; i++)
-    {
-      //Check the failsafe data. In a channel has 1023 as value, then failsafe doesnt apply there
-      ch1to8Failsafes[i] = _ch1to8Tmp[i] - 500; //Center around 0
-    }
+      ch1to8Failsafes[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
   }
-  else //copy
+  else //normal channel values
   {
     for(int i=0; i<8; i++)
-    {
-      ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center around 0 so range is -500 to 500
-    }
+      ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
   }
-
-  hasValidPacket = false; //Done with this packet, so set flag to false
+  
+  //get pwm mode for Ch3. Only set once. If changed in transmitter, receiver will need to be restarted
+  static bool _pwmModeInitialised = false;
+  if(_pwmModeInitialised == false)
+  {
+    PWM_Mode_Ch3 = (rxBuffer[10] & 0x20) >> 5;
+    _pwmModeInitialised = true;
+  }
+  
 }
 
+
+//=========================== DEBUG ================================================================
+void printDebugData()
+{
+    //Calculate packets per second
+  static unsigned long ttPrevMillis = 0;
+  unsigned long ttElapsed = millis() - ttPrevMillis;
+  if (ttElapsed >= 1000)
+  {
+    ttPrevMillis = millis();
+    unsigned long _validPPS = (validPacketCount - prevValidPacketCount) * 1000;
+    _validPPS /= ttElapsed;
+    validPacketsPerSecond = uint8_t(_validPPS);
+    prevValidPacketCount = validPacketCount;
+  }
+   
+  static uint32_t serialLastPrintTT = millis();
+  if(millis() - serialLastPrintTT >= 40)
+  {
+    serialLastPrintTT = millis();
+    Serial.print("RSSI:");
+    Serial.print(rssi);
+    Serial.print(" PPS:");
+    Serial.print(validPacketsPerSecond);
+    Serial.print(" Ch: ");
+    for(uint8_t i = 0; i < 8; i++)
+    {
+      Serial.print(ch1to8Vals[i]/5); 
+      Serial.print(F(" "));
+    }
+    Serial.print(digitalChVal[0]);  //Ch9
+    Serial.print(F(" "));
+    Serial.print(digitalChVal[1]);  //Ch10
+    Serial.println();
+  }
+}
 
