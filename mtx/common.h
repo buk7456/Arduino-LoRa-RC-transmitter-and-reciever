@@ -8,8 +8,10 @@ int ChOut[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 enum {CH1OUT = 0, CH2OUT, CH3OUT, CH4OUT, CH5OUT, CH6OUT, CH7OUT, CH8OUT};
 
 //Digital channels
-bool DigChA = 0, DigChB = 0; /*These are digital channels (binary). ChA is momentary,
+uint8_t DigChA = 0, DigChB = 0; /*These are digital channels (binary). ChA is momentary,
   ChB toggle.*/
+  
+uint8_t PWM_Mode_Ch3 = 1; //1 means servo pwm, 0 means ordinary pwm
   
 //---------------- Sticks and switches
 
@@ -87,15 +89,21 @@ uint8_t MixOut[10]        = {13, 13, 13, 13, 13, 13, 13, 13, 13, 13}; //index in
 int8_t ChOutMixer[8];  //for graphing raw mixer output for channels. range -100 to 100
 
 //-------------------------------------
-
 bool rfModuleEnabled = false;
-bool backlightEnabled = true;
+
+enum{BACKLIGHT_OFF = 0, BACKLIGHT_5S, BACKLIGHT_15S, BACKLIGHT_60S, BACKLIGHT_ON};
+uint8_t backlightMode = BACKLIGHT_15S;
+
 
 uint8_t returnedByte = 0; /*Byte returned by slave mcu. Contains Switch C state (Bits 7 and 6) and 
 the radio packets per second (Bits 5 to 0). */
 
 //----------------------------------Battery 
-int battVoltsNow = BATTV_MAX;  //in millivolts.
+int battVfactor = 487; //scaling factor
+int battVoltsNow; //millivolts
+int battVoltsMin = 3400;      //millivolts
+int battVoltsMax = 3900;      //millivolts
+
 enum{_BATTHEALTHY_ = 1,_BATTLOW_ = 0};
 uint8_t battState = _BATTHEALTHY_;
 
@@ -117,10 +125,12 @@ uint8_t throttleThreshold_stopwatch = 25; // in percentage of throttle stick inp
 
 uint8_t audioToPlay = AUDIO_NONE;
 
-enum{SOUND_OFF = 0, SOUND_ALERTS = 1, SOUND_ALERTS_SWITCHES = 2, SOUND_ALL = 3};
+enum{SOUND_OFF = 0, SOUND_ALARMS, SOUND_NOKEY, SOUND_ALL};
 uint8_t soundMode = SOUND_ALL; 
 
 //-------------------------------
-uint32_t thisLoopNum = 0; //main loop counter
+
+uint32_t thisLoopNum = 0; //main loop counter. For timing certain stuff
 
 bool showPktsPerSec = false; //### debug
+
