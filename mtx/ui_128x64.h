@@ -12,6 +12,7 @@ void changeToScreen(int8_t _theScrn);
 void plotRateExpo(uint8_t _rate, uint8_t _expo);
 void resetThrottleTimer();
 void drawHeader();
+void printVolts(int _milliVolts);
 void printTimeAsHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY);
 void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
@@ -53,6 +54,7 @@ enum
   
   //others
   HOME_SCREEN = 50,
+  
   POPUP_TIMER_MENU,
   MODE_TIMER_SETUP,
   POPUP_RENAME_MODEL,
@@ -61,6 +63,10 @@ enum
   POPUP_MOVE_MIX,
   POPUP_COPY_MIX,
   MODE_CALIB,
+  POPUP_SYS_MENU,
+  MODE_SERVO_SETUP,
+  MODE_BATTERY_SETUP
+  
 };
 
 //-- Timer popup menu strings
@@ -70,14 +76,14 @@ char const tmrStr2[] PROGMEM = "Reset timer 2";
 char const tmrStr3[] PROGMEM = "Reset timer 1";
 char const tmrStr4[] PROGMEM = "Setup timer 1";
 char const tmrStr5[] PROGMEM = "Cancel";
-#define NUM_ITEMS_TIMER_MENU 5 
+#define NUM_ITEMS_TIMER_POPUP 5 
 const char *const timerMenuA[] PROGMEM = { //table to refer to the strings
   tmrStr0, tmrStr2, tmrStr3, tmrStr4, tmrStr5 };
 const char *const timerMenuB[] PROGMEM = { //table to refer to the strings
   tmrStr1, tmrStr2, tmrStr3, tmrStr4, tmrStr5 };
 
 //-- Mixer popup menu strings
-#define NUM_ITEMS_MIXER_MENU 6
+#define NUM_ITEMS_MIXER_POPUP 6
 char const mxrStr0[] PROGMEM = "View mixes"; 
 char const mxrStr1[] PROGMEM = "Reset mix"; 
 char const mxrStr2[] PROGMEM = "Move mix to";
@@ -87,6 +93,17 @@ char const mxrStr5[] PROGMEM = "Cancel";
 const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
   mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4, mxrStr5 };
   
+
+//-- Advanced settings popup menu strings
+#define NUM_ITEMS_SYSTEM_POPUP 4
+char const sysStr0[] PROGMEM = "Servo setup"; 
+char const sysStr1[] PROGMEM = "Battery setup"; 
+char const sysStr2[] PROGMEM = "Stick calib"; 
+char const sysStr3[] PROGMEM = "Cancel";
+const char *const sysMenu[] PROGMEM = { //table to refer to the strings
+  sysStr0, sysStr1, sysStr2, sysStr3};
+  
+
 //-- mixer sources name strings. 5 chars max
 
 char const srcName0[]  PROGMEM = "swing"; 
@@ -120,6 +137,24 @@ const char *const srcNames[] PROGMEM = { //This is the table to refer to the str
   srcName14,srcName15, srcName16, srcName17, srcName18, srcName19, 
   srcName20, srcName21, srcName22, srcName23 };
 
+// --- Other strings ----
+
+//sound mode strings
+char const soundModeStr0[] PROGMEM = "Quiet"; 
+char const soundModeStr1[] PROGMEM = "Alarm"; 
+char const soundModeStr2[] PROGMEM = "NoKey"; 
+char const soundModeStr3[] PROGMEM = "All";
+const char *const soundModeStr[] PROGMEM = { //table to refer to the strings
+  soundModeStr0, soundModeStr1, soundModeStr2, soundModeStr3};
+  
+//backlight mode strings
+char const backlightModeStr0[] PROGMEM = "Off"; 
+char const backlightModeStr1[] PROGMEM = "5s"; 
+char const backlightModeStr2[] PROGMEM = "15s"; 
+char const backlightModeStr3[] PROGMEM = "60s";
+char const backlightModeStr4[] PROGMEM = "On";
+const char *const backlightModeStr[] PROGMEM = { //table to refer to the strings
+  backlightModeStr0, backlightModeStr1, backlightModeStr2, backlightModeStr3, backlightModeStr4};
 
 // ---------------- Globals ------------------
 
@@ -151,6 +186,10 @@ unsigned long stopwatchElapsedTime = 0;
 unsigned long stopwatchLastElapsedTime = 0;
 unsigned long stopwatchLastPaused = 0;
 bool stopwatchIsPaused = true;
+
+//battery warning
+bool battWarnDismissed = false;
+unsigned long timeQQ = 0;
 
 //toast
 const __FlashStringHelper* toastText;
@@ -236,22 +275,26 @@ void HandleMainUI()
   }
 
   /// -------------- LOW BATTERY WARN ----------------------
-  if (battState == _BATTLOW_)
+  if(battState == _BATTHEALTHY_)
   {
-    static bool battWarnDismissed = false;
-    static unsigned long battWarnDismissTime = 0;
-  
-    if (pressedButton > 0 && battWarnDismissed == false)
+    timeQQ = millis();
+  }
+  else if (battState == _BATTLOW_)
+  {
+    if(battWarnDismissed == false && (pressedButton > 0 || millis() - timeQQ > 3000)) //dismiss warning
     {
       battWarnDismissed = true;
-      battWarnDismissTime = millis();
+      timeQQ = millis();
       pressedButton = 0;
     }
     
-    if(battWarnDismissed == true && (millis() - battWarnDismissTime > 600000UL))
-      battWarnDismissed = false; //remind low battery 
-
-    if(battWarnDismissed == false)
+    if(battWarnDismissed == true && (millis() - timeQQ > 600000UL)) //remind every 10 minutes
+    {
+      battWarnDismissed = false;
+      timeQQ = millis();
+    }
+    
+    if(battWarnDismissed == false) //show warning
     {
       display.clearDisplay();
       drawWarning(F("Battery Low"));
@@ -261,6 +304,7 @@ void HandleMainUI()
       return;
     }
   }
+
   
   ///----------------- MAIN STATE MACHINE ---------------------------
   switch (theScreen)
@@ -275,26 +319,27 @@ void HandleMainUI()
         display.drawRect(0, 0, 18, 7, BLACK);
         display.drawLine(18, 2, 18, 4, BLACK);
         
-        int numOfBars;
-        if(battVoltsNow < BATTV_MIN)
-          numOfBars = 0;
-        else
-        {
-          numOfBars = (battVoltsNow - BATTV_MIN) * 5; 
-          numOfBars /= BATTV_MAX - BATTV_MIN;
-          numOfBars += 1;
-          if(numOfBars > 5)
-            numOfBars = 5;
-        }
-
-        static uint8_t lastNumOfBars = 5; 
-        if (numOfBars > lastNumOfBars) 
-          numOfBars = lastNumOfBars;
-        else 
-          lastNumOfBars = numOfBars;
+        int8_t numOfBars = 0;
+        static int8_t lastNumOfBars = 19;
         
-        for(int i = 0; i < numOfBars; i++)
-          display.fillRect(2 + i*3, 2, 2, 3, BLACK);
+        if(battVoltsNow > battVoltsMin)
+        {
+          long _numBars = (battVoltsNow - battVoltsMin) * 20L; 
+          _numBars /= battVoltsMax - battVoltsMin;
+          numOfBars = _numBars & 0xFF;
+          if(numOfBars > 19) numOfBars = 19;
+        }
+        
+        if (numOfBars > lastNumOfBars && numOfBars - lastNumOfBars < 2) //avoid gauge jitter at boundaries
+          numOfBars = lastNumOfBars;
+        
+        if(battState == _BATTHEALTHY_)
+        {
+          for(int8_t i = 0; i < (numOfBars/4 + 1); i++)
+            display.fillRect(2 + i*3, 2, 2, 3, BLACK);
+        }
+        
+        lastNumOfBars = numOfBars;
         
         //---------show cut icon -----------
         if (SwAEngaged == true)
@@ -362,15 +407,15 @@ void HandleMainUI()
           DigChA = (pressedButton == UP_KEY || heldButton == UP_KEY)? 1 : 0;
           if (pressedButton == SELECT_KEY || heldButton == SELECT_KEY)
           {
-            DigChB = !DigChB;
+            DigChB = (~DigChB) & 0x01;
             heldButton = 0; //prevents false toggles
           }
 
           //show on lcd
-          bool _outChAB[2] = {DigChA, DigChB};
+          uint8_t _outChAB[2] = {DigChA, DigChB};
           for (int i = 0; i < 2; i++)
           {
-            if (_outChAB[i])
+            if (_outChAB[i] == 1)
             {
               display.fillRect(109, 28 * i, 18, 11, BLACK);
               display.setTextColor(WHITE);
@@ -410,9 +455,9 @@ void HandleMainUI()
         changeFocusOnUPDOWN(5);
 
         if(stopwatchIsPaused)
-          drawPopupMenu(timerMenuA, NUM_ITEMS_TIMER_MENU);
+          drawPopupMenu(timerMenuA, NUM_ITEMS_TIMER_POPUP);
         else 
-          drawPopupMenu(timerMenuB, NUM_ITEMS_TIMER_MENU);
+          drawPopupMenu(timerMenuB, NUM_ITEMS_TIMER_POPUP);
         
         uint8_t _selection = pressedButton == SELECT_KEY ? focusedItem : 0;
         if(_selection == 1) //play or pause stopwatch (timer 2)
@@ -795,11 +840,9 @@ void HandleMainUI()
                    || (displayedCurve == ELE_CURVE && DualRateEnabled[ELERTE] == true)
                    || (displayedCurve == RUD_CURVE && DualRateEnabled[RUDRTE] == true)))
           { 
-            display.fillRect(0,47,33,9,BLACK);
-            display.setCursor(2,48);
-            display.setTextColor(WHITE);
+            display.drawRect(0,47,33,11,BLACK);
+            display.setCursor(2,49);
             display.print(F("Sport"));
-            display.setTextColor(BLACK);
           }
 
           //draw graph 
@@ -980,9 +1023,9 @@ void HandleMainUI()
       
     case POPUP_MIXER_MENU:
       {
-        changeFocusOnUPDOWN(NUM_ITEMS_MIXER_MENU);
+        changeFocusOnUPDOWN(NUM_ITEMS_MIXER_POPUP);
         
-        drawPopupMenu(mixerMenu, NUM_ITEMS_MIXER_MENU);
+        drawPopupMenu(mixerMenu, NUM_ITEMS_MIXER_POPUP);
         
         uint8_t _selection = pressedButton == SELECT_KEY ? focusedItem : 0;
         
@@ -1293,35 +1336,142 @@ void HandleMainUI()
         
         display.setCursor(7, 19);
         display.print(F("Backlight:  "));
-        drawCheckbox(79, 19, backlightEnabled);
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[backlightMode])));
+        display.print(txtBuff);
         
         display.setCursor(31, 28);
         display.print(F("Sound:  "));
-        if (soundMode == SOUND_OFF)
-          display.print(F("Quiet"));
-        else if (soundMode == SOUND_ALERTS)
-          display.print(F("Alarm"));
-        else if (soundMode == SOUND_ALERTS_SWITCHES)
-          display.print(F("NoKey"));
-        else if (soundMode == SOUND_ALL)
-          display.print(F("All"));
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[soundMode])));
+        display.print(txtBuff);
 
-        display.setCursor(25, 37);
-        display.print(F("Sticks:  "));
-        display.print(F("Calib?"));
-
-        changeFocusOnUPDOWN(4);
+        changeFocusOnUPDOWN(3);
         toggleEditModeOnSelectPressed();
         drawCursor(71, 10 + (focusedItem - 1) * 9);
         
         if (focusedItem == 1)
           rfModuleEnabled = incrDecrU8tOnUPDOWN(rfModuleEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 2)
-          backlightEnabled = incrDecrU8tOnUPDOWN(backlightEnabled, 0, 1, WRAP, PRESSED_ONLY);
+          backlightMode = incrDecrU8tOnUPDOWN(backlightMode, 0, 4, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
           soundMode = incrDecrU8tOnUPDOWN(soundMode, 0, 3, WRAP, PRESSED_ONLY);
-        else if (focusedItem == 4 && pressedButton == SELECT_KEY)
+
+        /// --- Popup if up or down key held
+        if(isEditMode == false && (heldButton == UP_KEY || heldButton == DOWN_KEY))
+          changeToScreen(POPUP_SYS_MENU);
+
+        if (heldButton == SELECT_KEY)
+        {
+          eeUpdateSysConfig();
+          changeToScreen(MAIN_MENU);
+        }
+      }
+      break;
+      
+    case POPUP_SYS_MENU:
+      {
+        changeFocusOnUPDOWN(4);
+        drawPopupMenu(sysMenu, NUM_ITEMS_SYSTEM_POPUP);
+
+        uint8_t _selection = pressedButton == SELECT_KEY ? focusedItem : 0;
+        if(_selection == 1) 
+          changeToScreen(MODE_SERVO_SETUP);
+        else if(_selection == 2)
+          changeToScreen(MODE_BATTERY_SETUP);
+        else if(_selection == 3)
           changeToScreen(MODE_CALIB);
+        else if(_selection == 4 || heldButton == SELECT_KEY) 
+          changeToScreen(MODE_SYSTEM);
+      }
+      break;
+      
+    case MODE_SERVO_SETUP:
+      {
+        strcpy_P(txtBuff, PSTR("Servo setup"));
+        drawHeader();
+      
+        display.setCursor(13, 10);
+        display.print(F("Ch3 Mode:  "));
+        if(PWM_Mode_Ch3 == 1) 
+          display.print(F("ServoPWM"));
+        else  
+          display.print(F("PWM"));
+
+        changeFocusOnUPDOWN(1);
+        toggleEditModeOnSelectPressed();
+        drawCursor(71, (focusedItem * 9) + 1);
+        
+        if (focusedItem == 1 && isEditMode)
+        {
+          PWM_Mode_Ch3 = incrDecrU8tOnUPDOWN(PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
+          if(pressedButton == UP_KEY || pressedButton == DOWN_KEY)
+            makeToast(F("Restart receiver"), 2000);
+        }
+
+        if (heldButton == SELECT_KEY)
+        {
+          eeUpdateSysConfig();
+          changeToScreen(MAIN_MENU);
+        }
+      }
+      break;
+      
+    case MODE_BATTERY_SETUP:
+      {
+        strcpy_P(txtBuff, PSTR("Battery"));
+        drawHeader();
+
+        display.setCursor(1, 10);
+        display.print(F("Multiplier:  0."));
+        display.print(battVfactor);
+        
+        display.setCursor(1,19);
+        display.print(F("Gauge min :  "));
+        printVolts(battVoltsMin);
+
+        display.setCursor(1,28);
+        display.print(F("Gauge max :  "));
+        printVolts(battVoltsMax);
+        
+        uint8_t _wdth = 33;
+        if(battVoltsNow > 9999)
+          _wdth = 39;
+        display.drawRect(77,37,_wdth,11,BLACK);
+        display.setCursor(79,39);
+        printVolts(battVoltsNow);
+
+
+        changeFocusOnUPDOWN(3);
+        toggleEditModeOnSelectPressed();
+        drawCursor(71, (focusedItem * 9) + 1);
+        
+        if(focusedItem == 1 && isEditMode)
+        {
+          if((pressedButton == UP_KEY || heldButton == UP_KEY) && battVfactor < 999)
+            battVfactor++;
+          else if((pressedButton == DOWN_KEY || heldButton == DOWN_KEY) && battVfactor > 100)
+            battVfactor--;
+        }
+        
+        else if(focusedItem == 2 && isEditMode)
+        {
+          int _battV = battVoltsMin;
+          if(pressedButton == UP_KEY || heldButton == UP_KEY) _battV += 50;
+          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) _battV -= 50;
+          if(_battV > battVoltsMax - 100) _battV = battVoltsMax - 100;
+          else if(_battV < 2500) _battV = 2500;
+          battVoltsMin = _battV;
+        }
+        
+        else if(focusedItem == 3 && isEditMode)
+        {
+          int _battV = battVoltsMax;
+          if(pressedButton == UP_KEY || heldButton == UP_KEY) _battV += 50;
+          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) _battV -= 50;
+          if(_battV < battVoltsMin + 100) _battV = battVoltsMin + 100;
+          else if(_battV > 12500) _battV = 12500;
+          battVoltsMax = _battV;
+        }
+
 
         if (heldButton == SELECT_KEY)
         {
@@ -1511,15 +1661,8 @@ void HandleMainUI()
         //Show battery voltage
         display.setCursor(25,10);
         display.print(F("Batt   "));
-        int _battV = battVoltsNow / 10;
-        display.print(_battV / 100);
-        display.print(F("."));
-        _battV = _battV % 100;
-        if (_battV < 10)
-          display.print(F("0"));
-        display.print(_battV);
-        display.print(F("V"));
-
+        printVolts(battVoltsNow);
+        
         //Show uptime
         display.setCursor(25,19);
         display.print(F("Uptime "));
@@ -1646,6 +1789,19 @@ void printTimeAsHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
   if (ss < 10)
     display.print(F("0"));
   display.print(ss);
+}
+
+//--------------------------------------------------------------------------------------------------
+void printVolts(int _milliVolts)
+{
+  int val = _milliVolts / 10;
+  display.print(val / 100);
+  display.print(F("."));
+  val = val % 100;
+  if (val < 10) 
+    display.print(F("0"));
+  display.print(val);
+  display.print(F("V"));
 }
 
 //--------------------------------------------------------------------------------------------------
