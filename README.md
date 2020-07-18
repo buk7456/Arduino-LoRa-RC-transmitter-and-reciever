@@ -2,8 +2,8 @@
 
 An Arduino powered long range radio controller for use with rc planes, cars, boats, etc.
 
-<p align="left">
-<img src="img1.jpg" width="622" height="759"/>
+<p align="center">
+<img src="img1.jpg" width="712" height="648"/>
 </p>
 
 ## Features:
@@ -24,7 +24,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 ## Hardware:
 #### Transmitter
 - 2x Atmega328p microcontrollers
-- 1x Semtech SX1276/77/78/79 based rf modules 
+- 1x Semtech SX1276/77/78/79 based rf module 
 - 128x64 KS0108 based LCD, or any 128x64 lcd (provide own driver code). See the schematics
 - 3x push buttons
 - Additional support components. See the schematics
@@ -34,21 +34,17 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - 1x Semtech SX1276/77/78/79 based rf module
 - Additional support components
 
-<p align="left">
-<img src="layout.jpg" width="691" height="649"/>
-</p>
-
 ## Firmware:
 The code compiles on Arduino IDE 1.8.9 and higher with board set to Arduino Uno. 
-The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in the rx folder. No external libraries are required to compile.
+The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in 
+the rx folder. No external libraries are required to compile.
 
 ### User Interface
-Three buttons are used for navigation; Up, Select, Down. Long pressing Select in any screen acts as Back. 
-Long pressing up or down in mixer screen pops up a mixer context menu there. On homescreen, holding the Down key
-reveals the extra 2 digital channels (9 and 10).
+Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
+<br>Long press up or down to open context menus. Hold the down key on home screen to access the extra digital channels (9 and 10).
 
-<p align="left">
-<img src="img2.png" width="1074" height="838"/>
+<p align="center">
+<img src="img2.png" width="816" height="1296"/>
 </p>
 
 ### Example mixes:
