@@ -22,15 +22,11 @@ bool radioInitialised = false;
 
 uint8_t dataToTransmit[12]; //Holds data to send to rc receiver
 
-const int msgLength = 32;  //bytes in master's message including start and stop
+const int msgLength = 20;  //bytes in master's message including start and stop
 uint8_t receivedData[msgLength];  //Holds the valid data from master mcu
 
 unsigned long lastValidMsgRcvTime;
 unsigned long validMsgCount = 0;
-
-#define RF_ENABLED 206   //As received from master mcu
-#define RF_DISABLED 207  //As received from master mcu
-
 
 //--------Tone stuff----------
 #include "NonBlockingRtttl.h"
@@ -81,11 +77,8 @@ void setup()
   pinMode(SwCUpperPosPin, INPUT_PULLUP);
   pinMode(SwCLowerPosPin, INPUT_PULLUP);
   
-
   Serial.begin(115200);
   delay(500);
-
-
 
   /// Override the default CS, reset, and IRQ pins (optional)
   LoRa.setPins(10, 8, 2); //pin 2 actually not used unless we have a callback 
@@ -117,26 +110,20 @@ void loop()
 {
   /// ---------- READ THE 3 POSITION SWITCH ---------------
   SwCState = ((!digitalRead(SwCUpperPosPin) << 1) | !digitalRead(SwCLowerPosPin)) & 0x03;
-  //state is sent after reading serial data
+  //SwCState state is sent after reading serial data
  
-  
   /// ---------- READ THE SERIAL DATA ---------------------
   getSerialData();
 
   ///----------- CONTROL LCD BACKLIGHT --------------------
-  if (receivedData[27] == 0xCA)
-    digitalWrite(lcdBacklightPin, HIGH);
-  else if (receivedData[27] == 0xCB)
-    digitalWrite(lcdBacklightPin, LOW);
-
+  digitalWrite(lcdBacklightPin, (receivedData[1] >> 6) & 0x01);
 
   /// ---------- TRANSMIT VIA RF MODULE --------------------
-  uint8_t rfStatus = receivedData[29];
+  uint8_t rfStatus = (receivedData[1] >> 4) & 0x01;
   static unsigned long lastValidMsgCount = 0;
-  if (radioInitialised == true && rfStatus == RF_ENABLED && validMsgCount > lastValidMsgCount)
+  if (radioInitialised == true && rfStatus == 1 && validMsgCount > lastValidMsgCount)
   {
     encodeDataToTransmit();
-
     if (LoRa.beginPacket()) //Returns 1 if radio is ready to transmit, 0 if busy or on failure.
     {
       LoRa.write(dataToTransmit, 12);
@@ -162,7 +149,7 @@ void loop()
   }
   
   ///-------------------- Play any audio alerts ------------------------
-  audioToPlay = receivedData[30];
+  audioToPlay = receivedData[18];
 
   if(audioToPlay != lastAudioToPlay) //init playback with the specified audio
   {
@@ -186,61 +173,52 @@ void loop()
 void getSerialData()
 {
   //Reads the incoming serial data into receivedData[]
-  /* Master to Slave MCU communication format as below
-
-  - Start byte 0xBB (0d187)
   
-  - Channel 1 to 8 data (2bytes per channel, total 16 bytes). 0b0LLLLLLL 0b0HHHHHHH
+  /** Master to Slave MCU communication format as below
   
-  - Channel 9 to 10 data (1 byte per channel, total 2 bytes)
-  
-  - Channe1 1 to 8 failsafes (1byte each, 8 bytes total)
-
-  - Backlight status (1 byte) 0d202 on, 0d203 off
-  - Battery status (1 byte) 0d204 healthy, 0d205 low
-  - RF status (1 byte) 0d206 on, 0d207 off
-  - Audio tone to play (1 byte)
-  
-  - Stop byte 0xDD (0d221)
+  byte 0 - Start of message 0xBB
+  byte 1 - Status byte 
+      bit7 - always 0
+      bit6 - Backlight 1 on, 0 off
+      bit5 - Battery status, 1 healthy, 0 low
+      bit4 - RF module, 1 on, 0 off 
+      bit3 - DigChA, 1 on, 0 off
+      bit2 - DigChB, 1 on, 0 off
+      bit1 - PWM mode for Channel3, 1 means servo pwm, 0 ordinary pwm
+      bit0 - Failsafe, 1 means failsafe data, 0 normal data
+      
+  byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
+  byte 18- Sound to play  (1 byte)
+  byte 19- End of message 0xDD
   */
-
-  //Read in new message
-  /*Here, we need to first check how many bytes are available in serial buffer. If nothing, we exit.
-    If the number of available bytes is less than we are expecting (but not zero), then we have to
-    wait a little probably because the incoming byte stream is not yet fully arrived.
-    We then read everything from the Serial buffer  */
-
+  
   int numBytesSer = Serial.available();
-  if (numBytesSer == 0)
+  if (numBytesSer < msgLength)
   {
     return;
   }
 
-  if (numBytesSer > 0 && numBytesSer < msgLength)
-    delay(3); /* 115200 baud is about 11520 bytes/s. 32 bytes takes about 3ms */
-
   uint8_t tmpBuff[64];
   memset(tmpBuff, 0, sizeof(tmpBuff)); //fill tmpBuff with zeros to prevent unpredictable results
-
   bool tmpBuffIsFull = false;
-  unsigned int cntr = 0;
+  uint8_t cntr = 0;
 
   while (Serial.available() > 0)
   {
     if (tmpBuffIsFull == false) //put data into tmpBuff
     {
       tmpBuff[cntr] = Serial.read();
-      cntr += 1;
+      cntr++;
       if (cntr >= (sizeof(tmpBuff) / sizeof(tmpBuff[0]))) //prevent array out of bounds
         tmpBuffIsFull = true;
     }
-    else //Throw away any extra data
+    else //Discard any extra bytes
       Serial.read();
   }
 
-  //-------- Check for fisrt occurence of start and stop bytes in tmpBuff ---------
-  int startByteIndex = 0, stopByteIndex = 0;
-  for (unsigned int i = 0; i < (sizeof(tmpBuff) / sizeof(tmpBuff[0])); i += 1)
+  //Check for fisrt occurence of start and stop bytes in tmpBuff
+  uint8_t startByteIndex = 0, stopByteIndex = 0;
+  for (uint8_t i = 0; i < (sizeof(tmpBuff) / sizeof(tmpBuff[0])); i++)
   {
     if (tmpBuff[i] == 0xBB)
       startByteIndex = i;
@@ -251,12 +229,12 @@ void getSerialData()
     }
   }
 
-  //--------Copy to receivedData[] if the data received is good. Also send back pkts/sec----
+  //Copy to receivedData[] if the data received is good. Also send back pkts/sec
   if ((stopByteIndex - startByteIndex + 1) == msgLength)
   {
     validMsgCount++;
     lastValidMsgRcvTime = millis();
-    for (int i = 0; i < msgLength; i += 1)
+    for (uint8_t i = 0; i < msgLength; i++)
       receivedData[i] = tmpBuff[i];
     
     //send back packets per sec and 3pos switch state
@@ -275,57 +253,33 @@ uint16_t combineBytes(uint8_t _byte1, uint8_t _byte2)
   return qq;
 }
 
-
 //==================================================================================================
 void encodeDataToTransmit()
 {
-  // We encode the data into a more compact form
+  /** Air protocol format
+    
+    byte  b0       b1      b2        b3       b4       
+        11111111 11222222 22223333 33333344 44444444 
+           b5       b6      b7        b8       b9
+        55555555 55666666 66667777 77777788 88888888
+           b10      b11
+        abpfCCCC   CCCCCCCC
+      
+    Chs 1 to 8 encoded as 10 bits      
+    a is digital ch9 bit
+    b is digital Ch10 bit 
+    p is PWM mode bit for ch3
+    f is failsafe flag
+    CCCC CCCCCCCC is the 12 bit CRC (calculated as CRC16)  
+    
+  */
 
   uint16_t ch1to8[8];
   for (int i = 0; i < 8; i += 1)
-    ch1to8[i] = combineBytes(receivedData[1 + i*2], receivedData[2 + i*2]);
-
-  /** Air protocol format
-     Chs 1 to 8 encoded as 10 bits
-
-     byte  b0       b1      b2        b3       b4       
-        11111111 11222222 22223333 33333344 44444444 
-        
-           b5       b6      b7        b8       b9
-        55555555 55666666 66667777 77777788 88888888
-
-           b10      b11
-        abfCCCCC   CCCCCCCC
-        
-     a is digital ch9, b digital Ch10,  f is failsafe flag
-     
-     CCCCC CCCCCCCC is the 13 bit CRC (calculated as CRC16)   
-  */
-
-  //Send Fail safe every 2 secs
-  dataToTransmit[10] = 0x00;
-  static unsigned long fsLastms = 0;
-  if (millis() - fsLastms >= 2000)
   {
-    fsLastms = millis();
-    dataToTransmit[10] = 0x20; //failsafe bit
-    
-    //Replace channel values by failsafes
-    //if failsafe is off, set to 1023 (1111111111)
-    for(int i=0; i<8; i++)
-    {
-      if(receivedData[19+i] == 0)
-        ch1to8[i] = 1023;
-      else
-      {
-        ch1to8[i] = receivedData[19 + i] - 1;
-        ch1to8[i] *= 5;
-      }
-    }
+    ch1to8[i] = combineBytes(receivedData[2 + i*2], receivedData[3 + i*2]);
   }
 
-  //Encode
-  
   dataToTransmit[0]  = (ch1to8[0] >> 2) & 0xFF;
   dataToTransmit[1]  = (ch1to8[0] << 6 | ch1to8[1] >> 4) & 0xFF;
   dataToTransmit[2]  = (ch1to8[1] << 4 | ch1to8[2] >> 6) & 0xFF;
@@ -338,11 +292,11 @@ void encodeDataToTransmit()
   dataToTransmit[8]  = (ch1to8[6] << 2 | ch1to8[7] >> 8) & 0xFF;
   dataToTransmit[9]  = ch1to8[7] & 0xFF;
   
-  dataToTransmit[10] |= (receivedData[17] & 0x01) << 7; //digitalChA bit
-  dataToTransmit[10] |= (receivedData[18] & 0x01) << 6; //digitalChB bit
-  
+  //dig ChA, dig ChB, pwm mode for ch3, failsafe flag
+  dataToTransmit[10] =  0x00;
+  dataToTransmit[10] |= (receivedData[1] & 0x0F) << 4;
+  //crc
   uint16_t crcQQ = crc16(dataToTransmit, 11);
- 
-  dataToTransmit[10] |= ((crcQQ >> 8) & 0x1F);
-  dataToTransmit[11] = crcQQ & 0xFF;
+  dataToTransmit[10] |= (crcQQ >> 8) & 0x0F;
+  dataToTransmit[11] =  crcQQ & 0xFF;
 }
