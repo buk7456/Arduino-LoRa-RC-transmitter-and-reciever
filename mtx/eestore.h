@@ -18,8 +18,7 @@ void eeUpdateModelName(uint8_t _mdlNO);
 int  getModelDataOffsetAddr(uint8_t _mdlNO);
 void EEPROMWriteInt(int address, int value);
 int  EEPROMReadInt(int address);
-long EEPROMReadlong(int address);
-void EEPROMWritelong(int address, long value);
+
 
 ///===================================== EEPROM Addresses ==========================================
 
@@ -32,31 +31,35 @@ void EEPROMWritelong(int address, long value);
 #define _RADIOENABLED  3
 #define _SYSSOUNDSMODE 4
 
+#define _PWMMODECH3    5 
+
 //sticks related
-#define _DEADZONEPERC 7   //1 BYTE
-#define _THRTLMIN     8   //2 bytes
-#define _THRTLMAX     10  //2 bytes
-#define _YAWMIN       12  //2 bytes
-#define _YAWMAX       14  //2 bytes
-#define _PITCHMIN     16  //2 bytes
-#define _PITCHMAX     18  //2 bytes
-#define _ROLLMIN      20  //2 bytes
-#define _ROLLMAX      22  //2 bytes
-#define _YAWCENTER    24  //2 bytes
-#define _ROLLCENTER   26  //2 bytes
-#define _PITCHCENTER  28  //2 bytes
+#define _DEADZONEPERC  7   //1 BYTE
+#define _THRTLMIN      8   //2 bytes
+#define _THRTLMAX      10  //2 bytes
+#define _YAWMIN        12  //2 bytes
+#define _YAWMAX        14  //2 bytes
+#define _PITCHMIN      16  //2 bytes
+#define _PITCHMAX      18  //2 bytes
+#define _ROLLMIN       20  //2 bytes
+#define _ROLLMAX       22  //2 bytes
+#define _YAWCENTER     24  //2 bytes
+#define _ROLLCENTER    26  //2 bytes
+#define _PITCHCENTER   28  //2 bytes
+
+//battery
+#define _BATTVMIN      30 //2 bytes
+#define _BATTVMAX      32 //2 bytes
+#define _BATTVFACTOR   34 //2 bytes
 
 
-///---------------------RESEVED 4 BYTES HERE-------------------------
+//----------------------Reserved 6 bytes here-----------------------
 
 
 ///---------------------MODEL NAMES ---------------------------------
 //Actual location depends on model
-#define MODELNAMESTARTADDR 34 
+#define MODELNAMESTARTADDR 42 
 #define MODELNAMESPAN 8 //8 bytes per name (\0 not stored). So for 6 models a total of 48 bytes
-
-
-/// --------------------RESERVED 8 BYTES HERE------------------------
 
 
 ///---------------------MODEL DATA ----------------------------------
@@ -181,8 +184,10 @@ void eeReadSysConfig()
 {
   activeModel      = EEPROM.read(_LASTMODEL);
   rfModuleEnabled  = EEPROM.read(_RADIOENABLED);
-  backlightEnabled = EEPROM.read(_BACKLIGHT);
-  soundMode    = EEPROM.read(_SYSSOUNDSMODE);
+  backlightMode    = EEPROM.read(_BACKLIGHT);
+  soundMode        = EEPROM.read(_SYSSOUNDSMODE);
+  
+  PWM_Mode_Ch3   = EEPROM.read(_PWMMODECH3);
 
   thrtlMin       = EEPROMReadInt(_THRTLMIN);
   thrtlMax       = EEPROMReadInt(_THRTLMAX);
@@ -200,6 +205,11 @@ void eeReadSysConfig()
   rollMax        = EEPROMReadInt(_ROLLMAX);
   
   deadZonePerc   = EEPROM.read(_DEADZONEPERC);
+  
+  battVfactor    = EEPROMReadInt(_BATTVFACTOR);
+  battVoltsMin   = EEPROMReadInt(_BATTVMIN);
+  battVoltsMax   = EEPROMReadInt(_BATTVMAX);
+
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -208,8 +218,10 @@ void eeUpdateSysConfig()
 {
   EEPROM.update(_LASTMODEL, activeModel);
   EEPROM.update(_RADIOENABLED, rfModuleEnabled);
-  EEPROM.update(_BACKLIGHT, backlightEnabled);
+  EEPROM.update(_BACKLIGHT, backlightMode);
   EEPROM.update(_SYSSOUNDSMODE, soundMode);
+  
+  EEPROM.update(_PWMMODECH3, PWM_Mode_Ch3);
 
   EEPROMWriteInt(_THRTLMAX, thrtlMax);
   EEPROMWriteInt(_THRTLMIN, thrtlMin);
@@ -224,6 +236,10 @@ void eeUpdateSysConfig()
   EEPROMWriteInt(_ROLLMAX, rollMax);
 
   EEPROM.update(_DEADZONEPERC, deadZonePerc);
+  
+  EEPROMWriteInt(_BATTVFACTOR, battVfactor);
+  EEPROMWriteInt(_BATTVMIN, battVoltsMin);
+  EEPROMWriteInt(_BATTVMAX, battVoltsMax);
 }
 
 //===================================== MODEL NAMES ================================================
