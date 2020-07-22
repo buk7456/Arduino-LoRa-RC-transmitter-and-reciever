@@ -16,7 +16,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - 10 free mixer slots per model
 - 2 timers; Throttle timer and free stopwatch
 - Sticks calibration
-- Audio beep feedback
+- Audio tones
 
 ## License:
 [MIT license](https://choosealicense.com/licenses/mit/)
@@ -47,63 +47,78 @@ Three buttons are used for navigation; Up, Select, Down. Long press Select to go
 <img src="img2.png" width="816" height="1296"/>
 </p>
 
-### Example mixes:
+### The Mixer
+This controller implements a free mixer that offers flexiblity with what we want to control. Each mixer slot takes two inputs, adds or multiplies them, then sends the result to the specified output. Mixer slots are evaluated sequentially.
 
-#### Note:
+##### Mix sources:
+- Raw stick inputs (roll, pitch, throttle, yaw, knob)
+- Switches (SwB, SwC, SwD)
+- Curves (Aileron, Elevator, Throttle, Rudder)
+- Channels (Ch1 to Ch8)
+- Temporary variables (Virt1, Virt2)
+- automated inputs (swing - a triangle wave moving back and forth)
+
+#### Example mixes
+Note:
 1. Default mapping is Ail->Ch1, Ele->Ch2, Thrt->Ch3, Rud->Ch4, unless overridden in mixer.
 2. In case after mix, the servos are moving in wrong direction, it can be solved by negating 
   the applied weights, or reversing the servo direction in Outputs screen. 
 
 Unless otherwise specified, offset is 0, differential is 0
 
-#### Vtail
+##### Vtail
 Left servo in ch2, right servo in ch4
 1. Ch2 =  50%Rud + -50%Ele
 2. Ch4 = -50%Rud + -50%Ele
 
-#### Elevon
+##### Elevon
 Left servo in Ch1, right servo in Ch2
 1. Ch1 = -50%Ail + -50%Ele
 2. Ch2 =  50%Ail + -50%Ele
 
-#### Aileron differential
+##### Aileron differential
 Left aileron in Ch1, right aileron in Ch8
 1. Ch1 = -100%Ail{-25%Diff}
 2. Ch8 =  100%Ail{ 25%Diff}
 
-#### Crow mix
+##### Crow mix
 We would like to setup crow braking on our plane. 
 Left ail servo in Ch1, Right Ail servo in Ch8,
 left flap servo in Ch5, right flap servo in Ch6.
 Using switch 3 position SwC to control the mix. 
-When SwC in in upper or middle position, normal aileron action occurs. Half flaps are
+Normal aileron action occurs when SwC is in upper or middle position. Half flaps are
 deployed when SwC is in middle position.
 When SwC is in lower position, both ailerons move upward and full flaps are deployed
 thus providing crow braking feature.
-1. Ch1 = -100%Ail{-25%Diff} + 50SwC{100%Diff}
-2. Ch8 =  100%Ail{ 25%Diff} + 50SwC{100%Diff}
-3. Ch5 = -50SwC{-50offset}
-4. Ch5 = -50SwC{-50offset}
+1. Ch1 = -100%Ail{-25%Diff} + 50%SwC{100%Diff}
+2. Ch8 =  100%Ail{ 25%Diff} + 50%SwC{100%Diff}
+3. Ch5 = -50%SwC{-50offset}
+4. Ch5 = -50%SwC{-50offset}
 
-#### Differential thrust (twin motor)
+#### Flaperon
+Left aileron in Ch1, right aileron in Ch8. Let's use SwC to activate the flaperons. When SwC is in upper position, flaperons are off. In middle position we deploy half flaperons, and in lower position we deploy full flaperons.
+1. Ch1 = -100%Ail + -50%SwC{-50offset}
+2. Ch8 =  100%Ail + -50%SwC{-50offset}
+
+##### Differential thrust (twin motor)
 Left motor in Ch3, right motor in Ch7. 
 We can use a switch e.g SwD to turn the mix on or off. 
 1. Virt1 = 40%Rud * 100%SwD{100%Diff}
 1. Ch3  = 100%Thrt + 100%Virt1
 2. Ch7  = 100%Thrt + -100%Virt1
 
-#### Elevator throttle mixing
+##### Elevator throttle mixing
 When the throttle is increased, some down elevator can be added. 
 1. Ch2 = -100%Ele + -20%thr{-20 offset}
 
-#### Variable Steering Depending on Throttle Position
+##### Variable Steering Depending on Throttle Position
 This reduces the sensitivity of nosewheel steering as the throttle setting increases.
 Suppose we want a steering rate of 100% when the throttle is closed, 
 reducing to zero rate (no nosewheel steering) at full throttle. 
 What is required is a Multiply mix added to the nosewheel servo channel.
 1. Ch6 = 100%yaw * -50%thr{50 offset}
 
-#### Trim with the knob
+##### Trim with the knob
 Example: We would like to trim our planes elevator with the knob while in flight
 1. Ch2 = -100%Ele + -30%knob
 Note: This doesnt change the subtrim so we have to manually remove this mix later
