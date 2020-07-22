@@ -85,7 +85,7 @@ Left aileron in Ch1, right aileron in Ch8
 We would like to setup crow braking on our plane. 
 Left ail servo in Ch1, Right Ail servo in Ch8,
 left flap servo in Ch5, right flap servo in Ch6.
-Using switch 3 position SwC to control the mix. 
+Using the three position SwC to control the mix. 
 Normal aileron action occurs when SwC is in upper or middle position. Half flaps are
 deployed when SwC is in middle position.
 When SwC is in lower position, both ailerons move upward and full flaps are deployed
@@ -93,7 +93,7 @@ thus providing crow braking feature.
 1. Ch1 = -100%Ail{-25%Diff} + 50%SwC{100%Diff}
 2. Ch8 =  100%Ail{ 25%Diff} + 50%SwC{100%Diff}
 3. Ch5 = -50%SwC{-50offset}
-4. Ch5 = -50%SwC{-50offset}
+4. Ch6 =  100%Ch5
 
 #### Flaperon
 Left aileron in Ch1, right aileron in Ch8. Let's use SwC to activate the flaperons. When SwC is in upper position, flaperons are off. In middle position we deploy half flaperons, and in lower position we deploy full flaperons.
@@ -121,11 +121,11 @@ What is required is a Multiply mix added to the nosewheel servo channel.
 ##### Trim with the knob
 Example: We would like to trim our planes elevator with the knob while in flight
 1. Ch2 = -100%Ele + -30%knob
-Note: This doesnt change the subtrim so we have to manually remove this mix later
-and adjust the subtrim manually when not in flight 
+Note: This doesnt change the subtrim so we have to remove this mix later
+and adjust the subtrim when not in flight. 
 
 ## Testing:
-I have done various tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 35 frames a second which is sufficient to control an RC model. There are no issues with the servos either. 
+I have done several tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 35 frames a second which is sufficient to control an RC model. There are no issues with the servo control either. 
 
 ## Limitations:
 1. No trim buttons. A workaround is to trim with the knob. 
