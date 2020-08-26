@@ -6,14 +6,14 @@ void DrawThrottleWarning(); //throttle warning screen
 
 //helpers
 void detectButtonEvents(); 
-void toggleEditModeOnSelectPressed();
+void toggleEditModeOnSelectClicked();
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
 void changeToScreen(int8_t _theScrn);
 void plotRateExpo(uint8_t _rate, uint8_t _expo);
 void resetThrottleTimer();
 void drawHeader();
 void printVolts(int _milliVolts);
-void printTimeAsHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY);
+void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY);
 void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
 void makeToast(const __FlashStringHelper* text, unsigned long duration);
@@ -75,23 +75,21 @@ char const tmrStr1[] PROGMEM = "Stop timer 2";  //shown if timer2 is playing
 char const tmrStr2[] PROGMEM = "Reset timer 2";
 char const tmrStr3[] PROGMEM = "Reset timer 1";
 char const tmrStr4[] PROGMEM = "Setup timer 1";
-char const tmrStr5[] PROGMEM = "Cancel";
-#define NUM_ITEMS_TIMER_POPUP 5 
+#define NUM_ITEMS_TIMER_POPUP 4
 const char *const timerMenuA[] PROGMEM = { //table to refer to the strings
-  tmrStr0, tmrStr2, tmrStr3, tmrStr4, tmrStr5 };
+  tmrStr0, tmrStr2, tmrStr3, tmrStr4};
 const char *const timerMenuB[] PROGMEM = { //table to refer to the strings
-  tmrStr1, tmrStr2, tmrStr3, tmrStr4, tmrStr5 };
+  tmrStr1, tmrStr2, tmrStr3, tmrStr4};
 
 //-- Mixer popup menu strings
-#define NUM_ITEMS_MIXER_POPUP 6
+#define NUM_ITEMS_MIXER_POPUP 5
 char const mxrStr0[] PROGMEM = "View mixes"; 
 char const mxrStr1[] PROGMEM = "Reset mix"; 
 char const mxrStr2[] PROGMEM = "Move mix to";
 char const mxrStr3[] PROGMEM = "Copy mix to";
 char const mxrStr4[] PROGMEM = "Reset all mixes";
-char const mxrStr5[] PROGMEM = "Cancel";
 const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
-  mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4, mxrStr5 };
+  mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4};
   
 
 //-- Advanced settings popup menu strings
@@ -99,14 +97,14 @@ const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
 char const sysStr0[] PROGMEM = "Servo setup"; 
 char const sysStr1[] PROGMEM = "Battery setup"; 
 char const sysStr2[] PROGMEM = "Stick calib"; 
-char const sysStr3[] PROGMEM = "Cancel";
+char const sysStr3[] PROGMEM = "Packets/sec";
 const char *const sysMenu[] PROGMEM = { //table to refer to the strings
   sysStr0, sysStr1, sysStr2, sysStr3};
   
 
 //-- mixer sources name strings. 5 chars max
 
-char const srcName0[]  PROGMEM = "swing"; 
+char const srcName0[]  PROGMEM = "sine"; 
 char const srcName1[]  PROGMEM = "roll"; 
 char const srcName2[]  PROGMEM = "ptch";
 char const srcName3[]  PROGMEM = "thrt";
@@ -160,10 +158,13 @@ const char *const backlightModeStr[] PROGMEM = { //table to refer to the strings
 
 char txtBuff[22]; //generic buffer for working with strings
 
-uint8_t pressedButton = 0; //button event
-uint8_t heldButton = 0;    //button event
+//Button events
+uint8_t pressedButton = 0; //triggered once when the button goes down
+uint8_t clickedButton = 0; //triggered when the button is released before heldButton event
+uint8_t heldButton = 0;    //triggered when button is held down long enough
+
 unsigned long buttonStartTime = 0;
-unsigned long buttonReleasedTime = 0;
+unsigned long buttonReleaseTime = 0;
 
 int8_t theScreen = HOME_SCREEN;
 uint8_t focusedItem = 1; //The item that currently has focus in MODE Screens
@@ -189,7 +190,7 @@ bool stopwatchIsPaused = true;
 
 //battery warning
 bool battWarnDismissed = false;
-unsigned long timeQQ = 0;
+unsigned long battWarnMillisQQ = 0;
 
 //toast
 const __FlashStringHelper* toastText;
@@ -242,15 +243,15 @@ void HandleMainUI()
 
   ///------------ DETECT BUTTON EVENTS -----------------------------
   detectButtonEvents();
-  //play keytones on button events
-  if(pressedButton != 0 || heldButton != 0)
+  //play keytones. This can be overidden
+  if(pressedButton > 0) 
     audioToPlay = AUDIO_KEYTONE;
 
   ///------------ THROTTLE TIMER -----------------------------------
   //controlled by throttle stick value. If throttle is above threshold, run, else pause.
   
-  int thStpwtch = -500 + (10 * int(throttleThreshold_stopwatch));
-  unsigned long timerCountDownInitVal = timerCountDownInitMins * 60000UL;
+  int thStpwtch = -500 + (10 * int(throttleTimerMinThrottle));
+  unsigned long timerCountDownInitVal = throttleTimerCntDnInitMinutes * 60000UL;
   if (throttleIn >= thStpwtch && SwAEngaged == false) //run throttle timer
     throttleTimerElapsedTime = throttleTimerLastElapsedTime + millis() - throttleTimerLastPaused;
   else //pause timer
@@ -259,14 +260,14 @@ void HandleMainUI()
     throttleTimerLastPaused = millis();
   }
   //play audio
-  if(timerType == TIMERCOUNTDOWN && throttleTimerElapsedTime > timerCountDownInitVal)
+  if(throttleTimerType == TIMERCOUNTDOWN && throttleTimerElapsedTime > timerCountDownInitVal)
   {
-    if((throttleTimerElapsedTime - timerCountDownInitVal) < 1000)
+    if((throttleTimerElapsedTime - timerCountDownInitVal) < 500) //only play sound within this timeframe
       audioToPlay = AUDIO_TIMERELAPSED;
   }
   
   ///--------------- GENERIC STOPWATCH --------------------
-  if(stopwatchIsPaused == false) //play
+  if(stopwatchIsPaused == false) //run
     stopwatchElapsedTime = stopwatchLastElapsedTime + millis() - stopwatchLastPaused;
   else //pause
   {
@@ -275,35 +276,32 @@ void HandleMainUI()
   }
 
   /// -------------- LOW BATTERY WARN ----------------------
-  if(battState == _BATTHEALTHY_)
+  if(battState == _BATTLOW)
   {
-    timeQQ = millis();
-  }
-  else if (battState == _BATTLOW_)
-  {
-    if(battWarnDismissed == false && (pressedButton > 0 || millis() - timeQQ > 3000)) //dismiss warning
+    if(battWarnDismissed == false)
     {
-      battWarnDismissed = true;
-      timeQQ = millis();
-      pressedButton = 0;
-    }
-    
-    if(battWarnDismissed == true && (millis() - timeQQ > 600000UL)) //remind every 10 minutes
-    {
-      battWarnDismissed = false;
-      timeQQ = millis();
-    }
-    
-    if(battWarnDismissed == false) //show warning
-    {
+      //show warning
       display.clearDisplay();
       drawWarning(F("Battery Low"));
       display.display();
       audioToPlay = AUDIO_BATTERYWARN; 
-      
-      return;
+      //dismiss warning
+      if((clickedButton > 0 || millis() - battWarnMillisQQ > 3000))
+      {
+        battWarnDismissed = true;
+        battWarnMillisQQ = millis();
+      }
+      return; 
+    }
+    //remind low battery
+    if(battWarnDismissed == true && (millis() - battWarnMillisQQ > 600000UL)) 
+    {
+      battWarnDismissed = false;
+      battWarnMillisQQ = millis();
     }
   }
+  else
+    battWarnMillisQQ = millis();
 
   
   ///----------------- MAIN STATE MACHINE ---------------------------
@@ -317,7 +315,7 @@ void HandleMainUI()
         //This crude battery fuel gauge doesnt cater for state of charge measurement...
         //only battery voltage.
         display.drawRect(0, 0, 18, 7, BLACK);
-        display.drawLine(18, 2, 18, 4, BLACK);
+        display.drawVLine(18, 2, 3, BLACK);
         
         int8_t numOfBars = 0;
         static int8_t lastNumOfBars = 19;
@@ -333,7 +331,7 @@ void HandleMainUI()
         if (numOfBars > lastNumOfBars && numOfBars - lastNumOfBars < 2) //avoid gauge jitter at boundaries
           numOfBars = lastNumOfBars;
         
-        if(battState == _BATTHEALTHY_)
+        if(battState == _BATTGOOD)
         {
           for(int8_t i = 0; i < (numOfBars/4 + 1); i++)
             display.fillRect(2 + i*3, 2, 2, 3, BLACK);
@@ -369,19 +367,19 @@ void HandleMainUI()
           display.print(modelName);
         
         // draw separator
-        display.drawLine(20,27,103,27,BLACK);
+        display.drawHLine(20,27,84,BLACK);
 
         //----show throttle timer---------
         display.drawBitmap(13, 33, pow_icon, 4, 5, 1);
-        if(timerType == TIMERCOUNTUP)
-          printTimeAsHHMMSS(throttleTimerElapsedTime, 20, 32);
-        else if(timerType == TIMERCOUNTDOWN)
+        if(throttleTimerType == TIMERCOUNTUP)
+          printHHMMSS(throttleTimerElapsedTime, 20, 32);
+        else if(throttleTimerType == TIMERCOUNTDOWN)
         {
-          unsigned long timerCountDownInitVal = timerCountDownInitMins * 60000UL;
+          unsigned long timerCountDownInitVal = throttleTimerCntDnInitMinutes * 60000UL;
           if(throttleTimerElapsedTime < timerCountDownInitVal)
           {
             unsigned long ttqq = timerCountDownInitVal - throttleTimerElapsedTime;
-            printTimeAsHHMMSS(ttqq + 999, 20, 32); /*add 999ms so the displayed time doesnt 
+            printHHMMSS(ttqq + 999, 20, 32); /*add 999ms so the displayed time doesnt 
             change immediately upon running the timer*/
           }
           else
@@ -391,24 +389,23 @@ void HandleMainUI()
             { 
               display.setCursor(20, 32);
               display.print(F("-"));
-              printTimeAsHHMMSS(ttqq, 26, 32);
+              printHHMMSS(ttqq, 26, 32);
             }
             else
-              printTimeAsHHMMSS(ttqq, 20, 32);
+              printHHMMSS(ttqq, 20, 32);
           }
         }
 
         //-------show generic timer ------------
-        printTimeAsHHMMSS(stopwatchElapsedTime, 20, 45);
+        printHHMMSS(stopwatchElapsedTime, 20, 45);
 
         //---- Extended mode. Show digital channels -----
         if(isExtendedMode == true)
         {
-          DigChA = (pressedButton == UP_KEY || heldButton == UP_KEY)? 1 : 0;
-          if (pressedButton == SELECT_KEY || heldButton == SELECT_KEY)
+          DigChA = (buttonCode == UP_KEY)? 1 : 0;
+          if (pressedButton == SELECT_KEY)
           {
-            DigChB = (~DigChB) & 0x01;
-            heldButton = 0; //prevents false toggles
+            DigChB = (~DigChB) & 0x01; //toggle
           }
 
           //show on lcd
@@ -432,9 +429,9 @@ void HandleMainUI()
         }
         
         //--------Handle other key presses------------
-        if (pressedButton == DOWN_KEY)
+        if (clickedButton == DOWN_KEY)
           changeToScreen(POPUP_TIMER_MENU);
-        else if (pressedButton == SELECT_KEY && isExtendedMode == false)
+        else if (clickedButton == SELECT_KEY && isExtendedMode == false)
           changeToScreen(MAIN_MENU);
         else if (heldButton == DOWN_KEY)
         {
@@ -452,14 +449,14 @@ void HandleMainUI()
       
     case POPUP_TIMER_MENU:
       {
-        changeFocusOnUPDOWN(5);
+        changeFocusOnUPDOWN(NUM_ITEMS_TIMER_POPUP);
 
         if(stopwatchIsPaused)
           drawPopupMenu(timerMenuA, NUM_ITEMS_TIMER_POPUP);
         else 
           drawPopupMenu(timerMenuB, NUM_ITEMS_TIMER_POPUP);
         
-        uint8_t _selection = pressedButton == SELECT_KEY ? focusedItem : 0;
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
         if(_selection == 1) //play or pause stopwatch (timer 2)
         {
           stopwatchIsPaused = !stopwatchIsPaused; //Pause/Play stopwatch
@@ -479,7 +476,8 @@ void HandleMainUI()
         }
         else if(_selection == 4) //reset timer 1
           changeToScreen(MODE_TIMER_SETUP);
-        else if(_selection == 5|| heldButton == SELECT_KEY) //exit
+          
+        else if(heldButton == SELECT_KEY) //exit
           changeToScreen(HOME_SCREEN);
       }
       break;
@@ -491,37 +489,37 @@ void HandleMainUI()
       
         display.setCursor(1, 10);
         display.print(F("Throttle >=  "));
-        display.print(throttleThreshold_stopwatch);
+        display.print(throttleTimerMinThrottle);
         display.print(F("%"));
         
         display.setCursor(1, 19);
         display.print(F("Timer type:  "));
-        if(timerType == TIMERCOUNTDOWN)
+        if(throttleTimerType == TIMERCOUNTDOWN)
           display.print(F("CntDn"));
-        else if(timerType == TIMERCOUNTUP)
+        else if(throttleTimerType == TIMERCOUNTUP)
           display.print(F("CntUp"));
         
         uint8_t _maxFocusableItems = 2;
         
-        if(timerType == TIMERCOUNTDOWN)
+        if(throttleTimerType == TIMERCOUNTDOWN)
         {
           _maxFocusableItems = 3;
           display.setCursor(31, 28);
           display.print(F("Start:  "));
-          display.print(timerCountDownInitMins);
+          display.print(throttleTimerCntDnInitMinutes);
           display.print(F(" min"));
         }
       
         changeFocusOnUPDOWN(_maxFocusableItems);
-        toggleEditModeOnSelectPressed();
+        toggleEditModeOnSelectClicked();
         drawCursor(71, (focusedItem * 9) + 1);
         
         if (focusedItem == 1)
-          throttleThreshold_stopwatch = incrDecrU8tOnUPDOWN(throttleThreshold_stopwatch, 0, 100, NOWRAP, PRESSED_OR_HELD);
+          throttleTimerMinThrottle = incrDecrU8tOnUPDOWN(throttleTimerMinThrottle, 0, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 2)
-          timerType = incrDecrU8tOnUPDOWN(timerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
+          throttleTimerType = incrDecrU8tOnUPDOWN(throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
         else if(focusedItem == 3)
-          timerCountDownInitMins = incrDecrU8tOnUPDOWN(timerCountDownInitMins, 1, 240, NOWRAP, PRESSED_OR_HELD);
+          throttleTimerCntDnInitMinutes = incrDecrU8tOnUPDOWN(throttleTimerCntDnInitMinutes, 1, 240, NOWRAP, PRESSED_OR_HELD);
       
         if (heldButton == SELECT_KEY)
         {
@@ -534,7 +532,7 @@ void HandleMainUI()
     case MAIN_MENU:
       {
         drawAndNavMenu(mainMenu, NUM_ITEMS_MAIN_MENU);
-        if (pressedButton == SELECT_KEY)
+        if (clickedButton == SELECT_KEY)
           changeToScreen(highlightedItem);
         else if (heldButton == SELECT_KEY)
         {
@@ -568,38 +566,29 @@ void HandleMainUI()
         else if (_action_ == DELETEMODEL)
           display.print(F("Delete"));
         
+        strcpy_P(txtBuff, PSTR("        ")); //copy empty model name to txtBuff for comparison
+        uint8_t _modelNo = activeModel;
         if(_action_ == LOADMODEL || _action_ == COPYMODEL)
-        {
-          display.setCursor(49, 22);
-          display.print(_thisMdl_);
-          eeReadModelName(_thisMdl_);
-          display.setCursor(61, 22);
-          display.print(modelName);
+          _modelNo = _thisMdl_;
+        display.setCursor(49, 22);
+        eeReadModelName(_modelNo);
+        if(strcmp(modelName, txtBuff) == 0) //if modelName not specified
+        { 
+          display.print(F("MODEL"));
+          display.print(_modelNo);
         }
         else
-        {
-          display.setCursor(49, 22);
-          eeReadModelName(activeModel);
-          strcpy_P(txtBuff, PSTR("        "));
-          if(strcmp(modelName, txtBuff) == 0) 
-          { 
-            //if modelName not specified
-            display.print(F("MODEL"));
-            display.print(activeModel);
-          }
-          else
-            display.print(modelName);
-        }
+          display.print(modelName);
 
         display.setCursor(49, 32);
         display.print(F("Confirm"));
 
         changeFocusOnUPDOWN(3);
-        toggleEditModeOnSelectPressed();
+        toggleEditModeOnSelectClicked();
         drawCursor(41, (focusedItem * 10) + 2);
         
         if (focusedItem == 1) 
-          _action_ = incrDecrU8tOnUPDOWN(_action_, 1, 5, WRAP, PRESSED_ONLY);
+          _action_ = incrDecrU8tOnUPDOWN(_action_, 1, 5, WRAP, SLOW_CHANGE);
         else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYMODEL))
           _thisMdl_ = incrDecrU8tOnUPDOWN(_thisMdl_, 1, 5, WRAP, SLOW_CHANGE);
         else if (focusedItem == 3 && isEditMode) //confirm action
@@ -690,11 +679,11 @@ void HandleMainUI()
         *(modelName+charPos) = thisChar;
         
         //draw blinking cursor
-        if ((millis() - buttonReleasedTime) % 1000 < 500 || heldButton > 0)
+        if ((millis() - buttonReleaseTime) % 1000 < 500 || buttonCode > 0)
           display.fillRect(61 + 6*charPos, 31, 5, 2, BLACK);
         
         //change to next character
-        if(pressedButton == SELECT_KEY)
+        if(clickedButton == SELECT_KEY)
           charPos++;
         else if(heldButton == SELECT_KEY && charPos > 0)
         {
@@ -721,7 +710,7 @@ void HandleMainUI()
         static uint8_t displayedCurve = AIL_CURVE;
         
         if (focusedItem == 1) //switch to another curve
-          displayedCurve = incrDecrU8tOnUPDOWN(displayedCurve, AIL_CURVE, THR_CURVE, WRAP, PRESSED_ONLY);
+          displayedCurve = incrDecrU8tOnUPDOWN(displayedCurve, AIL_CURVE, THR_CURVE, WRAP, SLOW_CHANGE);
           
         uint8_t _maxFocusableItems = 1;
     
@@ -730,45 +719,45 @@ void HandleMainUI()
         {  
           _maxFocusableItems = 4;
           
-          uint8_t theRates[2] = {0, 0};
-          uint8_t theExpo[2] = {0, 0};
+          uint8_t _rate[2] = {0, 0};
+          uint8_t _expo[2] = {0, 0};
           //-----Pass parameters to the arrays for rates and expo-----
           if (displayedCurve == AIL_CURVE)
           {
-            theRates[0] = RateNormal[AILRTE];
-            theRates[1] = RateSport[AILRTE];
-            theExpo[0] = ExpoNormal[AILRTE];
-            theExpo[1] = ExpoSport[AILRTE];
+            _rate[0] = RateNormal[AILRTE];
+            _rate[1] = RateSport[AILRTE];
+            _expo[0] = ExpoNormal[AILRTE];
+            _expo[1] = ExpoSport[AILRTE];
           }
           else if (displayedCurve == ELE_CURVE)
           {
-            theRates[0] = RateNormal[ELERTE];
-            theRates[1] = RateSport[ELERTE];
-            theExpo[0] = ExpoNormal[ELERTE];
-            theExpo[1] = ExpoSport[ELERTE];
+            _rate[0] = RateNormal[ELERTE];
+            _rate[1] = RateSport[ELERTE];
+            _expo[0] = ExpoNormal[ELERTE];
+            _expo[1] = ExpoSport[ELERTE];
           }
           else if (displayedCurve == RUD_CURVE)
           {
-            theRates[0] = RateNormal[RUDRTE];
-            theRates[1] = RateSport[RUDRTE];
-            theExpo[0] = ExpoNormal[RUDRTE];
-            theExpo[1] = ExpoSport[RUDRTE];
+            _rate[0] = RateNormal[RUDRTE];
+            _rate[1] = RateSport[RUDRTE];
+            _expo[0] = ExpoNormal[RUDRTE];
+            _expo[1] = ExpoSport[RUDRTE];
           }
           
           //-----Adjudt values on key presses----
           if (focusedItem == 2) //adjust rate
           {
             if(SwBEngaged == false || DualRateEnabled[displayedCurve] == false)
-              theRates[0] = incrDecrU8tOnUPDOWN(theRates[0], 0, 100, NOWRAP, PRESSED_OR_HELD); 
+              _rate[0] = incrDecrU8tOnUPDOWN(_rate[0], 0, 100, NOWRAP, PRESSED_OR_HELD); 
             else
-              theRates[1] = incrDecrU8tOnUPDOWN(theRates[1], 0, 100, NOWRAP, PRESSED_OR_HELD); 
+              _rate[1] = incrDecrU8tOnUPDOWN(_rate[1], 0, 100, NOWRAP, PRESSED_OR_HELD); 
           }
           else if (focusedItem == 3) //adjust expo
           {
             if(SwBEngaged == false || DualRateEnabled[displayedCurve] == false)
-              theExpo[0] = incrDecrU8tOnUPDOWN(theExpo[0], 0, 200, NOWRAP, PRESSED_OR_HELD);
+              _expo[0] = incrDecrU8tOnUPDOWN(_expo[0], 0, 200, NOWRAP, PRESSED_OR_HELD);
             else 
-              theExpo[1] = incrDecrU8tOnUPDOWN(theExpo[1], 0, 200, NOWRAP, PRESSED_OR_HELD);
+              _expo[1] = incrDecrU8tOnUPDOWN(_expo[1], 0, 200, NOWRAP, PRESSED_OR_HELD);
           }
           else if (focusedItem == 4) //toggle dualrate
             DualRateEnabled[displayedCurve] = incrDecrU8tOnUPDOWN(DualRateEnabled[displayedCurve],0,1,WRAP,PRESSED_ONLY);
@@ -777,24 +766,24 @@ void HandleMainUI()
           //------ Write the values ------
           if (displayedCurve == AIL_CURVE)
           {
-            RateNormal[AILRTE] = theRates[0];
-            RateSport[AILRTE] = theRates[1];
-            ExpoNormal[AILRTE] = theExpo[0];
-            ExpoSport[AILRTE] = theExpo[1];
+            RateNormal[AILRTE] = _rate[0];
+            RateSport[AILRTE]  = _rate[1];
+            ExpoNormal[AILRTE] = _expo[0];
+            ExpoSport[AILRTE]  = _expo[1];
           }
           else if (displayedCurve == ELE_CURVE)
           {
-            RateNormal[ELERTE] = theRates[0];
-            RateSport[ELERTE] = theRates[1];
-            ExpoNormal[ELERTE] = theExpo[0];
-            ExpoSport[ELERTE] = theExpo[1];
+            RateNormal[ELERTE] = _rate[0];
+            RateSport[ELERTE]  = _rate[1];
+            ExpoNormal[ELERTE] = _expo[0];
+            ExpoSport[ELERTE]  = _expo[1];
           }
           else if (displayedCurve == RUD_CURVE)
           {
-            RateNormal[RUDRTE] = theRates[0];
-            RateSport[RUDRTE] = theRates[1];
-            ExpoNormal[RUDRTE] = theExpo[0];
-            ExpoSport[RUDRTE] = theExpo[1];
+            RateNormal[RUDRTE] = _rate[0];
+            RateSport[RUDRTE]  = _rate[1];
+            ExpoNormal[RUDRTE] = _expo[0];
+            ExpoSport[RUDRTE]  = _expo[1];
           }
           
           //----Show on screen----
@@ -824,11 +813,11 @@ void HandleMainUI()
           
           display.setCursor(0, 20);
           display.print(F("Rate:  "));
-          display.print(theRates[_datIDX]);
+          display.print(_rate[_datIDX]);
           display.print(F("%"));
           display.setCursor(0, 29);
           display.print(F("Expo:  "));
-          display.print(theExpo[_datIDX] - 100);
+          display.print(_expo[_datIDX] - 100);
           display.print(F("%"));
           
           display.setCursor(0, 38);
@@ -846,9 +835,9 @@ void HandleMainUI()
           }
 
           //draw graph 
-          plotRateExpo(theRates[_datIDX], theExpo[_datIDX]);
+          plotRateExpo(_rate[_datIDX], _expo[_datIDX]);
           //draw stick input marker
-          int qq = calcRateExpo(_stickInpt, theRates[_datIDX], theExpo[_datIDX]) / 20;
+          int qq = calcRateExpo(_stickInpt, _rate[_datIDX], _expo[_datIDX]) / 20;
           display.fillRect(99 + _stickInpt/20, 35 - qq, 3, 3, BLACK);
         }
 
@@ -880,8 +869,8 @@ void HandleMainUI()
           //----Show graph 
           
           //draw the axes
-          display.drawLine(100, 11, 100, 61, BLACK);
-          display.drawLine(74, 36, 125, 36, BLACK);
+          display.drawVLine(100, 11, 51, BLACK);
+          display.drawHLine(74, 36, 52, BLACK);
           
           //Interpolate and draw points. We use x cordinate to estimate corresponding y cordinate
           //Actual plot area is 50x50.
@@ -912,7 +901,7 @@ void HandleMainUI()
         
         ////// Move cursor
         changeFocusOnUPDOWN(_maxFocusableItems);
-        toggleEditModeOnSelectPressed();
+        toggleEditModeOnSelectClicked();
         drawCursor(34, (focusedItem * 9) + 2);
 
         ////// Exit
@@ -928,7 +917,7 @@ void HandleMainUI()
       {
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MIXER])));
         drawHeader();
-
+        
         display.setCursor(24, 8);
         display.print(F("Mix:  #"));
         display.print(thisMixNum + 1);
@@ -979,15 +968,23 @@ void HandleMainUI()
         else 
           display.print(F("Multiply"));
 
-        changeFocusOnUPDOWN(11);
-        toggleEditModeOnSelectPressed();
+        changeFocusOnUPDOWN(12);
+        toggleEditModeOnSelectClicked();
         if(focusedItem < 8)
           drawCursor(52, focusedItem * 8);
-        else
+        else if(focusedItem < 12)
           drawCursor(89, (focusedItem * 8) - 40);
         
+        //show menu icon
+        display.fillRect(120, 0, 8, 7, WHITE);
+        if(focusedItem == 12)
+          display.drawBitmap(120, 0, menu_icon_focused, 8, 7, 1);
+        else
+            display.drawBitmap(120, 0, menu_icon, 8, 7, 1);
+
+        //edit values
         if (focusedItem == 1)     //Change to another mixer slot
-          thisMixNum = incrDecrU8tOnUPDOWN(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, PRESSED_ONLY);
+          thisMixNum = incrDecrU8tOnUPDOWN(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, SLOW_CHANGE);
         else if(focusedItem == 2) //change output
           MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(MixOut[thisMixNum], 9, 23, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 3) //change input 1
@@ -1009,10 +1006,11 @@ void HandleMainUI()
         else if(focusedItem == 11) //adjust offset 2
           MixIn2Offset[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         
-        /// --- Popup if up or down key held
-        if(isEditMode == false && (heldButton == UP_KEY || heldButton == DOWN_KEY))
+        //open context menu
+        if(focusedItem == 12 && clickedButton == SELECT_KEY)
           changeToScreen(POPUP_MIXER_MENU);
         
+        //go back to main menu
         if (heldButton == SELECT_KEY)
         {
           eeUpdateMixData(activeModel);
@@ -1027,7 +1025,7 @@ void HandleMainUI()
         
         drawPopupMenu(mixerMenu, NUM_ITEMS_MIXER_POPUP);
         
-        uint8_t _selection = pressedButton == SELECT_KEY ? focusedItem : 0;
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
         
         if(_selection == 1) //view outputs
         {
@@ -1043,11 +1041,13 @@ void HandleMainUI()
         {
           destMixNum = thisMixNum;
           changeToScreen(POPUP_MOVE_MIX);
+          isEditMode = true; //start in edit mode
         }  
         else if(_selection == 4) //copy mix
         {
-           destMixNum = thisMixNum;
+          destMixNum = thisMixNum;
           changeToScreen(POPUP_COPY_MIX);
+          isEditMode = true; //start in edit mode
         }
         else if(_selection == 5) //reset all mixes
         {
@@ -1058,7 +1058,7 @@ void HandleMainUI()
           destMixNum = 0;
           changeToScreen(MODE_MIXER);
         }
-        else if(_selection == 6 || heldButton == SELECT_KEY) //exit
+        else if(heldButton == SELECT_KEY) //exit
           changeToScreen(MODE_MIXER);
       }
       break;
@@ -1074,7 +1074,7 @@ void HandleMainUI()
         // Graph mixer outputs
         for (int i = 0; i < 8; i++)
         {
-          int _outVal = ChOutMixer[i] / 5;
+          int _outVal = mixerChOutGraphVals[i] / 5;
           int _xOffset = i*13;
           if (_outVal > 0)
             display.fillRect(17 + _xOffset, 33 - _outVal, 3, _outVal , BLACK);
@@ -1087,15 +1087,14 @@ void HandleMainUI()
           for (int j = 1; j <= 39; j += 1)
             display.drawPixel(18 + _xOffset, 13 + j, j % 2);
           //draw midpoint
-          display.drawLine(8, 33, 119, 33, BLACK);
+          display.drawHLine(8, 33, 112, BLACK);
           //Show channel numbers
           display.setCursor(16 + _xOffset,56);
           display.print(i+1);
         }
 
-        if(heldButton == SELECT_KEY || pressedButton == SELECT_KEY)
+        if(heldButton == SELECT_KEY || clickedButton == SELECT_KEY)
           changeToScreen(MODE_MIXER);
-
       }
       break;
       
@@ -1109,27 +1108,18 @@ void HandleMainUI()
         display.setCursor(37,23);
         display.print(F("to:  #"));
         display.print(destMixNum + 1);
-        display.setCursor(67,41);
-        display.print(F("Move"));
         
-        changeFocusOnUPDOWN(2);
-        toggleEditModeOnSelectPressed();
-        drawCursor(59, (focusedItem*18) + 5);
+        toggleEditModeOnSelectClicked();
+        drawCursor(59, 23);
         
-        if(focusedItem == 1)
-          destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
-        else if(focusedItem == 2 && pressedButton == SELECT_KEY)
+        destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
+        
+        if(isEditMode == false)
         {
           uint8_t oldPostn = thisMixNum;
           uint8_t newPostn = destMixNum;
           
-          //If we have an array [a,b,c,d,e] and we would like to move c to a's position,
-          //we achieve this by temporarily storing c, shifting b to c's position, then shifting
-          //a to b's position, then writing our temp stored c to the new position. 
-          //Likewise if we wanted a to assume c's position, we temporarily store a, shift b to a's
-          //position, shift c to b's position, then write our temp stored a to the new position. 
-        
-          //first store temporarily the old position's data
+          //store temporarily the old position's data
           uint8_t _mixout      =   MixOut[oldPostn];
           uint8_t _mix1in      =   MixIn1[oldPostn];
           uint8_t _mix1weight  =   MixIn1Weight[oldPostn];
@@ -1141,6 +1131,7 @@ void HandleMainUI()
           uint8_t _mix2offset1 =   MixIn2Offset[oldPostn];
           uint8_t _mix2diff    =   MixIn2Diff[oldPostn];
           
+          //shift elements of the arrays
           uint8_t thisPostn = oldPostn;
           if(newPostn < oldPostn)
           {
@@ -1196,7 +1187,7 @@ void HandleMainUI()
           changeToScreen(MODE_MIXER);
         }
 
-        if(heldButton == SELECT_KEY)
+        if(heldButton == SELECT_KEY) 
           changeToScreen(MODE_MIXER);
       }
       break;
@@ -1211,16 +1202,13 @@ void HandleMainUI()
         display.setCursor(37,23);
         display.print(F("to:  #"));
         display.print(destMixNum + 1);
-        display.setCursor(67,41);
-        display.print(F("Copy"));
         
-        changeFocusOnUPDOWN(2);
-        toggleEditModeOnSelectPressed();
-        drawCursor(59, (focusedItem * 18) + 5);
+        toggleEditModeOnSelectClicked();
+        drawCursor(59, 23);
         
-        if(focusedItem == 1)
-          destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
-        else if(focusedItem == 2 && pressedButton == SELECT_KEY)
+        destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
+        
+        if(isEditMode == false)
         {
           MixOut[destMixNum]       = MixOut[thisMixNum];
           MixIn1[destMixNum]       = MixIn1[thisMixNum];
@@ -1249,17 +1237,17 @@ void HandleMainUI()
         drawHeader();
 
         changeFocusOnUPDOWN(7);
-        toggleEditModeOnSelectPressed();
+        toggleEditModeOnSelectClicked();
         drawCursor(71, focusedItem * 8);
         
         static uint8_t _selectedChannel = 0; //0 is ch1, 1 is ch2, etc.
     
         if (focusedItem == 1)
-          _selectedChannel = incrDecrU8tOnUPDOWN(_selectedChannel, 0, 7, WRAP, PRESSED_ONLY); //8 channels
+          _selectedChannel = incrDecrU8tOnUPDOWN(_selectedChannel, 0, 7, WRAP, SLOW_CHANGE); //8 channels
         else if (focusedItem == 2)
           Reverse[_selectedChannel] = incrDecrU8tOnUPDOWN(Reverse[_selectedChannel], 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          Subtrim[_selectedChannel] = incrDecrU8tOnUPDOWN(Subtrim[_selectedChannel], 25, 75, NOWRAP, PRESSED_ONLY);
+          Subtrim[_selectedChannel] = incrDecrU8tOnUPDOWN(Subtrim[_selectedChannel], 25, 75, NOWRAP, SLOW_CHANGE);
         else if (focusedItem == 4)
           CutValue[_selectedChannel] = incrDecrU8tOnUPDOWN(CutValue[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 5)
@@ -1269,11 +1257,11 @@ void HandleMainUI()
         else if (focusedItem == 7)
           EndpointR[_selectedChannel] = incrDecrU8tOnUPDOWN(EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
 
-        //-------Show on lcd-----------------------
+        //-------Show on lcd---------------
         display.setCursor(49, 8);
         display.print(F("Ch:  "));
         display.print(_selectedChannel + 1);
-
+        
         display.setCursor(19, 16);
         display.print(F("Reverse:  "));
         drawCheckbox(79, 16, Reverse[_selectedChannel]);
@@ -1299,8 +1287,8 @@ void HandleMainUI()
 
         display.setCursor(25, 48);
         display.print(F("Travel:  "));
-        display.print(0 - EndpointL[_selectedChannel]); //show as negative
-
+        display.print(0 - EndpointL[_selectedChannel]);
+        
         display.setCursor(49, 56);
         display.print(F("to:  "));
         display.print(EndpointR[_selectedChannel]);
@@ -1315,8 +1303,8 @@ void HandleMainUI()
         display.drawRect(123 - len, 6, len + 5, 11, BLACK);
         display.setCursor(126 - len, 8);
         display.print(outVal);
-        display.setTextColor(BLACK);
-        
+
+
         if (heldButton == SELECT_KEY)
         {
           eeUpdateModelBasicData(activeModel);
@@ -1344,10 +1332,19 @@ void HandleMainUI()
         strcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[soundMode])));
         display.print(txtBuff);
 
-        changeFocusOnUPDOWN(3);
-        toggleEditModeOnSelectPressed();
-        drawCursor(71, 10 + (focusedItem - 1) * 9);
+        changeFocusOnUPDOWN(4);
+        toggleEditModeOnSelectClicked();
+        if(focusedItem < 4)
+          drawCursor(71, 10 + (focusedItem - 1) * 9);
         
+        //show menu icon
+        display.fillRect(120, 0, 8, 7, WHITE);
+        if(focusedItem == 4)
+          display.drawBitmap(120, 0, menu_icon_focused, 8, 7, 1);
+        else
+            display.drawBitmap(120, 0, menu_icon, 8, 7, 1);
+        
+        //edit values
         if (focusedItem == 1)
           rfModuleEnabled = incrDecrU8tOnUPDOWN(rfModuleEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 2)
@@ -1356,9 +1353,10 @@ void HandleMainUI()
           soundMode = incrDecrU8tOnUPDOWN(soundMode, 0, 3, WRAP, PRESSED_ONLY);
 
         /// --- Popup if up or down key held
-        if(isEditMode == false && (heldButton == UP_KEY || heldButton == DOWN_KEY))
+        if(focusedItem == 4 && clickedButton == SELECT_KEY)
           changeToScreen(POPUP_SYS_MENU);
 
+        //go back to main menu
         if (heldButton == SELECT_KEY)
         {
           eeUpdateSysConfig();
@@ -1369,17 +1367,19 @@ void HandleMainUI()
       
     case POPUP_SYS_MENU:
       {
-        changeFocusOnUPDOWN(4);
+        changeFocusOnUPDOWN(NUM_ITEMS_SYSTEM_POPUP);
         drawPopupMenu(sysMenu, NUM_ITEMS_SYSTEM_POPUP);
 
-        uint8_t _selection = pressedButton == SELECT_KEY ? focusedItem : 0;
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
         if(_selection == 1) 
           changeToScreen(MODE_SERVO_SETUP);
         else if(_selection == 2)
           changeToScreen(MODE_BATTERY_SETUP);
         else if(_selection == 3)
           changeToScreen(MODE_CALIB);
-        else if(_selection == 4 || heldButton == SELECT_KEY) 
+        else if(_selection == 4)
+          showPktsPerSec = !showPktsPerSec;
+        else if(heldButton == SELECT_KEY) 
           changeToScreen(MODE_SYSTEM);
       }
       break;
@@ -1397,7 +1397,7 @@ void HandleMainUI()
           display.print(F("PWM"));
 
         changeFocusOnUPDOWN(1);
-        toggleEditModeOnSelectPressed();
+        toggleEditModeOnSelectClicked();
         drawCursor(71, (focusedItem * 9) + 1);
         
         if (focusedItem == 1 && isEditMode)
@@ -1439,9 +1439,8 @@ void HandleMainUI()
         display.setCursor(79,39);
         printVolts(battVoltsNow);
 
-
         changeFocusOnUPDOWN(3);
-        toggleEditModeOnSelectPressed();
+        toggleEditModeOnSelectClicked();
         drawCursor(71, (focusedItem * 9) + 1);
         
         if(focusedItem == 1 && isEditMode)
@@ -1455,23 +1454,30 @@ void HandleMainUI()
         else if(focusedItem == 2 && isEditMode)
         {
           int _battV = battVoltsMin;
-          if(pressedButton == UP_KEY || heldButton == UP_KEY) _battV += 50;
-          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) _battV -= 50;
-          if(_battV > battVoltsMax - 100) _battV = battVoltsMax - 100;
-          else if(_battV < 2500) _battV = 2500;
+          if(pressedButton == UP_KEY || heldButton == UP_KEY) 
+            _battV += 50;
+          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) 
+            _battV -= 50;
+          if(_battV > battVoltsMax - 100) 
+            _battV = battVoltsMax - 100;
+          else if(_battV < 2500) 
+            _battV = 2500;
           battVoltsMin = _battV;
         }
         
         else if(focusedItem == 3 && isEditMode)
         {
           int _battV = battVoltsMax;
-          if(pressedButton == UP_KEY || heldButton == UP_KEY) _battV += 50;
-          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) _battV -= 50;
-          if(_battV < battVoltsMin + 100) _battV = battVoltsMin + 100;
-          else if(_battV > 12500) _battV = 12500;
+          if(pressedButton == UP_KEY || heldButton == UP_KEY) 
+            _battV += 50;
+          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) 
+            _battV -= 50;
+          if(_battV < battVoltsMin + 100) 
+            _battV = battVoltsMin + 100;
+          else if(_battV > 12500) 
+            _battV = 12500;
           battVoltsMax = _battV;
         }
-
 
         if (heldButton == SELECT_KEY)
         {
@@ -1557,8 +1563,8 @@ void HandleMainUI()
             thrtlMax = y2;
 
           //show data
-          int _theMinMax[10] = { rollMin, rollMax, pitchMin, pitchMax, thrtlMin, thrtlMax, yawMin, yawMax };
-          for (int i = 0; i < 10; i += 2)
+          int _theMinMax[8] = {rollMin, rollMax, pitchMin, pitchMax, thrtlMin, thrtlMax, yawMin, yawMax};
+          for (int i = 0; i < 8; i += 2)
           {
             display.setCursor(73, 32 + ((i * 8) / 2));
             display.print(_theMinMax[i]);
@@ -1566,7 +1572,7 @@ void HandleMainUI()
             display.print(_theMinMax[i + 1]);
           }
 
-          if (pressedButton == SELECT_KEY)
+          if (clickedButton == SELECT_KEY)
             calibStage = STICKS_CENTER;
         }
         
@@ -1577,27 +1583,28 @@ void HandleMainUI()
 
           //get stick centers
           int x1 = 0, x2 = 0, y1 = 0;
-          for (int i = 0; i < 8; i++) //read in 8 samples
+          for (int i = 0; i < 10; i++) 
           {
             x1 += analogRead(ROLLINPIN);
             x2 += analogRead(YAWINPIN);
             y1 += analogRead(PITCHINPIN);
             delay(1);
           }
-          rollCenterVal = x1 / 8;
-          yawCenterVal = x2 / 8;
-          pitchCenterVal = y1 / 8;
+          rollCenterVal  = x1 / 10;
+          yawCenterVal   = x2 / 10;
+          pitchCenterVal = y1 / 10;
           
           //show data
           int _theCenters[4] = {rollCenterVal, pitchCenterVal, 512, yawCenterVal};
           for (int i = 0; i < 4; i += 1)
           {
-            if(i == 2) i = 3; //skip as throttle stick center doesnt make sense
+            if(i == 2)
+              continue; 
             display.setCursor(73, 33 + i * 8);
             display.print(_theCenters[i]);
           }
 
-          if (pressedButton == SELECT_KEY)
+          if (clickedButton == SELECT_KEY)
           {
             //Add slight deadband(about 1.5%) at each stick ends to stabilise readings at ends
             //For a range of 0 to 5V, min max are 0.07V and 4.92V
@@ -1623,21 +1630,23 @@ void HandleMainUI()
         
         else if (calibStage == STICKS_DEADZONE)
         {
+          
           display.setCursor(20, 8);
           display.print(F("Adjust deadzone"));
           
           isEditMode = true;
-          drawCursor(52, 34);
           deadZonePerc = incrDecrU8tOnUPDOWN(deadZonePerc, 0, 15, NOWRAP, PRESSED_OR_HELD);
+          drawCursor(52, 34);
+          isEditMode = false;
+          
           display.setCursor(59,34);
           display.print(deadZonePerc);
           display.print(F("%"));
-          isEditMode = false;
           
           display.setCursor(11, 56);
           display.print(F("(roll, pitch, yaw)"));
 
-          if (pressedButton == SELECT_KEY) //exit
+          if (clickedButton == SELECT_KEY) //exit
           {
             isCalibratingSticks = false;
             calibInitialised = false;
@@ -1666,7 +1675,7 @@ void HandleMainUI()
         //Show uptime
         display.setCursor(25,19);
         display.print(F("Uptime "));
-        printTimeAsHHMMSS(millis(), 67, 19);
+        printHHMMSS(millis(), 67, 19);
         
         //show sketch version and date
         display.setCursor(25, 28);
@@ -1694,8 +1703,8 @@ void HandleMainUI()
   ///----------------- Pkts per second ------------------------
   if(showPktsPerSec == true)
   {
-    display.fillRect(116,0,12,7,WHITE);
-    display.setCursor(117,0);
+    display.fillRect(116,57,12,7,WHITE);
+    display.setCursor(117,57);
     uint8_t pktRate = returnedByte & 0x3F;
     if(pktRate < 10)
       display.print(F(" "));
@@ -1703,36 +1712,42 @@ void HandleMainUI()
   }
   
   ///----------------- SHOW ON PHYSICAL LCD -------------------
-  display.display(); //show on real lcd
-  display.clearDisplay(); //clear memory buffer
+  display.display(); //show on physical lcd
+  display.clearDisplay(); //clear graphics buffer
 }
 
 //================================= Helpers ========================================================
 
 void detectButtonEvents()
 {
-  ///------ DETECT BUTTON PRESSES AND HOLDS -------
-  /// Modifies the pressedButton and heldButton variables, buttonStartTime and buttonReleasedTime
+  /* 
+  Modifies the pressedButton, clickedButton and heldButton variables, buttonStartTime 
+  and buttonReleaseTime.
+  Events
+  - pressedButton is triggered once when the button goes down
+  - clickedButton is triggered when the button is released before heldButton event
+  - heldButton is triggered when button is held down long enough  
+  */
   
-  /*For the held button, we need to detect it without triggering that a button was pressed first.
-    So we need to trigger Pressed after the button has been released, but not on long press*/
-    
   static uint8_t lastButtonCode = 0;
   static bool buttonActive = false, longPressActive = false;
   
-  if (buttonCode > 0 && (millis() - buttonReleasedTime > 100)) //button down  
+  pressedButton = 0; //clear 
+  
+  if (buttonCode > 0 && (millis() - buttonReleaseTime > 100)) //button down  
   {
     if (buttonActive == false)
     {
       buttonActive = true;
       buttonStartTime = millis();
       lastButtonCode = buttonCode;
+      pressedButton = buttonCode; //event
     }
 
     if ((millis() - buttonStartTime > LONGPRESSTIME) && longPressActive == false)
     {
       longPressActive = true;
-      heldButton = buttonCode;
+      heldButton = buttonCode; //event
     }
   }
 
@@ -1740,7 +1755,7 @@ void detectButtonEvents()
   {
     if(buttonActive == true)
     {
-      buttonReleasedTime = millis();
+      buttonReleaseTime = millis();
       buttonActive = false;
     }
     
@@ -1748,25 +1763,25 @@ void detectButtonEvents()
     {
       longPressActive = false;
       heldButton = 0;
-      lastButtonCode = 0; //avoids falsely triggering pressedButton event
+      lastButtonCode = 0; //avoids falsely triggering clickedButton event
     }
     else
     {
-      pressedButton = lastButtonCode;
-      lastButtonCode = 0; //enables setting pressedButton event only once
+      clickedButton = lastButtonCode;
+      lastButtonCode = 0; //enables setting clickedButton event only once
     }
   }
 }
 
 //--------------------------------------------------------------------------------------------------
-void toggleEditModeOnSelectPressed()
+void toggleEditModeOnSelectClicked()
 {
-  if (pressedButton == SELECT_KEY)
+  if (clickedButton == SELECT_KEY)
     isEditMode = !isEditMode;
 }
 
 //--------------------------------------------------------------------------------------------------
-void printTimeAsHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
+void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
 {
   //Prints the time as mm:ss or hh:mm:ss at the specified screen cordinates
   
@@ -1871,11 +1886,24 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
 //--------------------------------------------------------------------------------------------------
 void changeFocusOnUPDOWN(uint8_t _maxItemNo)
 {
-  if(isEditMode == false)
-  { 
-    isEditMode = true; //overide
-    focusedItem = incrDecrU8tOnUPDOWN(focusedItem, _maxItemNo, 1, WRAP, PRESSED_ONLY);
-    isEditMode = false; 
+  if(isEditMode == true)
+    return;
+  
+  uint8_t _heldBtn = 0;
+  if(thisLoopNum % 6 == 1) 
+    _heldBtn = heldButton;
+  
+  if(pressedButton == UP_KEY || _heldBtn == UP_KEY)
+  {
+    focusedItem--;
+    if(focusedItem == 0)
+      focusedItem = _maxItemNo;
+  }
+  else if(pressedButton == DOWN_KEY || _heldBtn == DOWN_KEY)
+  {
+    focusedItem++;
+    if(focusedItem > _maxItemNo)
+      focusedItem = 1;
   }
 }
 
@@ -1893,18 +1921,18 @@ void drawCursor(int16_t _xpos, int16_t _ypos)
 {
   if(isEditMode) //draw blinking cursor
   {
-    if ((millis() - buttonReleasedTime) % 1000 < 500 || heldButton > 0)
+    if ((millis() - buttonReleaseTime) % 1000 < 500 || buttonCode == UP_KEY || buttonCode == DOWN_KEY)
       display.fillRect(_xpos + 3, _ypos - 1, 2, 9, BLACK);
   }
   else 
-    display.drawBitmap(_xpos, _ypos, point, 6, 7, 1); //draw arrow ->
+    display.drawBitmap(_xpos, _ypos, point, 6, 7, 1); //draw arrow
 }
 
 //--------------------------------------------------------------------------------------------------
 void plotRateExpo(uint8_t _rate, uint8_t _expo)
 {
-  display.drawLine(100, 11, 100, 61, BLACK);
-  display.drawLine(74, 36, 125, 36, BLACK);
+  display.drawVLine(100, 11, 51, BLACK);
+  display.drawHLine(74, 36, 52, BLACK);
   for(int i = 0; i <= 25; i++)
   {
     int _output = calcRateExpo(i * 20, _rate, _expo) / 20;
@@ -1920,8 +1948,9 @@ void drawHeader()
   int headingX_offset = (display.width() - _txtWidthPix) / 2; //middle align heading
   display.setCursor(headingX_offset, 0);
   display.println(txtBuff);
-  display.drawLine(0, 3, headingX_offset - 2, 3, BLACK);
-  display.drawLine(headingX_offset + _txtWidthPix, 3, 127, 3, BLACK);
+  display.drawHLine(0, 3, headingX_offset - 1, BLACK);
+  int _xcord = headingX_offset + _txtWidthPix;
+  display.drawHLine(_xcord, 3, 128 - _xcord, BLACK);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1929,8 +1958,11 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
 {
   _numMenuItems -= 1; //exclude menu heading in count
   
+  uint8_t _heldBtn = 0;
+  if(thisLoopNum % 6 == 1) _heldBtn = heldButton;
+  
   //------handle menu navigation (up and down keys)------
-  if (pressedButton == DOWN_KEY)
+  if (pressedButton == DOWN_KEY || _heldBtn == DOWN_KEY)
   {
     highlightedItem += 1; //highlight next item
     if (highlightedItem > _numMenuItems)
@@ -1943,7 +1975,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
         topItem = 1;
     }
   }
-  else if (pressedButton == UP_KEY)
+  else if (pressedButton == UP_KEY || _heldBtn == UP_KEY)
   {
     highlightedItem -= 1; //highlight next item
     if (highlightedItem == 0)
@@ -2062,5 +2094,3 @@ void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val)
   else
     display.drawBitmap(_xcord, _ycord, checkbox_unchecked, 7, 7, 1);
 }
-
-//--------------------------------------------------------------------------------------------------
