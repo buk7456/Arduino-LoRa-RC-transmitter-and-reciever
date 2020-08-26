@@ -20,6 +20,7 @@ LCDCGM12864G_595::LCDCGM12864G_595(int8_t QRS, int8_t QRD, int8_t QRST, int8_t l
 // the most basic function, set a single pixel
 void LCDCGM12864G_595::drawPixel(int16_t x, int16_t y, uint16_t color)
 {
+  /*  
   if ((x < 0) || (x >= _width) || (y < 0) || (y >= _height))
     return;
 
@@ -40,7 +41,7 @@ void LCDCGM12864G_595::drawPixel(int16_t x, int16_t y, uint16_t color)
       x = LCDWIDTH - 1 - y;
       y = t;
       break;
-  }
+  } */
 
   if ((x < 0) || (x >= LCDWIDTH) || (y < 0) || (y >= LCDHEIGHT))
     return;
@@ -78,8 +79,10 @@ void LCDCGM12864G_595::begin()
   // Setup hardware SPI.
   SPI.begin();
   //SPI.setBitOrder(MSBFIRST);
-  SPI.setBitOrder(LSBFIRST);
-
+  SPI.setBitOrder(LSBFIRST); 
+  SPI.setClockDivider(SPI_CLOCK_DIV2);
+ 
+ 
   digitalWrite(_qrst, LOW);
   delay(30);
   digitalWrite(_qrst, HIGH);
