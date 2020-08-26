@@ -67,64 +67,17 @@ int  EEPROMReadInt(int address);
 // Actual location depends on selected model.
 
 #define MODELDATASTARTADDR 90
-#define MODELDATASPAN     154 //for a single model
+#define MODELDATASPAN      154 //for a single model
 
 //OFFSET ADDRESSES
 //NOTE: ADDRESSES SHOULD BE ORDERLY, AS IT HELPS WITH ARRAYS
 
-//Reverses
-#define _REVERSE  0 //1byte (1bit per channel) Ch8,Ch7,Ch6,Ch5,Ch4,Ch3,Ch2,Ch1
-
-//Left endpoints
-#define _CH1ENDPL 1
-#define _CH2ENDPL 2
-#define _CH3ENDPL 3
-#define _CH4ENDPL 4
-#define _CH5ENDPL 5
-#define _CH6ENDPL 6
-#define _CH7ENDPL 7
-#define _CH8ENDPL 8
-
-//Right endpoints
-#define _CH1ENDPR 9
-#define _CH2ENDPR 10
-#define _CH3ENDPR 11
-#define _CH4ENDPR 12
-#define _CH5ENDPR 13
-#define _CH6ENDPR 14
-#define _CH7ENDPR 15
-#define _CH8ENDPR 16
-
-//Trims
-#define _CH1SUBTRIM 17
-#define _CH2SUBTRIM 18
-#define _CH3SUBTRIM 19
-#define _CH4SUBTRIM 20
-#define _CH5SUBTRIM 21
-#define _CH6SUBTRIM 22
-#define _CH7SUBTRIM 23
-#define _CH8SUBTRIM 24
-
-//Cuts
-#define _CH1CUT 25
-#define _CH2CUT 26
-#define _CH3CUT 27
-#define _CH4CUT 28
-#define _CH5CUT 29
-#define _CH6CUT 30
-#define _CH7CUT 31
-#define _CH8CUT 32
-
-//Failsafes
-#define _CH1FAILSAFE 33
-#define _CH2FAILSAFE 34
-#define _CH3FAILSAFE 35
-#define _CH4FAILSAFE 36
-#define _CH5FAILSAFE 37
-#define _CH6FAILSAFE 38
-#define _CH7FAILSAFE 39
-#define _CH8FAILSAFE 40
-
+#define _REVERSE    0  //1 byte (1bit per channel) Ch8,Ch7,Ch6,Ch5,Ch4,Ch3,Ch2,Ch1
+#define _CHENDPL    1  //8 bytes
+#define _CHENDPR    9  //8 bytes
+#define _CHSUBTRIM  17 //8 bytes
+#define _CHCUT      25 //8 bytes
+#define _CHFAILSAFE 33 //8 bytes
 
 //RateNormal
 #define _AILRATENORM 41
@@ -147,24 +100,20 @@ int  EEPROMReadInt(int address);
 #define _RUDEXPOSPORT 52
 
 //Throttle points
-#define _THRTPT0 53
-#define _THRTPT1 54
-#define _THRTPT2 55
-#define _THRTPT3 56
-#define _THRTPT4 57
+#define _THRTPTS  53 //5 bytes
 
 //Throttle timer
-#define _STPWTCHTHROTTLETHRESH 58
-#define _TIMERTYPE 59
-#define _TIMERCOUNTDOWNINIT 60
+#define _THROTTLE_TIMER_THROTTLE_MIN  58
+#define _THROTTLE_TIMER_TIMER_TYPE    59
+#define _THROTTLE_TIMER_CNTDN_INIT    60
 
 //Mixer data
 #define _MIXIN1       61  //10 bytes
 #define _MIXIN1OFFSET 71  //10 bytes
-#define _MIXIN1WGT    81 //10 bytes
+#define _MIXIN1WGT    81  //10 bytes
 #define _MIXIN1DIFF   91  //10 bytes
 
-#define _MIXIN2       101 //10 bytes
+#define _MIXIN2       101  //10 bytes
 #define _MIXIN2OFFSET 111 //10 bytes
 #define _MIXIN2WGT    121 //10 bytes
 #define _MIXIN2DIFF   131 //10 bytes
@@ -172,7 +121,7 @@ int  EEPROMReadInt(int address);
 #define _MIXOUT       141 //10 bytes
 
 #define _MIXOPERATOR_LOWBYTE  151 //1 byte. mix slots 1 to 8
-#define _MIXOPERATOR_HIGHBYTE 152 //1 byte mix slots 9 to 10
+#define _MIXOPERATOR_HIGHBYTE 152 //1 byte mix slots 9 to 10 
 
 //DR enabled
 #define _DRENABLED 153 //1byte  0,0,0,0,0,Ail,Ele,Rud
@@ -278,35 +227,34 @@ void eeReadModelBasicData(uint8_t _mdlNO)
   for(int i = 0; i < 8; i++) 
   {
     Reverse[i]      = (reverse >> i) & 0x01;    
-    EndpointL[i]    = EEPROM.read(_mdlOffset_ + _CH1ENDPL   + i);
-    EndpointR[i]    = EEPROM.read(_mdlOffset_ + _CH1ENDPR   + i);
-    Subtrim[i]      = EEPROM.read(_mdlOffset_ + _CH1SUBTRIM + i);
-    CutValue[i]     = EEPROM.read(_mdlOffset_ + _CH1CUT     + i);
-    Failsafe[i]     = EEPROM.read(_mdlOffset_ + _CH1FAILSAFE + i);
+    EndpointL[i]    = EEPROM.read(_mdlOffset_ + _CHENDPL    + i);
+    EndpointR[i]    = EEPROM.read(_mdlOffset_ + _CHENDPR    + i);
+    Subtrim[i]      = EEPROM.read(_mdlOffset_ + _CHSUBTRIM  + i);
+    CutValue[i]     = EEPROM.read(_mdlOffset_ + _CHCUT      + i);
+    Failsafe[i]     = EEPROM.read(_mdlOffset_ + _CHFAILSAFE + i);
   }
   
   //Rates, expo, we have 3 channels
   uint8_t drEnabled = EEPROM.read(_mdlOffset_ + _DRENABLED);
   for(int i = 0; i < 3; i++)
   {
-    RateNormal[i] = EEPROM.read(_mdlOffset_ + _AILRATENORM + i);
-    RateSport[i] = EEPROM.read(_mdlOffset_ + _AILRATESPORT + i);
-    ExpoNormal[i] = EEPROM.read(_mdlOffset_ + _AILEXPONORM + i);
-    ExpoSport[i] = EEPROM.read(_mdlOffset_ + _AILEXPOSPORT + i);
+    RateNormal[i] = EEPROM.read(_mdlOffset_ + _AILRATENORM  + i);
+    RateSport[i]  = EEPROM.read(_mdlOffset_ + _AILRATESPORT + i);
+    ExpoNormal[i] = EEPROM.read(_mdlOffset_ + _AILEXPONORM  + i);
+    ExpoSport[i]  = EEPROM.read(_mdlOffset_ + _AILEXPOSPORT + i);
     DualRateEnabled[i] = (drEnabled >> i) & 0x01; 
   }
   
   //Throttle curve points. We have 5 points
   for(int i=0; i < 5; i++)
   {
-    ThrottlePts[i] = EEPROM.read(_mdlOffset_ + _THRTPT0 + i);
+    ThrottlePts[i] = EEPROM.read(_mdlOffset_ + _THRTPTS + i);
   }
   
-
   //Throttle timer 
-  throttleThreshold_stopwatch = EEPROM.read(_mdlOffset_ + _STPWTCHTHROTTLETHRESH);
-  timerType = EEPROM.read(_mdlOffset_ + _TIMERTYPE);
-  timerCountDownInitMins = EEPROM.read(_mdlOffset_ + _TIMERCOUNTDOWNINIT);
+  throttleTimerMinThrottle = EEPROM.read(_mdlOffset_ + _THROTTLE_TIMER_THROTTLE_MIN);
+  throttleTimerType = EEPROM.read(_mdlOffset_ + _THROTTLE_TIMER_TIMER_TYPE);
+  throttleTimerCntDnInitMinutes = EEPROM.read(_mdlOffset_ + _THROTTLE_TIMER_CNTDN_INIT);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -315,16 +263,16 @@ void eeUpdateModelBasicData(uint8_t _mdlNO)
 {
   int _mdlOffset_ = getModelDataOffsetAddr(_mdlNO);
   
-  //Reverse, Subtrim, Diff, Offset, Endpoints, Cut, Failsafe
+  //Reverse, Subtrim, Diff, Offset, Endpoints, Cut, Failsafe, ChSpeed
   uint8_t reverse = 0;
   for(int i = 0; i < 8; i++) 
   {
     reverse = reverse | (Reverse[i] << i);
-    EEPROM.update(_mdlOffset_ + _CH1SUBTRIM  + i,   Subtrim[i]);
-    EEPROM.update(_mdlOffset_ + _CH1ENDPL    + i,   EndpointL[i]);
-    EEPROM.update(_mdlOffset_ + _CH1ENDPR    + i,   EndpointR[i]);
-    EEPROM.update(_mdlOffset_ + _CH1CUT      + i,   CutValue[i]);
-    EEPROM.update(_mdlOffset_ + _CH1FAILSAFE + i,   Failsafe[i]);
+    EEPROM.update(_mdlOffset_ + _CHSUBTRIM  + i,  Subtrim[i]);
+    EEPROM.update(_mdlOffset_ + _CHENDPL    + i,  EndpointL[i]);
+    EEPROM.update(_mdlOffset_ + _CHENDPR    + i,  EndpointR[i]);
+    EEPROM.update(_mdlOffset_ + _CHCUT      + i,  CutValue[i]);
+    EEPROM.update(_mdlOffset_ + _CHFAILSAFE + i,  Failsafe[i]);
   }
   EEPROM.update(_mdlOffset_ + _REVERSE, reverse);
   
@@ -343,12 +291,12 @@ void eeUpdateModelBasicData(uint8_t _mdlNO)
   //Throttle curve points. We have 5 points
   for(int i=0; i < 5; i++)
   {
-    EEPROM.update(_mdlOffset_ + _THRTPT0 + i, ThrottlePts[i]);
+    EEPROM.update(_mdlOffset_ + _THRTPTS + i, ThrottlePts[i]);
   }
 
-  EEPROM.update(_mdlOffset_ + _STPWTCHTHROTTLETHRESH, throttleThreshold_stopwatch);
-  EEPROM.update(_mdlOffset_ + _TIMERTYPE, timerType);
-  EEPROM.update(_mdlOffset_ + _TIMERCOUNTDOWNINIT, timerCountDownInitMins);
+  EEPROM.update(_mdlOffset_ + _THROTTLE_TIMER_THROTTLE_MIN, throttleTimerMinThrottle);
+  EEPROM.update(_mdlOffset_ + _THROTTLE_TIMER_TIMER_TYPE,   throttleTimerType);
+  EEPROM.update(_mdlOffset_ + _THROTTLE_TIMER_CNTDN_INIT,   throttleTimerCntDnInitMinutes);
 }
 
 //--------------------------------------------------------------------------------------------------
