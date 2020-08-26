@@ -24,6 +24,7 @@ LCDKS0108::LCDKS0108(int8_t QRS, int8_t QEN, int8_t QCS1, int8_t QCS2, int8_t la
 // the most basic function, set a single pixel
 void LCDKS0108::drawPixel(int16_t x, int16_t y, uint16_t color)
 {
+  /*   
   if ((x < 0) || (x >= _width) || (y < 0) || (y >= _height))
     return;
 
@@ -44,7 +45,8 @@ void LCDKS0108::drawPixel(int16_t x, int16_t y, uint16_t color)
       x = LCDWIDTH - 1 - y;
       y = t;
       break;
-  }
+  } 
+  */
 
   if ((x < 0) || (x >= LCDWIDTH) || (y < 0) || (y >= LCDHEIGHT))
     return;
@@ -92,6 +94,7 @@ void LCDKS0108::begin()
   SPI.begin();
   SPI.setBitOrder(MSBFIRST);
   //SPI.setBitOrder(LSBFIRST);
+  //SPI.setClockDivider(SPI_CLOCK_DIV2);
 
   //initialise lcd
   lcdCommand(DISP_OFF);

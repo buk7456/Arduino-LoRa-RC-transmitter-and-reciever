@@ -27,14 +27,10 @@
 #include "bitmaps.h"
 #include "ui_128x64.h" 
 
-
-//### Declarations #####
+// Declarations 
 void sendToSlaveMCU(); //sends radio data to slave mcu
 void serialWrite14bit(uint16_t value); //helper
 void checkBattery();
-
-//
-unsigned long _btnDownMillis = 0; //helps control backlight on button press
 
 //===================================== setup ======================================================
 void setup()
@@ -76,7 +72,7 @@ void setup()
     EEPROM.write(_EEPROM_INIT, EE_INITFLAG);
     delay(1000);
     
-    changeToScreen(MODE_CALIB); //## Set to sticks calib screen
+    changeToScreen(MODE_CALIB); //Set to sticks calib screen
 
     buttonCode = 0;    
   }
@@ -98,10 +94,6 @@ void setup()
     soundMode = SOUND_OFF;
     eeUpdateSysConfig();
   }
-  
-  ///----------Show packets per second if down key held while starting up ----
-  if(buttonCode == DOWN_KEY)
-    showPktsPerSec = true; 
   
   ///----------Warn throttle if throttle position is more than 5% above minimum---
   readSwitchesAndButtons();
@@ -153,16 +145,21 @@ void loop()
   }
 
   /// ---------- LIMIT MAX RATE OF LOOP ---------
+  // Limited to around 35 loops a second. Changing this might affect some stuff. Making this any
+  // faster could result in overwhelming the secondary mcu thus leading to lost data
   unsigned long loopTime = millis() - loopStartTime;
   if(loopTime < 28UL)
     delay(28UL - loopTime);
+  
+  // -- Debug info --
+  // display.setCursor(0,57);
+  // display.print(loopTime);
 }
 
 //==================================================================================================
 
 void sendToSlaveMCU()
 {
-
   /** Master to Slave MCU communication format as below
   
   byte 0 - Start of message 0xBB
@@ -188,12 +185,14 @@ void sendToSlaveMCU()
   
   uint8_t status = 0x00;
   
-  if(buttonCode > 0) _btnDownMillis = millis();
-  unsigned long _duration = millis() - _btnDownMillis;
+  static unsigned long lastBtnDownTime = 0;
+  if(buttonCode > 0) 
+    lastBtnDownTime = millis();
+  unsigned long elapsed = millis() - lastBtnDownTime;
   if(backlightMode == BACKLIGHT_ON 
-     || (backlightMode == BACKLIGHT_5S  && _duration < 5000UL )
-     || (backlightMode == BACKLIGHT_15S && _duration < 15000UL)
-     || (backlightMode == BACKLIGHT_60S && _duration < 60000UL)) 
+     || (backlightMode == BACKLIGHT_5S  && elapsed < 5000UL )
+     || (backlightMode == BACKLIGHT_15S && elapsed < 15000UL)
+     || (backlightMode == BACKLIGHT_60S && elapsed < 60000UL)) 
     status |= 0x40;
   
   status |= (battState & 0x01) << 5;
@@ -250,14 +249,12 @@ void sendToSlaveMCU()
   Serial.write(0xDD); 
 }
 
-
 void serialWrite14bit(uint16_t value)
 {
   // The data is sent as a "14 bit" value (Two bytes) as 0b0LLLLLLL 0b0HHHHHHH
   Serial.write(value & 0x7f);
   Serial.write((value >> 7) & 0x7f);
 }
-
 
 void checkBattery()
 {
@@ -269,16 +266,16 @@ void checkBattery()
   
   enum { _NUM_SAMPLES = 30 };
   /*_NUM_SAMPLES parameter defines number of samples to average over. Higher value results in slower
-  response. For step input, it would take about these cycles for reading to get there.
-  Formula x = x - (x/n) + (a/n)  */
+  response.
+  Formula x = x - x/n + a/n  */
   
   long anaRd = ((long)analogRead(BATTVOLTSPIN) * battVfactor) / 100;
   long battV = ((long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd) / _NUM_SAMPLES; 
   battVoltsNow = int(battV); 
   
   //add some hysterisis to battState
-  if (battState == _BATTHEALTHY_ && battVoltsNow <= battVoltsMin)
-    battState = _BATTLOW_;
-  else if (battState == _BATTLOW_ && battVoltsNow > (battVoltsMin + 100)) //100mV hysteris
-    battState = _BATTHEALTHY_;
+  if (battState == _BATTGOOD && battVoltsNow <= battVoltsMin)
+    battState = _BATTLOW;
+  else if (battState == _BATTLOW && battVoltsNow > (battVoltsMin + 100)) //100mV hysteris
+    battState = _BATTGOOD;
 }

@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------
 
 //To update default values in EEPROM change the value below to anything between 0xAA and 0xAF.
-#define EE_INITFLAG 0xAE //WARNING: Changing this will overwrite all your existing model data
+#define EE_INITFLAG 0xAB //WARNING: Changing this will overwrite all your existing model data
 
 //---------------------UART baud rate----------------------------------------------------
 // #define UARTBAUDRATE 57600
