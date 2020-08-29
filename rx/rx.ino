@@ -36,80 +36,40 @@
 #define ORANGE_LED_PIN 6
 
 //-----------------------------------------------
-
 #define SERVOPULSERANGE 1000
 #define SERVO_MAX_ANGLE 100 
 
 #include <Servo.h>
-Servo servoCh1;
-Servo servoCh2;
-Servo servoCh3;
-Servo servoCh4;
-Servo servoCh5;
-Servo servoCh6;
-Servo servoCh7;
-Servo servoCh8;
+Servo servoCh1, servoCh2, servoCh3, servoCh4, servoCh5, servoCh6, servoCh7, servoCh8;
 
-bool servosAreAttached = false;
-long lowerLimMicroSec;
-long upperLimMicroSec;
+long lowerLimMicroSec, upperLimMicroSec;
 
 //--------------------------------------------------
+enum{PWM_SERVO = 1, PWM_NORM = 0};
+uint8_t PWM_Mode_Ch3 = PWM_SERVO;
 
-uint8_t PWM_Mode_Ch3 = 1; //1 means servo pwm, 0 means ordinary pwm
-enum {PWM_SERVO = 1, PWM_NORM = 0};
-
-
-bool radioInitialised = false;
-bool hasValidPacket = false;
 unsigned long lastValidPacketMillis = 0;
 
-
-#define MCURXBUFFSIZE 20
-uint8_t rxBuffer[MCURXBUFFSIZE]; //buffer to store the incoming message bytes
+uint8_t msgBuff[20]; //buffer for incoming message bytes
 
 long ch1to8Vals[8] = {0,0,0,0,0,0,0,0};
-uint8_t digitalChVal[2] = {0,0}; //channels 9 and 10
+uint8_t digitalChVal[2] = {0,0}; 
 
-bool failsafeBeenReceived = false;
 long ch1to8Failsafes[8] = {0,0,0,0,0,0,0,0};
+bool failsafeReceived = false;
 
-long rxPacketCount = 0;         //debug 
-long validPacketCount = 0;      //debug
-uint8_t validPacketsPerSecond;  //debug 
-unsigned long prevValidPacketCount = 0; //debug
-int rssi = 0;  //debug
-
-
-/** Air protocol format
-  
-  byte  b0       b1      b2        b3       b4       
-      11111111 11222222 22223333 33333344 44444444 
-         b5       b6      b7        b8       b9
-      55555555 55666666 66667777 77777788 88888888
-         b10      b11
-      abpfCCCC   CCCCCCCC
-    
-  Chs 1 to 8 encoded as 10 bits      
-  a is digital ch9 bit
-  b is digital Ch10 bit 
-  p is PWM mode bit for ch3
-  f is failsafe flag
-  CCCC CCCCCCCC is the 12 bit CRC (calculated as CRC16)  
-  
-*/
+long validPacketCount = 0; //debug
+int rssi = 0; //debug
 
 //==================================================================================================
 void setup()
 { 
   pinMode(GREEN_LED_PIN, OUTPUT);
   digitalWrite(GREEN_LED_PIN, HIGH);
+  
   pinMode(ORANGE_LED_PIN, OUTPUT);
-  digitalWrite(ORANGE_LED_PIN, LOW);
   pinMode(CH9PIN, OUTPUT);
-  digitalWrite(CH9PIN, LOW);
   pinMode(CH10PIN, OUTPUT);
-  digitalWrite(CH10PIN, LOW);
   
   lowerLimMicroSec = SERVOPULSERANGE/2;
   lowerLimMicroSec *= SERVO_MAX_ANGLE;
@@ -124,7 +84,10 @@ void setup()
 #if defined (DEBUG)
   Serial.begin(115200);
 #endif
-  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  delay(500);
+  
+  /////////////////////////////////////////////////////////
   /// Override the default CS, reset, and IRQ pins (optional)
   LoRa.setPins(10, 8, 2); //pin 2 actually not used unless we have a callback 
 
@@ -140,34 +103,52 @@ void setup()
     /*codingRateDenominator - denominator of the coding rate, defaults to 5
     Supported values are between 5 and 8, these correspond to coding rates of 4/5 and 4/8. 
     The coding rate numerator is fixed at 4. */
-  
-    radioInitialised = true;
   }
-  else
-    radioInitialised = false;
+  else //failed to init. Perhaps module isn't available
+  {
+    //flash both LEDs
+    bool ledState = HIGH;
+    while(1)
+    {
+      digitalWrite(GREEN_LED_PIN, ledState);
+      digitalWrite(ORANGE_LED_PIN,ledState);
+      ledState = !ledState;
+      delay(500);
+    }
+  }
+  
+  //Wait for failsafe transimission before proceeding
+  while(failsafeReceived == false)
+  {
+    readAndDecodePacket();
+    delay(1);
+  }
 
+  //Attach servos
+  servoCh1.attach(CH1PIN);
+  servoCh2.attach(CH2PIN);
+  if(PWM_Mode_Ch3 == PWM_SERVO)
+    servoCh3.attach(CH3PIN);
+  servoCh4.attach(CH4PIN);
+  servoCh5.attach(CH5PIN);
+  servoCh6.attach(CH6PIN);
+  servoCh7.attach(CH7PIN);
+  servoCh8.attach(CH8PIN);
 }
 
 //====================================== MAIN LOOP =================================================
 void loop()
 {
-
-  ///-------- READ AND VERIFY PACKET  ------------------
-  readAndVerifyPacket();
+  ///-------- READ AND DECODE PACKET ----------------
+  readAndDecodePacket();
   
-  ///- -------DECODE THE PAYLOAD -----------------------
-  decodeData(); 
-  
-  /// -------- CHECK TIME SINCE LAST VALID PACKET ------
-  uint32_t ttPktElapsed = millis() - lastValidPacketMillis;
-  if(ttPktElapsed > 80) //No valid packet for more than these ms, turn off orange LED
+  /// ------- CHECK TIME SINCE LAST VALID PACKET ----
+  uint32_t elapsed_ms_LastValidPkt = millis() - lastValidPacketMillis;
+  if(elapsed_ms_LastValidPkt > 80) //turn off orange LED
     digitalWrite(ORANGE_LED_PIN, LOW); 
-
-  //No valid packet for more than these milliseconds, trigger fail safes
-  if(failsafeBeenReceived == true && ttPktElapsed > 1500) 
+  if(elapsed_ms_LastValidPkt > 1500) //trigger fail safes
   {
     rssi = 0;
-    
     for(int i= 0; i < 8; i++)
     {
       if(ch1to8Failsafes[i] != 523) //ignore channels that have failsafe turned off.
@@ -176,165 +157,152 @@ void loop()
     digitalChVal[0] = 0; //turn off momentary toggle channel A (ch9)
   }
   
-  
-  /// ----------- Attach servos ----------------------
-  if(failsafeBeenReceived == true && servosAreAttached == false)
-  {
-    servoCh1.attach(CH1PIN);
-    servoCh2.attach(CH2PIN);
-    
-    if(PWM_Mode_Ch3 == PWM_SERVO)
-      servoCh3.attach(CH3PIN);
-    
-    servoCh4.attach(CH4PIN);
-    servoCh5.attach(CH5PIN);
-    servoCh6.attach(CH6PIN);
-    servoCh7.attach(CH7PIN);
-    servoCh8.attach(CH8PIN);
-    
-    servosAreAttached = true;
-  }
-  
-  /// ---------- Write outputs -----------------------
-  if(servosAreAttached == true)
-  {
-    int16_t ch1to8MicroSec[8];
-    for(uint8_t i = 0; i<8; i++)
-    {
-      ch1to8MicroSec[i] = map(ch1to8Vals[i],-500,500,lowerLimMicroSec, upperLimMicroSec);
-    }
-    servoCh1.writeMicroseconds(ch1to8MicroSec[0]);
-    servoCh2.writeMicroseconds(ch1to8MicroSec[1]);
-    
-    if(PWM_Mode_Ch3 == PWM_SERVO)
-      servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
-    else if(PWM_Mode_Ch3 == PWM_NORM)
-    {
-      long qq = map(ch1to8Vals[2], -500, 500, 0, 255);
-      uint8_t val = qq & 0xFF;
-      analogWrite(CH3PIN, val);
-    }
-    
-    servoCh4.writeMicroseconds(ch1to8MicroSec[3]);
-    servoCh5.writeMicroseconds(ch1to8MicroSec[4]);
-    servoCh6.writeMicroseconds(ch1to8MicroSec[5]);
-    servoCh7.writeMicroseconds(ch1to8MicroSec[6]);
-    servoCh8.writeMicroseconds(ch1to8MicroSec[7]);
-    
-    digitalWrite(CH9PIN,  digitalChVal[0]);
-    digitalWrite(CH10PIN, digitalChVal[1]);
-  }
-  
-  
+  /// ---------- WRITE OUTPUTS ----------------------
+  writeOutputs();
+
+  ///----------- DEBUG PRINT ------------------------
 #if defined (DEBUG)
   printDebugData();
 #endif
-
-  /// ------------ Reset flags ------------------------
-  hasValidPacket = false; 
 }
 
 //==================================================================================================
-
-void readAndVerifyPacket()
+void readAndDecodePacket()
 {
-  if(radioInitialised == false)
-  {
-    return;
-  }
+  /** 
+  Air protocol format
+  
+  byte  b0       b1      b2        b3       b4       
+      11111111 11222222 22223333 33333344 44444444 
+         b5       b6      b7        b8       b9
+      55555555 55666666 66667777 77777788 88888888
+         b10      b11
+      abpfCCCC   CCCCCCCC
+      
+  Chs 1 to 8 encoded as 10 bits      
+  a is digital ch9 bit
+  b is digital Ch10 bit 
+  p is PWM mode bit for ch3
+  f is failsafe flag
+  CCCC CCCCCCCC is the 12 bit CRC (calculated as CRC16)  
+  */
 
+  bool hasValidPacket = false;
+  
   int packetSize = LoRa.parsePacket();
   if (packetSize > 0) //received a packet
   {
     rssi = LoRa.packetRssi();
-    rxPacketCount += 1;
 
     /// read packet
     uint16_t cntr = 0;
-    bool rxBufferFull = false;
+    bool msgBuffFull = false;
     while (LoRa.available() > 0) 
     {
-      if(rxBufferFull == false) //put data into rxBuffer
+      if(msgBuffFull == false) //read into msgBuff
       {
-        rxBuffer[cntr] = LoRa.read();
-        cntr += 1;
-        if (cntr >= MCURXBUFFSIZE) //prevent array out of bounds
-          rxBufferFull = true; 
+        msgBuff[cntr] = LoRa.read();
+        cntr++;
+        if (cntr >= (sizeof(msgBuff)/sizeof(msgBuff[0]))) //prevent array out of bounds
+          msgBuffFull = true; 
       }
-      else //Throw away any extra data
+      else // discard any extra data
         LoRa.read(); 
     }
     
     /// Check if the received data is valid based on crc
-    
-    uint16_t crcQQ = rxBuffer[10] & 0x0F; //extract first 4 crc bits
+    uint16_t crcQQ = msgBuff[10] & 0x0F; //extract first 4 crc bits
     crcQQ = crcQQ << 8;
-    crcQQ |= rxBuffer[11]; //add next 8 crc bits
-    
-    rxBuffer[10] &= 0xF0; //remove crc bits from received data
-    
-    uint16_t computedCRC = crc16(rxBuffer, 11) & 0x0FFF;
+    crcQQ |= msgBuff[11]; //add next 8 crc bits
+    msgBuff[10] &= 0xF0; //remove crc bits from received data
+    uint16_t computedCRC = crc16(msgBuff, 11) & 0x0FFF;
     if(crcQQ == computedCRC)
     {
       hasValidPacket = true;
-      validPacketCount += 1;
+      validPacketCount++;
       lastValidPacketMillis = millis();
       digitalWrite(ORANGE_LED_PIN, HIGH);
     }
   }
+  
+  //decode payload
+  if(hasValidPacket == true)
+  {
+    //Proportional channels
+    long _ch1to8Tmp[8];
+    _ch1to8Tmp[0] = ((uint16_t)msgBuff[0] << 2 & 0x3fc) | ((uint16_t)msgBuff[1] >> 6 & 0x03); //ch1
+    _ch1to8Tmp[1] = ((uint16_t)msgBuff[1] << 4 & 0x3f0) | ((uint16_t)msgBuff[2] >> 4 & 0x0f); //ch2
+    _ch1to8Tmp[2] = ((uint16_t)msgBuff[2] << 6 & 0x3c0) | ((uint16_t)msgBuff[3] >> 2 & 0x3f); //ch3
+    _ch1to8Tmp[3] = ((uint16_t)msgBuff[3] << 8 & 0x300) | ((uint16_t)msgBuff[4]      & 0xff); //ch4
+    _ch1to8Tmp[4] = ((uint16_t)msgBuff[5] << 2 & 0x3fc) | ((uint16_t)msgBuff[6] >> 6 & 0x03); //ch5
+    _ch1to8Tmp[5] = ((uint16_t)msgBuff[6] << 4 & 0x3f0) | ((uint16_t)msgBuff[7] >> 4 & 0x0f); //ch6
+    _ch1to8Tmp[6] = ((uint16_t)msgBuff[7] << 6 & 0x3c0) | ((uint16_t)msgBuff[8] >> 2 & 0x3f); //ch7
+    _ch1to8Tmp[7] = ((uint16_t)msgBuff[8] << 8 & 0x300) | ((uint16_t)msgBuff[9]      & 0xff); //ch8
+    
+    //digital channels
+    digitalChVal[0] = (msgBuff[10] & 0x80) >> 7;
+    digitalChVal[1] = (msgBuff[10] & 0x40) >> 6;
+    
+    //Check if failsafe data. If so, dont modify outputs
+    if((msgBuff[10] & 0x10) == 0x10) //failsafe values
+    {
+      failsafeReceived = true;
+      for(int i=0; i<8; i++)
+        ch1to8Failsafes[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
+    }
+    else //normal channel values
+    {
+      for(int i=0; i<8; i++)
+        ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
+    }
+    
+    //get pwm mode for Ch3. Only set once. If changed in transmitter, receiver should to be restarted
+    static bool _pwmModeInitialised = false;
+    if(_pwmModeInitialised == false)
+    {
+      PWM_Mode_Ch3 = (msgBuff[10] & 0x20) >> 5;
+      _pwmModeInitialised = true;
+    }
+  }
 }
 
-void decodeData()
-{
-  if(hasValidPacket == false)
+//==================================================================================================
+void writeOutputs()
+{ 
+  int16_t ch1to8MicroSec[8];
+  for(uint8_t i = 0; i<8; i++)
   {
-    return;
+    ch1to8MicroSec[i] = map(ch1to8Vals[i],-500,500,lowerLimMicroSec, upperLimMicroSec);
+  }
+  servoCh1.writeMicroseconds(ch1to8MicroSec[0]);
+  servoCh2.writeMicroseconds(ch1to8MicroSec[1]);
+  
+  if(PWM_Mode_Ch3 == PWM_SERVO)
+    servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
+  else if(PWM_Mode_Ch3 == PWM_NORM)
+  {
+    long qq = map(ch1to8Vals[2], -500, 500, 0, 255);
+    uint8_t val = qq & 0xFF;
+    analogWrite(CH3PIN, val);
   }
   
-  //Proportional channels
-  long _ch1to8Tmp[8];
-  _ch1to8Tmp[0] = ((uint16_t)rxBuffer[0] << 2 & 0x3fc) | ((uint16_t)rxBuffer[1] >> 6 & 0x03); //ch1
-  _ch1to8Tmp[1] = ((uint16_t)rxBuffer[1] << 4 & 0x3f0) | ((uint16_t)rxBuffer[2] >> 4 & 0x0f); //ch2
-  _ch1to8Tmp[2] = ((uint16_t)rxBuffer[2] << 6 & 0x3c0) | ((uint16_t)rxBuffer[3] >> 2 & 0x3f); //ch3
-  _ch1to8Tmp[3] = ((uint16_t)rxBuffer[3] << 8 & 0x300) | ((uint16_t)rxBuffer[4]      & 0xff); //ch4
-  _ch1to8Tmp[4] = ((uint16_t)rxBuffer[5] << 2 & 0x3fc) | ((uint16_t)rxBuffer[6] >> 6 & 0x03); //ch5
-  _ch1to8Tmp[5] = ((uint16_t)rxBuffer[6] << 4 & 0x3f0) | ((uint16_t)rxBuffer[7] >> 4 & 0x0f); //ch6
-  _ch1to8Tmp[6] = ((uint16_t)rxBuffer[7] << 6 & 0x3c0) | ((uint16_t)rxBuffer[8] >> 2 & 0x3f); //ch7
-  _ch1to8Tmp[7] = ((uint16_t)rxBuffer[8] << 8 & 0x300) | ((uint16_t)rxBuffer[9]      & 0xff); //ch8
+  servoCh4.writeMicroseconds(ch1to8MicroSec[3]);
+  servoCh5.writeMicroseconds(ch1to8MicroSec[4]);
+  servoCh6.writeMicroseconds(ch1to8MicroSec[5]);
+  servoCh7.writeMicroseconds(ch1to8MicroSec[6]);
+  servoCh8.writeMicroseconds(ch1to8MicroSec[7]);
   
-  //digital channels
-  digitalChVal[0] = (rxBuffer[10] & 0x80) >> 7;
-  digitalChVal[1] = (rxBuffer[10] & 0x40) >> 6;
-  
-  //Check if failsafe data. If so, dont modify outputs
-  if((rxBuffer[10] & 0x10) == 0x10) //failsafe values
-  {
-    failsafeBeenReceived = true;
-    for(int i=0; i<8; i++)
-      ch1to8Failsafes[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
-  }
-  else //normal channel values
-  {
-    for(int i=0; i<8; i++)
-      ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
-  }
-  
-  //get pwm mode for Ch3. Only set once. If changed in transmitter, receiver will need to be restarted
-  static bool _pwmModeInitialised = false;
-  if(_pwmModeInitialised == false)
-  {
-    PWM_Mode_Ch3 = (rxBuffer[10] & 0x20) >> 5;
-    _pwmModeInitialised = true;
-  }
-  
+  digitalWrite(CH9PIN,  digitalChVal[0]);
+  digitalWrite(CH10PIN, digitalChVal[1]);
 }
-
 
 //=========================== DEBUG ================================================================
 void printDebugData()
 {
-    //Calculate packets per second
+  //Calculate packets per second
+  static unsigned long prevValidPacketCount = 0; 
   static unsigned long ttPrevMillis = 0;
+  uint8_t validPacketsPerSecond; 
   unsigned long ttElapsed = millis() - ttPrevMillis;
   if (ttElapsed >= 1000)
   {
@@ -344,7 +312,8 @@ void printDebugData()
     validPacketsPerSecond = uint8_t(_validPPS);
     prevValidPacketCount = validPacketCount;
   }
-   
+  
+  //print to serial
   static uint32_t serialLastPrintTT = millis();
   if(millis() - serialLastPrintTT >= 40)
   {
@@ -365,4 +334,3 @@ void printDebugData()
     Serial.println();
   }
 }
-
