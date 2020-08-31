@@ -127,11 +127,9 @@ void loop()
     if (LoRa.beginPacket()) //Returns 1 if radio is ready to transmit, 0 if busy or on failure.
     {
       LoRa.write(dataToTransmit, 12);
-      if (LoRa.endPacket()) //Returns 1 on success, 0 on failure.
-      {
-        lastValidMsgCount = validMsgCount;
-        radioTotalPackets++;
-      }
+      LoRa.endPacket(true); //pass true for async, or else will block until done transmitting
+      lastValidMsgCount = validMsgCount;
+      radioTotalPackets++;
     }
   }
   
