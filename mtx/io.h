@@ -158,11 +158,12 @@ void computeChannelOutputs()
   MixSources[Idxknob] = aux2In;
   
   ///--Mix source Switches B, C, and D
-  enum {_DELTA_ = 60}; //Slowed to prevent abrupt change
+  //These are slowed down to prevent abrupt change
+  int _delta = 2 * fixedLoopTime;
   //Switch B
   static int _SwBVal = -500;
-  if(SwBEngaged == true) _SwBVal += _DELTA_;
-  else _SwBVal -= _DELTA_;
+  if(SwBEngaged == true) _SwBVal += _delta;
+  else _SwBVal -= _delta;
   _SwBVal = constrain(_SwBVal, -500, 500);
   MixSources[IdxSwB] = _SwBVal;
   //Switch C (3 pos)
@@ -173,21 +174,21 @@ void computeChannelOutputs()
   else _target = 0;
   if(_target < _SwCVal) 
   { 
-    _SwCVal -= _DELTA_;
+    _SwCVal -= _delta;
     if(_SwCVal < _target)
       _SwCVal = _target;
   }
   else if(_target > _SwCVal) 
   {
-    _SwCVal += _DELTA_;
+    _SwCVal += _delta;
     if(_SwCVal > _target)
       _SwCVal = _target;
   }
   MixSources[IdxSwC] = _SwCVal;
   //Switch D
   static int _SwDVal = -500;
-  if(SwDEngaged == true) _SwDVal += _DELTA_;
-  else _SwDVal -= _DELTA_;
+  if(SwDEngaged == true) _SwDVal += _delta;
+  else _SwDVal -= _delta;
   _SwDVal = constrain(_SwDVal, -500, 500);
   MixSources[IdxSwD] = _SwDVal;
   
