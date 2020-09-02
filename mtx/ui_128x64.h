@@ -1833,7 +1833,7 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
   uint8_t _heldBtn = 0;
   if(_state == PRESSED_ONLY)         _heldBtn = 0;
   else if(_state == PRESSED_OR_HELD) _heldBtn = heldButton;
-  else if(_state == SLOW_CHANGE && thisLoopNum % 4 == 1) _heldBtn = heldButton;
+  else if(_state == SLOW_CHANGE && thisLoopNum % (100 / fixedLoopTime) == 1) _heldBtn = heldButton;
 
   //Default -- UP_KEY increments, DOWN_KEY decrements
   uint8_t incrKey = UP_KEY;
@@ -1890,7 +1890,7 @@ void changeFocusOnUPDOWN(uint8_t _maxItemNo)
     return;
   
   uint8_t _heldBtn = 0;
-  if(thisLoopNum % 6 == 1) 
+  if(thisLoopNum % (200 / fixedLoopTime) == 1) 
     _heldBtn = heldButton;
   
   if(pressedButton == UP_KEY || _heldBtn == UP_KEY)
@@ -1959,7 +1959,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
   _numMenuItems -= 1; //exclude menu heading in count
   
   uint8_t _heldBtn = 0;
-  if(thisLoopNum % 6 == 1) _heldBtn = heldButton;
+  if(thisLoopNum % (200 / fixedLoopTime) == 1) _heldBtn = heldButton;
   
   //------handle menu navigation (up and down keys)------
   if (pressedButton == DOWN_KEY || _heldBtn == DOWN_KEY)
