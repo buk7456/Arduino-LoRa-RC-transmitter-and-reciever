@@ -121,7 +121,7 @@ enum{SOUND_OFF = 0, SOUND_ALARMS, SOUND_NOKEY, SOUND_ALL};
 uint8_t soundMode = SOUND_ALL; 
 
 //-------------------------------
-
-uint32_t thisLoopNum = 0; //main loop counter. For timing certain stuff
-
 bool showPktsPerSec = false; //### debug
+
+const uint8_t fixedLoopTime = 25; //in milliseconds
+uint32_t thisLoopNum = 0; //main loop counter. For timing certain things
