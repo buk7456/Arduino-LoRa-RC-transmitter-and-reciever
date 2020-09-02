@@ -145,11 +145,9 @@ void loop()
   }
 
   /// ---------- LIMIT MAX RATE OF LOOP ---------
-  // Limited to around 35 loops a second. Changing this might affect some stuff. Making this any
-  // faster could result in overwhelming the secondary mcu thus leading to lost data
   unsigned long loopTime = millis() - loopStartTime;
-  if(loopTime < 28UL)
-    delay(28UL - loopTime);
+  if(loopTime < uint32_t(fixedLoopTime))
+    delay(uint32_t(fixedLoopTime) - loopTime);
   
   // -- Debug info --
   // display.setCursor(0,57);
@@ -202,7 +200,7 @@ void sendToSlaveMCU()
   status |= PWM_Mode_Ch3 << 1;
   
   bool isFailsafeData = false; 
-  if(thisLoopNum % 64 == 1) 
+  if(thisLoopNum % (1600 / fixedLoopTime) == 1) 
     isFailsafeData = true;
 
   status |= isFailsafeData & 0x01;
