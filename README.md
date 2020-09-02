@@ -125,7 +125,7 @@ Note: This doesnt change the subtrim so we have to remove this mix later
 and adjust the subtrim when not in flight. 
 
 ## Testing:
-I have done several tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 35 frames a second which is sufficient to control an RC model. There are no issues with the servo control either. 
+I have done several tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 40 times a second which is reasonably sufficient to control an RC model. There are no issues with the servo control either. 
 
 ## Limitations:
 1. No trim buttons. A workaround is to trim with the knob. 
