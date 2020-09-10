@@ -1531,36 +1531,18 @@ void HandleMainUI()
           display.print(F("Move sticks fully"));
 
           //get min and max
-          int x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-          for (int i = 0; i < 10; i++) //read in 10 samples per stick
-          {
-            x1 += analogRead(ROLLINPIN);
-            x2 += analogRead(YAWINPIN);
-            y1 += analogRead(PITCHINPIN);
-            y2 += analogRead(THROTTLEINPIN);
-            delay(1);
-          }
-          x1 = x1 / 10;
-          x2 = x2 / 10;
-          y1 = y1 / 10;
-          y2 = y2 / 10;
-
-          if (x1 < rollMin)
-            rollMin = x1;
-          else if (x1 > rollMax)
-            rollMax = x1;
-          if (x2 < yawMin)
-            yawMin = x2;
-          else if (x2 > yawMax)
-            yawMax = x2;
-          if (y1 < pitchMin)
-            pitchMin = y1;
-          else if (y1 > pitchMax)
-            pitchMax = y1;
-          if (y2 < thrtlMin)
-            thrtlMin = y2;
-          else if (y2 > thrtlMax)
-            thrtlMax = y2;
+          int _reading = analogRead(ROLLINPIN);
+          if (_reading < rollMin)       rollMin = _reading;
+          else if (_reading > rollMax)  rollMax = _reading;
+          _reading = analogRead(YAWINPIN);
+          if (_reading < yawMin)        yawMin = _reading;
+          else if (_reading > yawMax)   yawMax = _reading;
+          _reading = analogRead(PITCHINPIN);
+          if (_reading < pitchMin)      pitchMin = _reading;
+          else if (_reading > pitchMax) pitchMax = _reading;
+          _reading = analogRead(THROTTLEINPIN);
+          if (_reading < thrtlMin)      thrtlMin = _reading;
+          else if (_reading > thrtlMax) thrtlMax = _reading;
 
           //show data
           int _theMinMax[8] = {rollMin, rollMax, pitchMin, pitchMax, thrtlMin, thrtlMax, yawMin, yawMax};
@@ -1582,18 +1564,10 @@ void HandleMainUI()
           display.print(F("Center sticks"));
 
           //get stick centers
-          int x1 = 0, x2 = 0, y1 = 0;
-          for (int i = 0; i < 10; i++) 
-          {
-            x1 += analogRead(ROLLINPIN);
-            x2 += analogRead(YAWINPIN);
-            y1 += analogRead(PITCHINPIN);
-            delay(1);
-          }
-          rollCenterVal  = x1 / 10;
-          yawCenterVal   = x2 / 10;
-          pitchCenterVal = y1 / 10;
-          
+          rollCenterVal  = analogRead(ROLLINPIN);
+          yawCenterVal   = analogRead(YAWINPIN);
+          pitchCenterVal = analogRead(PITCHINPIN);
+
           //show data
           int _theCenters[4] = {rollCenterVal, pitchCenterVal, 512, yawCenterVal};
           for (int i = 0; i < 4; i += 1)
