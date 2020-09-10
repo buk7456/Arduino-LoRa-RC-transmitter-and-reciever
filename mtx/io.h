@@ -69,27 +69,12 @@ void readSticks()
     return;
   }
 
-  rollIn = 0;
-  pitchIn = 0;
-  yawIn = 0;
-  throttleIn = 0;
-  aux2In = 0;
+  rollIn = analogRead(ROLLINPIN);
+  pitchIn = analogRead(PITCHINPIN);
+  throttleIn = analogRead(THROTTLEINPIN);
+  yawIn = analogRead(YAWINPIN);
+  aux2In = analogRead(AUX2PIN);
 
-  #define _NUMSTICKSAMPLES 5
-  for (int i = 0; i < _NUMSTICKSAMPLES; i += 1)
-  {
-    rollIn += analogRead(ROLLINPIN);
-    pitchIn += analogRead(PITCHINPIN);
-    throttleIn += analogRead(THROTTLEINPIN);
-    yawIn += analogRead(YAWINPIN);
-    aux2In += analogRead(AUX2PIN);
-  }
-  rollIn /= _NUMSTICKSAMPLES;
-  pitchIn /= _NUMSTICKSAMPLES;
-  throttleIn /= _NUMSTICKSAMPLES;
-  yawIn /= _NUMSTICKSAMPLES;
-  aux2In /= _NUMSTICKSAMPLES;
-  
   //add deadzone to roll, pitch, yaw sticks centers. Also add deadband at ends of knob for stability
   rollIn = deadzoneAndMap(rollIn, rollMin, rollCenterVal, rollMax, deadZonePerc, -500, 500);
   rollIn = constrain(rollIn, -500, 500);
