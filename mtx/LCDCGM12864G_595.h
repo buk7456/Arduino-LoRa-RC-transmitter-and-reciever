@@ -14,8 +14,7 @@
    [SR Pin 12 (ST_CP)] to Arduino pin - [latchpin]
    [SR Pin 11 (SH_CP)] to Arduino pin - (sclk)
 
-   NB: Note with hardware SPI MISO and SS pins aren't used but will still be read
-   and written to during SPI transfer.  Be careful sharing these pins!
+   NB: Note with hardware SPI MISO. Be careful sharing these pins!
 
   ------------------Other CGM12864G LCD conections--------------------------
    RS  to Arduino pin - [QRS]
