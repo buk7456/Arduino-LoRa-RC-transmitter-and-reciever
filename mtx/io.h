@@ -228,33 +228,33 @@ void computeChannelOutputs()
   ///--Mix source Ail, Ele, Thr, Rud
   
   //Ail
-  int _ailIn = rollIn + 5 * (Model.Trim[0] - 100);
   if(SwBEngaged == false || Model.DualRateEnabled[AILRTE] == false)
-    MixSources[IDX_AIL]  = calcRateExpo(_ailIn,  Model.RateNormal[AILRTE], Model.ExpoNormal[AILRTE]);
+    MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateNormal[AILRTE], Model.ExpoNormal[AILRTE]);
   else
-    MixSources[IDX_AIL]  = calcRateExpo(_ailIn,  Model.RateSport[AILRTE], Model.ExpoSport[AILRTE]);
+    MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateSport[AILRTE], Model.ExpoSport[AILRTE]);
+  MixSources[IDX_AIL] += 5 * (Model.Trim[0] - 100);
   
   //Ele
-  int _eleIn = pitchIn + 5 * (Model.Trim[1] - 100);
   if(SwBEngaged == false || Model.DualRateEnabled[ELERTE] == false)
-    MixSources[IDX_ELE]  = calcRateExpo(_eleIn, Model.RateNormal[ELERTE], Model.ExpoNormal[ELERTE]);
+    MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateNormal[ELERTE], Model.ExpoNormal[ELERTE]);
   else
-    MixSources[IDX_ELE]  = calcRateExpo(_eleIn, Model.RateSport[ELERTE], Model.ExpoSport[ELERTE]);
+    MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateSport[ELERTE], Model.ExpoSport[ELERTE]);
+  MixSources[IDX_ELE] += 5 * (Model.Trim[1] - 100);
   
   //Thr
-  int _thrIn = throttleIn + 5 * (Model.Trim[2] - 100);
   int xpoints[5] = {-500, -250, 0, 250, 500};
   int ypoints[5];
   for(int i = 0; i < 5; i++)
     ypoints[i] = 5 * (Model.ThrottlePts[i] - 100);
-  MixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, _thrIn);
+  MixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
+  MixSources[IDX_THRTL_CURV] += 5 * (Model.Trim[2] - 100);
   
   //Rud
-  int _rudIn = yawIn + 5 * (Model.Trim[3] - 100);
   if(SwBEngaged == false || Model.DualRateEnabled[RUDRTE] == false)
-    MixSources[IDX_RUD] = calcRateExpo(_rudIn, Model.RateNormal[RUDRTE], Model.ExpoNormal[RUDRTE]);
+    MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateNormal[RUDRTE], Model.ExpoNormal[RUDRTE]);
   else
-    MixSources[IDX_RUD] = calcRateExpo(_rudIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
+    MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
+  MixSources[IDX_RUD] += 5 * (Model.Trim[3] - 100);
 
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
