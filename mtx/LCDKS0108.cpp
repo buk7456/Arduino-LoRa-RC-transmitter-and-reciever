@@ -90,18 +90,15 @@ void LCDKS0108::begin()
   latchPort = portOutputRegister(digitalPinToPort(_latchPin));
   latchpinmask = digitalPinToBitMask(_latchPin);
 
-  // Setup hardware SPI.
-  SPI.begin();
-  SPI.setBitOrder(MSBFIRST);
-  //SPI.setBitOrder(LSBFIRST);
-  //SPI.setClockDivider(SPI_CLOCK_DIV2);
 
   //initialise lcd
+  SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
   lcdCommand(DISP_OFF);
   lcdCommand(START_LINE);
   lcdCommand(DISP_ON);
   lcdCommand(SET_ADDRESS);
   lcdCommand(SET_PAGE);
+  SPI.endTransaction();
 }
 
 void LCDKS0108::setNewPage(unsigned char PageData)
@@ -113,6 +110,8 @@ void LCDKS0108::setNewPage(unsigned char PageData)
 
 void LCDKS0108::display(void)
 {
+  SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
+  
   uint8_t data;
   uint8_t column = 0, page = 0;
 
@@ -141,12 +140,10 @@ void LCDKS0108::display(void)
       *qcs1port &= ~qcs1pinmask; //cs1 low
     }
 
-
     *qrsport |= qrspinmask;      //rs high
-
+    
     *latchPort &= ~latchpinmask; //latch low
 
-    //###
     SPI.transfer(data);
 
     *latchPort |= latchpinmask; //latch high
@@ -158,6 +155,8 @@ void LCDKS0108::display(void)
 
     column++;
   }
+  
+  SPI.endTransaction();
 }
 
 void LCDKS0108::clearDisplay(void) //Clear virtual buffer
