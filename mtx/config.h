@@ -1,40 +1,48 @@
-
-#define _SKETCHVERSION "1.3.0"
-
-//----------------------------------------------------------------------------------------
-
+//-------------------------------
+#define _SKETCHVERSION "1.4.0"
 //To update default values in EEPROM change the value below to anything between 0xAA and 0xAF.
-#define EE_INITFLAG 0xAB //WARNING: Changing this will overwrite all your existing model data
+#define EE_INITFLAG 0xAE //WARNING: Changing this will overwrite all existing model data
 
-//---------------------UART baud rate----------------------------------------------------
-// #define UARTBAUDRATE 57600
-#define UARTBAUDRATE 115200
+//-------- PINS -----------------
 
-//------------------- Only enable one lcd ------------------------------------------------
+#define PIN_ROW1       2
+#define PIN_ROW2       3
+// #define PIN_ROW2      12
+#define PIN_COL1 4
+#define PIN_COL2 5
+#define PIN_COL3 6
 
-//---- LCD KS0108
+#define PIN_LATCH      10
+
+#define PIN_CGM_RST    7
+#define PIN_CGM_RD     8
+#define PIN_CGM_RSEL   9
+
+#define PIN_KS_RS      8
+#define PIN_KS_EN      9
+#define PIN_KS_CS1     3
+#define PIN_KS_CS2     10
+
+#define PIN_THROTTLE   A0
+#define PIN_YAW        A1
+#define PIN_PITCH      A2
+#define PIN_ROLL       A3
+#define PIN_KNOB       A4
+#define PIN_BATTVOLTS  A5
+
+//--------- LCD KS0108 ----------
 // #include "LCDKS0108.h"
-// LCDKS0108 display = LCDKS0108(8, 9, 7, 3, 10); //RS, EN, CS1, CS2, 595Latch
+// LCDKS0108 display = LCDKS0108(PIN_KS_RS, PIN_KS_EN, PIN_KS_CS1, PIN_KS_CS2, PIN_LATCH);
 
-
-//---- LCD CGM12864G
+//--------- LCD CGM12864G -------
 #include "LCDCGM12864G_595.h"
-LCDCGM12864G_595 display = LCDCGM12864G_595(9, 8, 7, 10);
+LCDCGM12864G_595 display = LCDCGM12864G_595(PIN_CGM_RSEL, PIN_CGM_RD, PIN_CGM_RST, PIN_LATCH);
 
-//--------------- Buttons ----------------------------------------------------------------
-#define ROW1_MTRX_PIN 2
-#define ROW2_MTRX_PIN 3
-// #define ROW2_MTRX_PIN 12
-#define COL1_MTRX_PIN 4
-#define COL2_MTRX_PIN 5
-#define COL3_MTRX_PIN 6
+//---------- Battery voltage ----
+const int battVoltsMin = 3400; //millivolts
+const int battVoltsMax = 3900; //millivolts
+const int battVfactor  = 487;  //scaling factor
 
-#define LONGPRESSTIME 350
-
-//---------------- Analog input pins -----------------------------------------------------
-#define BATTVOLTSPIN  A5
-#define AUX2PIN       A4
-#define ROLLINPIN     A3
-#define PITCHINPIN    A2
-#define YAWINPIN      A1
-#define THROTTLEINPIN A0
+//-------------------------------
+#define UART_BAUD_RATE 115200
+// #define UART_BAUD_RATE 9600 //Testing
