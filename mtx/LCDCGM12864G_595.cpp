@@ -75,34 +75,31 @@ void LCDCGM12864G_595::begin()
   qrdpinmask = digitalPinToBitMask(_qrd);
   latchPort = portOutputRegister(digitalPinToPort(_latchPin));
   latchpinmask = digitalPinToBitMask(_latchPin);
-
-  // Setup hardware SPI.
-  SPI.begin();
-  //SPI.setBitOrder(MSBFIRST);
-  SPI.setBitOrder(LSBFIRST); 
-  SPI.setClockDivider(SPI_CLOCK_DIV2);
- 
  
   digitalWrite(_qrst, LOW);
   delay(30);
   digitalWrite(_qrst, HIGH);
   delay(20);
-
+  
   //Send init commands
+  SPI.beginTransaction(SPISettings(8000000, LSBFIRST, SPI_MODE0));
   lcdCommand(0xaf);
   lcdCommand(0xc8);
   lcdCommand(0x2f);
   lcdCommand(0x26);
   lcdCommand(0x81);
   lcdCommand(0x1f);
+  SPI.endTransaction();
 }
 
 void LCDCGM12864G_595::display(void)
 {
+  
   uint8_t col;
   uint8_t page;
   uint8_t theByte;
 
+  SPI.beginTransaction(SPISettings(8000000, LSBFIRST, SPI_MODE0));
   for (page = 0xb0; page < 0xb8; page++)
   {
     lcdCommand(page);
@@ -117,6 +114,7 @@ void LCDCGM12864G_595::display(void)
       lcdDataWrite(theByte);
     }
   }
+  SPI.endTransaction();
 }
 
 void LCDCGM12864G_595::clearDisplay(void) //Clear virtual buffer
