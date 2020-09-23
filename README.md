@@ -19,7 +19,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - Audio tones
 
 ## License:
-[MIT license](https://choosealicense.com/licenses/mit/)
+MIT license
 
 ## Hardware:
 #### Transmitter
@@ -35,16 +35,18 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - Additional support components
 
 ## Firmware:
-The code compiles on Arduino IDE 1.8.9 and higher with board set to Arduino Uno. 
+The code compiles on Arduino IDE 1.8.x or higher with board set to Arduino Uno. 
 The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in 
 the rx folder. No external libraries are required to compile.
 
 ### User Interface
 Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
-<br>Hold the down key on home screen to access the extra digital channels (9 and 10).
+<br>Hold the Down key on home screen to access the extra digital channels A & B).
+<br>Hold the Select key on home screen to access the trims.
+<br>Hold the Select key while powering on to access the hidden boot menu.
 
 <p align="center">
-<img src="img2.png" width="816" height="1296"/>
+<img src="img2.png" width="816" height="864"/>
 </p>
 
 ### The Mixer
@@ -56,7 +58,6 @@ This controller implements a free mixer that offers flexiblity with what we want
 - Curves (Aileron, Elevator, Throttle, Rudder)
 - Channels (Ch1 to Ch8)
 - Temporary variables (Virt1, Virt2)
-- Others (sine)
 
 #### Example mixes
 Note:
@@ -125,14 +126,13 @@ Note: This doesnt change the subtrim so we have to remove this mix later
 and adjust the subtrim when not in flight. 
 
 ## Testing:
-I have done several tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 40 times a second which is reasonably sufficient to control an RC model. There are no issues with the servo control either. 
+I have done several tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 35 frames a second which is sufficient to control an RC model. There are no issues with the servo control either. 
 
 ## Limitations:
-1. No trim buttons. A workaround is to trim with the knob. 
-2. No basic telemetry support. 
-3. Presently the RF transmission occurs at a fixed frequency (433Mhz) thus may interfere
-with other devices. 
-4. No addressing and no binding between transmitter and receiver. No more than one active receiver can be used at a time.
+1. No basic telemetry support. 
+2. No dedicated trim buttons. However we can access trim from the home screen by holding the select key.
+3. No addressing and no binding between transmitter and receiver. No more than one active receiver can be used at a time.
+4. RF transmission occurs at a fixed base frequency which may not comply with some local regulations. 
 
 ## To do:
 1. Implement frequency hopping
