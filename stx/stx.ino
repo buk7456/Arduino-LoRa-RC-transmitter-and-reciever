@@ -31,13 +31,12 @@ unsigned long validMsgCount = 0;
 //--------Tone stuff----------
 #include "NonBlockingRtttl.h"
 
-#define AUDIO_NONE          0xD2  
-#define AUDIO_TIMERELAPSED  0xD3  
-#define AUDIO_THROTTLEWARN  0xD4  
-#define AUDIO_BATTERYWARN   0xD5  
-#define AUDIO_KEYTONE       0xD6
-#define AUDIO_SWITCHMOVED   0xD7
-
+enum{  
+  AUDIO_NONE = 0, 
+  AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED,
+  AUDIO_SWITCHMOVED, AUDIO_TRIMSELECTED,
+  AUDIO_KEYTONE      
+};
 
 uint8_t audioToPlay = AUDIO_NONE;
 uint8_t lastAudioToPlay = AUDIO_NONE;
@@ -47,6 +46,7 @@ const char* battLowSound = "battlow2:d=4,o=5,b=290:4c6,32p,4a#,32p,4g.";
 const char* warnSound = "warn:d=4,o=4,b=160:4b5";
 const char* shortBeepSound = "shortBeep:d=4,o=4,b=250:16c#7";
 const char* timerElapsedSound = "timerElapsed:d=4,o=5,b=210:16b6,16p,8b6";
+const char* trimSelectSound = "trimSelect:d=4,o=4,b=160:16c#5";
 
 //-----------------------------------------
 uint8_t radioPacketsPerSecond;
@@ -154,11 +154,22 @@ void loop()
     lastAudioToPlay = audioToPlay;
     switch(audioToPlay)
     {
-      case AUDIO_THROTTLEWARN:   rtttl::begin(buzzerPin, warnSound); break;
-      case AUDIO_BATTERYWARN:    rtttl::begin(buzzerPin, battLowSound); break;
-      case AUDIO_TIMERELAPSED:   rtttl::begin(buzzerPin, timerElapsedSound); break;
-      case AUDIO_KEYTONE:        rtttl::begin(buzzerPin, shortBeepSound); break;
-      case AUDIO_SWITCHMOVED:    rtttl::begin(buzzerPin, shortBeepSound); break;
+      case AUDIO_THROTTLEWARN:   
+        rtttl::begin(buzzerPin, warnSound); 
+        break;
+      case AUDIO_BATTERYWARN:    
+        rtttl::begin(buzzerPin, battLowSound); 
+        break;
+      case AUDIO_TIMERELAPSED:   
+        rtttl::begin(buzzerPin, timerElapsedSound); 
+        break;
+      case AUDIO_KEYTONE:        
+      case AUDIO_SWITCHMOVED:    
+        rtttl::begin(buzzerPin, shortBeepSound); 
+        break;
+      case AUDIO_TRIMSELECTED:
+        rtttl::begin(buzzerPin, trimSelectSound); 
+        break;
     }
   }
   else //Playback. Playback will automatically stop once all notes have been played
