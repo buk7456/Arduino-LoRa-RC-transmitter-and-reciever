@@ -1971,7 +1971,10 @@ bool isDefaultModelName(char* _nameBuff, uint8_t _len)
 uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
 {
   uint8_t _heldBtn = 0;
-  if(thisLoopNum % (200 / fixedLoopTime) == 1) 
+  uint8_t _holdDelay = 200;
+  if(millis() - buttonStartTime > 1200) //speed up
+    _holdDelay = 100;
+  if(thisLoopNum % (_holdDelay / fixedLoopTime) == 1) 
     _heldBtn = heldButton;
   
   if((pressedButton == _decrButton || _heldBtn == _decrButton) && _val > 75)
