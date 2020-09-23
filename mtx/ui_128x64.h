@@ -1,11 +1,9 @@
 //==================================================================================================
-void HandleMainUI(); //main user interface
-void DrawEEFormatMsg(); //eeprom format screen
-void DrawLoadingMsg(); //loader screen
-void DrawThrottleWarning(); //throttle warning screen
+void HandleMainUI(); 
+void HandleBootUI(); 
+void DisplayFullScreenMsg(const __FlashStringHelper* text);
 
 //helpers
-void detectButtonEvents(); 
 void toggleEditModeOnSelectClicked();
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
 void changeToScreen(int8_t _theScrn);
@@ -18,17 +16,29 @@ void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
 void makeToast(const __FlashStringHelper* text, unsigned long duration);
 void drawToast();
-void drawWarning(const __FlashStringHelper* text);
 void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
+bool isDefaultModelName(char* _nameBuff, uint8_t _len);
+uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val);
+void showTrimData(const __FlashStringHelper* text, uint8_t _trimVal);
 uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state);
 enum {WRAP = true, NOWRAP = false};
 enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
 
-
 ///================================================================================================
 
-//-- Main menu strings
+//-- Boot popup menu strings. Max 14 characters per string
+#define NUM_ITEMS_BOOT_POPUP 4
+char const bootStr0[] PROGMEM = "Stick calibrte"; 
+char const bootStr1[] PROGMEM = "Show Pkts/sec"; 
+char const bootStr2[] PROGMEM = "Format EEPROM"; 
+char const bootStr3[] PROGMEM = "Cancel";
+const char *const bootMenu[] PROGMEM = { //table to refer to the strings
+  bootStr0, bootStr1, bootStr2, bootStr3
+};
+
+
+//-- Main menu strings. Max 16 characters per string
 #define NUM_ITEMS_MAIN_MENU 7
 char const main0[] PROGMEM = "Main menu"; //heading
 char const main1[] PROGMEM = "Model";
@@ -37,8 +47,9 @@ char const main3[] PROGMEM = "Mixer";
 char const main4[] PROGMEM = "Outputs";
 char const main5[] PROGMEM = "System";
 char const main6[] PROGMEM = "About";
-const char *const mainMenu[] PROGMEM = { //This is the table to refer to the strings
-  main0, main1, main2, main3, main4, main5, main6 };
+const char *const mainMenu[] PROGMEM = { //table to refer to the strings
+  main0, main1, main2, main3, main4, main5, main6 
+};
 
 //Assign indices for ui states
 enum
@@ -63,13 +74,9 @@ enum
   POPUP_MOVE_MIX,
   POPUP_COPY_MIX,
   MODE_CALIB,
-  POPUP_SYS_MENU,
-  MODE_SERVO_SETUP,
-  MODE_BATTERY_SETUP
-  
 };
 
-//-- Timer popup menu strings
+//-- Timer popup menu strings. Max 14 characters per string
 char const tmrStr0[] PROGMEM = "Start timer 2"; //shown if timer2 is paused
 char const tmrStr1[] PROGMEM = "Stop timer 2";  //shown if timer2 is playing
 char const tmrStr2[] PROGMEM = "Reset timer 2";
@@ -77,11 +84,13 @@ char const tmrStr3[] PROGMEM = "Reset timer 1";
 char const tmrStr4[] PROGMEM = "Setup timer 1";
 #define NUM_ITEMS_TIMER_POPUP 4
 const char *const timerMenuA[] PROGMEM = { //table to refer to the strings
-  tmrStr0, tmrStr2, tmrStr3, tmrStr4};
+  tmrStr0, tmrStr2, tmrStr3, tmrStr4
+};
 const char *const timerMenuB[] PROGMEM = { //table to refer to the strings
-  tmrStr1, tmrStr2, tmrStr3, tmrStr4};
+  tmrStr1, tmrStr2, tmrStr3, tmrStr4
+};
 
-//-- Mixer popup menu strings
+//-- Mixer popup menu strings. Max 14 characters per string
 #define NUM_ITEMS_MIXER_POPUP 5
 char const mxrStr0[] PROGMEM = "View mixes"; 
 char const mxrStr1[] PROGMEM = "Reset mix"; 
@@ -89,90 +98,82 @@ char const mxrStr2[] PROGMEM = "Move mix to";
 char const mxrStr3[] PROGMEM = "Copy mix to";
 char const mxrStr4[] PROGMEM = "Reset all mixes";
 const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
-  mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4};
+  mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4
+};
   
+//-- mixer sources name strings. 5 characters max
+char const srcName0[]  PROGMEM = "roll"; 
+char const srcName1[]  PROGMEM = "ptch";
+char const srcName2[]  PROGMEM = "thrt";
+char const srcName3[]  PROGMEM = "yaw";
+char const srcName4[]  PROGMEM = "knob";
+char const srcName5[]  PROGMEM = "SwB"; 
+char const srcName6[]  PROGMEM = "SwC"; 
+char const srcName7[]  PROGMEM = "SwD"; 
+char const srcName8[]  PROGMEM = "Ail";
+char const srcName9[]  PROGMEM = "Ele";
+char const srcName10[] PROGMEM = "Thrt";
+char const srcName11[] PROGMEM = "Rud";
+char const srcName12[] PROGMEM = "None";
+char const srcName13[] PROGMEM = "Ch1";
+char const srcName14[] PROGMEM = "Ch2";
+char const srcName15[] PROGMEM = "Ch3";
+char const srcName16[] PROGMEM = "Ch4";
+char const srcName17[] PROGMEM = "Ch5";
+char const srcName18[] PROGMEM = "Ch6";
+char const srcName19[] PROGMEM = "Ch7";
+char const srcName20[] PROGMEM = "Ch8";
+char const srcName21[] PROGMEM = "Virt1";
+char const srcName22[] PROGMEM = "Virt2";
 
-//-- Advanced settings popup menu strings
-#define NUM_ITEMS_SYSTEM_POPUP 4
-char const sysStr0[] PROGMEM = "Servo setup"; 
-char const sysStr1[] PROGMEM = "Battery setup"; 
-char const sysStr2[] PROGMEM = "Stick calib"; 
-char const sysStr3[] PROGMEM = "Packets/sec";
-const char *const sysMenu[] PROGMEM = { //table to refer to the strings
-  sysStr0, sysStr1, sysStr2, sysStr3};
-  
-
-//-- mixer sources name strings. 5 chars max
-
-char const srcName0[]  PROGMEM = "sine"; 
-char const srcName1[]  PROGMEM = "roll"; 
-char const srcName2[]  PROGMEM = "ptch";
-char const srcName3[]  PROGMEM = "thrt";
-char const srcName4[]  PROGMEM = "yaw";
-char const srcName5[]  PROGMEM = "knob";
-char const srcName6[]  PROGMEM = "SwB"; 
-char const srcName7[]  PROGMEM = "SwC"; 
-char const srcName8[]  PROGMEM = "SwD"; 
-char const srcName9[]  PROGMEM = "Ail";
-char const srcName10[] PROGMEM = "Ele";
-char const srcName11[] PROGMEM = "Thrt";
-char const srcName12[] PROGMEM = "Rud";
-char const srcName13[] PROGMEM = "None";
-char const srcName14[] PROGMEM = "Ch1";
-char const srcName15[] PROGMEM = "Ch2";
-char const srcName16[] PROGMEM = "Ch3";
-char const srcName17[] PROGMEM = "Ch4";
-char const srcName18[] PROGMEM = "Ch5";
-char const srcName19[] PROGMEM = "Ch6";
-char const srcName20[] PROGMEM = "Ch7";
-char const srcName21[] PROGMEM = "Ch8";
-char const srcName22[] PROGMEM = "Virt1";
-char const srcName23[] PROGMEM = "Virt2";
-
-const char *const srcNames[] PROGMEM = { //This is the table to refer to the strings
+const char *const srcNames[] PROGMEM = { //table to refer to the strings
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
-  srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, 
-  srcName14,srcName15, srcName16, srcName17, srcName18, srcName19, 
-  srcName20, srcName21, srcName22, srcName23 };
+  srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
+  srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
+  srcName22
+};
 
 // --- Other strings ----
 
-//sound mode strings
-char const soundModeStr0[] PROGMEM = "Quiet"; 
+//sound mode strings. Max 5 characters
+char const soundModeStr0[] PROGMEM = "Off"; 
 char const soundModeStr1[] PROGMEM = "Alarm"; 
 char const soundModeStr2[] PROGMEM = "NoKey"; 
 char const soundModeStr3[] PROGMEM = "All";
 const char *const soundModeStr[] PROGMEM = { //table to refer to the strings
-  soundModeStr0, soundModeStr1, soundModeStr2, soundModeStr3};
+  soundModeStr0, soundModeStr1, soundModeStr2, soundModeStr3
+};
   
-//backlight mode strings
+//Model action strings. Max 9 characters
+char const modelActionStr0[] PROGMEM = "Load";
+char const modelActionStr1[] PROGMEM = "Copy from";
+char const modelActionStr2[] PROGMEM = "Rename";
+char const modelActionStr3[] PROGMEM = "Reset";
+char const modelActionStr4[] PROGMEM = "Delete";
+const char *const modelActionStr[] PROGMEM = { //table to refer to the strings
+  modelActionStr0, modelActionStr1, modelActionStr2, modelActionStr3, modelActionStr4
+};
+
 char const backlightModeStr0[] PROGMEM = "Off"; 
 char const backlightModeStr1[] PROGMEM = "5s"; 
 char const backlightModeStr2[] PROGMEM = "15s"; 
 char const backlightModeStr3[] PROGMEM = "60s";
 char const backlightModeStr4[] PROGMEM = "On";
 const char *const backlightModeStr[] PROGMEM = { //table to refer to the strings
-  backlightModeStr0, backlightModeStr1, backlightModeStr2, backlightModeStr3, backlightModeStr4};
+  backlightModeStr0, backlightModeStr1, backlightModeStr2, backlightModeStr3, backlightModeStr4
+};
 
 // ---------------- Globals ------------------
 
 char txtBuff[22]; //generic buffer for working with strings
 
-//Button events
-uint8_t pressedButton = 0; //triggered once when the button goes down
-uint8_t clickedButton = 0; //triggered when the button is released before heldButton event
-uint8_t heldButton = 0;    //triggered when button is held down long enough
-
-unsigned long buttonStartTime = 0;
-unsigned long buttonReleaseTime = 0;
-
 int8_t theScreen = HOME_SCREEN;
-uint8_t focusedItem = 1; //The item that currently has focus in MODE Screens
+uint8_t focusedItem = 1; //The item that currently has focus in MODE Screens or popups
 bool isEditMode = false;
 
 //Dont use unsigned types for these!!!
-int8_t topItem = 1;         //in menu
-int8_t highlightedItem = 1; //in menu
+int8_t topItem = 1;         //in main menu
+int8_t highlightedItem = 1; //in main menu
 
 //mixer
 uint8_t thisMixNum = 0; //these are references
@@ -197,39 +198,77 @@ const __FlashStringHelper* toastText;
 unsigned long toastExpireTime;
 
 
-//================================== EEPROM messages ===============================================
-void DrawEEWarning()
+//================================== Generic messages ==============================================
+
+void DisplayFullScreenMsg(const __FlashStringHelper* text)
 {
   display.clearDisplay();
-  drawWarning(F("Bad EEPROM data"));
+  int _txtWidthPix = 6 * strlen_P((const char *)text); //(const char*) casts
+  int x_offset = (display.width() - _txtWidthPix) / 2; //middle align
+  display.setCursor(x_offset, 28);
+  display.print(text);
   display.display();
 }
 
-void DrawEEFormatMsg()
+///=================================================================================================
+///                                BOOT UI
+///=================================================================================================
+
+void HandleBootUI()
 {
   display.clearDisplay();
-  display.setCursor(9, 26);
-  display.print(F("Formatting EEPROM.."));
+  drawPopupMenu(bootMenu, NUM_ITEMS_BOOT_POPUP);
   display.display();
-}
+  while (buttonCode > 0)  //wait for no button release to prevent false trigger
+  {
+    readSwitchesAndButtons();
+  }
 
-//================================== Loading... message ============================================
-void DrawLoadingMsg()
-{
-  display.clearDisplay();
-  display.setCursor(37, 26);
-  display.print(F("Loading.."));
-  display.display();
+  while(1)
+  {
+    delay(30);
+ 
+    readSwitchesAndButtons();
+    determineButtonEvent();
+    
+    display.clearDisplay();
+    
+    changeFocusOnUPDOWN(NUM_ITEMS_BOOT_POPUP);
+    drawPopupMenu(bootMenu, NUM_ITEMS_BOOT_POPUP);
+    
+    display.display();
+    
+    uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
+    
+    if(_selection == 1) 
+    {
+      changeToScreen(MODE_CALIB);
+      return; //exit
+    }
+    else if(_selection == 2) 
+    {
+      showPktsPerSec = true;
+      return; //exit
+    }
+    else if(_selection == 3)
+    {
+      DisplayFullScreenMsg(F("Press any key"));
+      readSwitchesAndButtons();
+      while(buttonCode == 0) //wait for a key press before proceeding
+      {
+        readSwitchesAndButtons();
+        delay(30);
+      }
+      delay(200);
+      EEPROM.write(0, 0xFF); //Clear EEPROM init flag
+      return; //exit 
+    }
+    else if(_selection == 4 || heldButton == SELECT_KEY) 
+    {
+      return; //exit
+    }
+  }
 }
-
-//================================= Throttle warning message =======================================
-void DrawThrottleWarning()
-{
-  display.clearDisplay();
-  drawWarning(F("Check throttle"));
-  display.display();
-}
-
 
 ///=================================================================================================
 ///                                 Main user interface 
@@ -241,17 +280,11 @@ void HandleMainUI()
     Three buttons are used for interaction; select, up, and down. Longpressing select acts as back.
   */
 
-  ///------------ DETECT BUTTON EVENTS -----------------------------
-  detectButtonEvents();
-  //play keytones. This can be overidden
-  if(pressedButton > 0) 
-    audioToPlay = AUDIO_KEYTONE;
-
-  ///------------ THROTTLE TIMER -----------------------------------
+  ///------------ THROTTLE TIMER -----------------
   //controlled by throttle stick value. If throttle is above threshold, run, else pause.
   
-  int thStpwtch = -500 + (10 * int(throttleTimerMinThrottle));
-  unsigned long timerCountDownInitVal = throttleTimerCntDnInitMinutes * 60000UL;
+  int thStpwtch = -500 + (10 * int(Model.throttleTimerMinThrottle));
+  unsigned long timerCountDownInitVal = Model.throttleTimerCntDnInitMinutes * 60000UL;
   if (throttleIn >= thStpwtch && SwAEngaged == false) //run throttle timer
     throttleTimerElapsedTime = throttleTimerLastElapsedTime + millis() - throttleTimerLastPaused;
   else //pause timer
@@ -260,7 +293,7 @@ void HandleMainUI()
     throttleTimerLastPaused = millis();
   }
   //play audio
-  if(throttleTimerType == TIMERCOUNTDOWN && throttleTimerElapsedTime > timerCountDownInitVal)
+  if(Model.throttleTimerType == TIMERCOUNTDOWN && throttleTimerElapsedTime > timerCountDownInitVal)
   {
     if((throttleTimerElapsedTime - timerCountDownInitVal) < 500) //only play sound within this timeframe
       audioToPlay = AUDIO_TIMERELAPSED;
@@ -276,14 +309,12 @@ void HandleMainUI()
   }
 
   /// -------------- LOW BATTERY WARN ----------------------
-  if(battState == _BATTLOW)
+  if(battState == BATTLOW)
   {
     if(battWarnDismissed == false)
     {
       //show warning
-      display.clearDisplay();
-      drawWarning(F("Battery Low"));
-      display.display();
+      DisplayFullScreenMsg(F("Battery Low"));
       audioToPlay = AUDIO_BATTERYWARN; 
       //dismiss warning
       if((clickedButton > 0 || millis() - battWarnMillisQQ > 3000))
@@ -309,7 +340,10 @@ void HandleMainUI()
   {
     case HOME_SCREEN:
       {
-        static bool isExtendedMode = false;
+        enum {NORMALMODE = 0, DIGCHMODE, TRIMMODE };
+        static uint8_t homeScreenMode = NORMALMODE;
+
+        static uint8_t _selectedTrim = 0; //AIL, ELE, THR, RUD
         
         //----------Show a graphical battery gauge---------
         //This crude battery fuel gauge doesnt cater for state of charge measurement...
@@ -317,70 +351,71 @@ void HandleMainUI()
         display.drawRect(0, 0, 18, 7, BLACK);
         display.drawVLine(18, 2, 3, BLACK);
         
-        int8_t numOfBars = 0;
         static int8_t lastNumOfBars = 19;
         
-        if(battVoltsNow > battVoltsMin)
+        if(battState == BATTHEALTY)
         {
-          long _numBars = (battVoltsNow - battVoltsMin) * 20L; 
-          _numBars /= battVoltsMax - battVoltsMin;
-          numOfBars = _numBars & 0xFF;
-          if(numOfBars > 19) numOfBars = 19;
-        }
-        
-        if (numOfBars > lastNumOfBars && numOfBars - lastNumOfBars < 2) //avoid gauge jitter at boundaries
-          numOfBars = lastNumOfBars;
-        
-        if(battState == _BATTGOOD)
-        {
+          long _numBars = (20L *(battVoltsNow - battVoltsMin)) / (battVoltsMax - battVoltsMin); 
+          int8_t numOfBars = _numBars & 0xFF;
+          if(numOfBars > 19) 
+            numOfBars = 19;
+          if (numOfBars > lastNumOfBars && numOfBars - lastNumOfBars < 2) //prevent jitter at boundaries
+            numOfBars = lastNumOfBars;
           for(int8_t i = 0; i < (numOfBars/4 + 1); i++)
             display.fillRect(2 + i*3, 2, 2, 3, BLACK);
+          lastNumOfBars = numOfBars;
         }
-        
-        lastNumOfBars = numOfBars;
-        
+
         //---------show cut icon -----------
         if (SwAEngaged == true)
-          display.drawBitmap(63, 1, cut_icon, 13, 6, 1);
+        {
+          for(int i = 0; i < NUM_PRP_CHANNLES; i++)
+          {
+            if(Model.CutValue[i] > 0) //if cut specified
+            {
+              display.drawBitmap(63, 1, cut_icon, 13, 6, 1);
+              break;
+            }
+          }
+        }
         
         //---------show dualrate icon --------
-        if (SwBEngaged && (DualRateEnabled[AILRTE] || DualRateEnabled[ELERTE] || DualRateEnabled[RUDRTE]))
+        if (SwBEngaged && (Model.DualRateEnabled[AILRTE] || Model.DualRateEnabled[ELERTE] || Model.DualRateEnabled[RUDRTE]))
           display.drawBitmap(79, 1, dualrate_icon, 13, 6, 1);
         
         //--------show rf icon------------
-        if (rfModuleEnabled == true)
+        if (Sys.rfOutputEnabled == true)
           display.drawBitmap(97, 0, rf_icon, 7, 7, 1);
         
         //--------show mute icon------------
-        if (soundMode == SOUND_OFF)
+        if (Sys.soundMode == SOUND_OFF)
           display.drawBitmap(41, 0, mute_icon, 7, 7, 1);
 
         //------show model name-----------
         display.setCursor(20, 16);
-        strcpy_P(txtBuff, PSTR("        "));
-        if(strcmp(modelName, txtBuff) == 0) //if modelName not specified
+        if(isDefaultModelName(Model.modelName, sizeof(Model.modelName)/sizeof(Model.modelName[0])))
         {
           display.print(F("MODEL"));
-          display.print(activeModel);
+          display.print(Sys.activeModel);
         }
         else
-          display.print(modelName);
+          display.print(Model.modelName);
         
         // draw separator
         display.drawHLine(20,27,84,BLACK);
 
         //----show throttle timer---------
         display.drawBitmap(13, 33, pow_icon, 4, 5, 1);
-        if(throttleTimerType == TIMERCOUNTUP)
+        if(Model.throttleTimerType == TIMERCOUNTUP)
           printHHMMSS(throttleTimerElapsedTime, 20, 32);
-        else if(throttleTimerType == TIMERCOUNTDOWN)
+        else if(Model.throttleTimerType == TIMERCOUNTDOWN)
         {
-          unsigned long timerCountDownInitVal = throttleTimerCntDnInitMinutes * 60000UL;
+          unsigned long timerCountDownInitVal = Model.throttleTimerCntDnInitMinutes * 60000UL;
           if(throttleTimerElapsedTime < timerCountDownInitVal)
           {
             unsigned long ttqq = timerCountDownInitVal - throttleTimerElapsedTime;
-            printHHMMSS(ttqq + 999, 20, 32); /*add 999ms so the displayed time doesnt 
-            change immediately upon running the timer*/
+            printHHMMSS(ttqq + 999, 20, 32); //add 999ms so the displayed time doesnt 
+            //change immediately upon running the timer
           }
           else
           {
@@ -395,53 +430,87 @@ void HandleMainUI()
               printHHMMSS(ttqq, 20, 32);
           }
         }
+        
 
-        //-------show generic timer ------------
+        //------- Show generic timer ------------
         printHHMMSS(stopwatchElapsedTime, 20, 45);
 
-        //---- Extended mode. Show digital channels -----
-        if(isExtendedMode == true)
+        //------ Control -----
+        if(homeScreenMode == DIGCHMODE) //show and control digital channels
         {
-          DigChA = (buttonCode == UP_KEY)? 1 : 0;
-          if (pressedButton == SELECT_KEY)
-          {
-            DigChB = (~DigChB) & 0x01; //toggle
-          }
-
-          //show on lcd
-          uint8_t _outChAB[2] = {DigChA, DigChB};
-          for (int i = 0; i < 2; i++)
-          {
-            if (_outChAB[i] == 1)
-            {
-              display.fillRect(109, 28 * i, 18, 11, BLACK);
-              display.setTextColor(WHITE);
-            }
-            else
-              display.drawRect(109, 28 * i, 18, 11, BLACK);
-            display.setCursor(113, 2 + 28 * i);
-            display.print(9 + i);
-            display.setTextColor(BLACK);
-          }
-          
-          //show lock icon
           display.drawBitmap(53, 0, lock_icon, 6, 7, 1); 
+          //handle keys
+          DigChA = (buttonCode == UP_KEY)? 1 : 0; 
+          if(pressedButton == SELECT_KEY) 
+            DigChB = ~DigChB & 0x01; //toggle
+          //draw
+          if(DigChA) display.drawBitmap(110, 1, chA_icon1, 9, 9, 1);
+          else display.drawBitmap(110, 1, chA_icon0, 9, 9, 1);
+          if(DigChB) display.drawBitmap(110, 29, chB_icon1, 9, 9, 1);
+          else display.drawBitmap(110, 29, chB_icon0, 9, 9, 1);
+        }
+        else if(homeScreenMode == TRIMMODE) //adjust trims
+        {
+          display.drawBitmap(53, 0, lock_icon, 6, 7, 1); 
+          
+          if(pressedButton == SELECT_KEY) //prevent possible double beeps
+            audioToPlay = AUDIO_NONE;
+          //handle keys
+          if(clickedButton == SELECT_KEY) 
+          {
+            audioToPlay = AUDIO_TRIMSELECTED;
+            _selectedTrim++;
+            if(_selectedTrim > 3)
+              _selectedTrim = 0;
+          }
+          Model.Trim[_selectedTrim] = adjustTrim(DOWN_KEY, UP_KEY, Model.Trim[_selectedTrim]);
+          //show values
+          if(_selectedTrim == 0)      showTrimData(F("Ail"), Model.Trim[0]);
+          else if(_selectedTrim == 1) showTrimData(F("Ele"), Model.Trim[1]);
+          else if(_selectedTrim == 2) showTrimData(F("Thr"), Model.Trim[2]);
+          else if(_selectedTrim == 3) showTrimData(F("Rud"), Model.Trim[3]);
+          
+          display.drawHLine(68, 62, 51, BLACK);
+          display.drawVLine(126, 12, 51, BLACK);
+          display.drawVLine(1, 12, 51, BLACK);
+          display.drawHLine(9, 62, 51, BLACK);
+          //draw slider icons
+          display.drawRect(Model.Trim[0] - 8, 61, 3, 3, BLACK);
+          display.drawRect(125, 136 - Model.Trim[1], 3, 3, BLACK);
+          display.drawRect(0, 136 - Model.Trim[2], 3, 3, BLACK);
+          display.drawRect(Model.Trim[3] - 67, 61, 3, 3, BLACK); 
+          //draw midpoints
+          display.drawPixel(93, 62, WHITE);
+          display.drawPixel(126, 37, WHITE);
+          display.drawPixel(1, 37, WHITE);
+          display.drawPixel(34, 62, WHITE);           
         }
         
-        //--------Handle other key presses------------
-        if (clickedButton == DOWN_KEY)
-          changeToScreen(POPUP_TIMER_MENU);
-        else if (clickedButton == SELECT_KEY && isExtendedMode == false)
+        //------------------------------
+        
+        if (homeScreenMode == NORMALMODE && clickedButton == SELECT_KEY)
           changeToScreen(MAIN_MENU);
-        else if (heldButton == DOWN_KEY)
+        else if (homeScreenMode != TRIMMODE && clickedButton == DOWN_KEY)
+          changeToScreen(POPUP_TIMER_MENU);
+        else if(homeScreenMode != TRIMMODE && heldButton == DOWN_KEY 
+                && ((millis() - buttonStartTime) > (LONGPRESSTIME + 400)))
         {
-          audioToPlay = AUDIO_NONE; //overide
-          if(((millis() - buttonStartTime) > (LONGPRESSTIME + 400UL)))
-          {
-            audioToPlay = AUDIO_KEYTONE;
-            isExtendedMode = !isExtendedMode;
-            heldButton = 0;
-          }
+          audioToPlay = AUDIO_KEYTONE;
+          if(homeScreenMode == NORMALMODE) 
+            homeScreenMode = DIGCHMODE;
+          else if(homeScreenMode == DIGCHMODE)
+            homeScreenMode = NORMALMODE;
+          heldButton = 0;
+        }
+        else if(homeScreenMode != DIGCHMODE && heldButton == SELECT_KEY 
+                && ((millis() - buttonStartTime) > (LONGPRESSTIME + 400)))
+        {
+          audioToPlay = AUDIO_SWITCHMOVED;
+          if(homeScreenMode == NORMALMODE) 
+            homeScreenMode = TRIMMODE;
+          else if(homeScreenMode == TRIMMODE)
+            homeScreenMode = NORMALMODE;
+          heldButton = 0;
         }
         
       }
@@ -489,24 +558,24 @@ void HandleMainUI()
       
         display.setCursor(1, 10);
         display.print(F("Throttle >=  "));
-        display.print(throttleTimerMinThrottle);
+        display.print(Model.throttleTimerMinThrottle);
         display.print(F("%"));
         
         display.setCursor(1, 19);
         display.print(F("Timer type:  "));
-        if(throttleTimerType == TIMERCOUNTDOWN)
+        if(Model.throttleTimerType == TIMERCOUNTDOWN)
           display.print(F("CntDn"));
-        else if(throttleTimerType == TIMERCOUNTUP)
+        else if(Model.throttleTimerType == TIMERCOUNTUP)
           display.print(F("CntUp"));
         
         uint8_t _maxFocusableItems = 2;
         
-        if(throttleTimerType == TIMERCOUNTDOWN)
+        if(Model.throttleTimerType == TIMERCOUNTDOWN)
         {
           _maxFocusableItems = 3;
           display.setCursor(31, 28);
           display.print(F("Start:  "));
-          display.print(throttleTimerCntDnInitMinutes);
+          display.print(Model.throttleTimerCntDnInitMinutes);
           display.print(F(" min"));
         }
       
@@ -515,15 +584,15 @@ void HandleMainUI()
         drawCursor(71, (focusedItem * 9) + 1);
         
         if (focusedItem == 1)
-          throttleTimerMinThrottle = incrDecrU8tOnUPDOWN(throttleTimerMinThrottle, 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.throttleTimerMinThrottle = incrDecrU8tOnUPDOWN(Model.throttleTimerMinThrottle, 0, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 2)
-          throttleTimerType = incrDecrU8tOnUPDOWN(throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
+          Model.throttleTimerType = incrDecrU8tOnUPDOWN(Model.throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
         else if(focusedItem == 3)
-          throttleTimerCntDnInitMinutes = incrDecrU8tOnUPDOWN(throttleTimerCntDnInitMinutes, 1, 240, NOWRAP, PRESSED_OR_HELD);
+          Model.throttleTimerCntDnInitMinutes = incrDecrU8tOnUPDOWN(Model.throttleTimerCntDnInitMinutes, 1, 240, NOWRAP, PRESSED_OR_HELD);
       
         if (heldButton == SELECT_KEY)
         {
-          eeUpdateModelBasicData(activeModel);
+          eeSaveModelData(Sys.activeModel);
           changeToScreen(HOME_SCREEN);
         }
       }
@@ -550,99 +619,125 @@ void HandleMainUI()
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MODEL])));
         drawHeader();
 
-        enum{LOADMODEL = 1, COPYMODEL, RENAMEMODEL, RESETMODEL, DELETEMODEL};
+        enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL, DELETEMODEL};
         static uint8_t _action_ = LOADMODEL;
-        static uint8_t _thisMdl_ = activeModel;
-
-        display.setCursor(49, 12);
-        if (_action_ == LOADMODEL)
-          display.print(F("Load"));
-        else if (_action_ == COPYMODEL)
-          display.print(F("Copy from"));
-        else if (_action_ == RENAMEMODEL)
-          display.print(F("Rename"));
-        else if (_action_ == RESETMODEL)
-          display.print(F("Reset"));
-        else if (_action_ == DELETEMODEL)
-          display.print(F("Delete"));
+        static uint8_t _thisMdl_ = Sys.activeModel;
         
-        strcpy_P(txtBuff, PSTR("        ")); //copy empty model name to txtBuff for comparison
-        uint8_t _modelNo = activeModel;
-        if(_action_ == LOADMODEL || _action_ == COPYMODEL)
-          _modelNo = _thisMdl_;
+        char _tmpBuff[sizeof(Model.modelName)/sizeof(Model.modelName[0])]; //for model names
+        
+        //-- show action
+        display.setCursor(49, 12);
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(modelActionStr[_action_])));
+        display.print(txtBuff);
+
+        //-- show model name
+        
+        if(_action_ > COPYFROMMODEL)
+          _thisMdl_ = Sys.activeModel; //reinit
+        
         display.setCursor(49, 22);
-        eeReadModelName(_modelNo);
-        if(strcmp(modelName, txtBuff) == 0) //if modelName not specified
+        
+        eeCopyModelName(_thisMdl_, _tmpBuff); //copy model name into temporary buffer
+        if(isDefaultModelName(_tmpBuff, sizeof(_tmpBuff)/sizeof(_tmpBuff[0])))
         { 
           display.print(F("MODEL"));
-          display.print(_modelNo);
+          display.print(_thisMdl_);
         }
         else
-          display.print(modelName);
-
+          display.print(_tmpBuff);
+        
+        //-- show confirmation
         display.setCursor(49, 32);
         display.print(F("Confirm"));
+
 
         changeFocusOnUPDOWN(3);
         toggleEditModeOnSelectClicked();
         drawCursor(41, (focusedItem * 10) + 2);
         
         if (focusedItem == 1) 
-          _action_ = incrDecrU8tOnUPDOWN(_action_, 1, 5, WRAP, SLOW_CHANGE);
-        else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYMODEL))
-          _thisMdl_ = incrDecrU8tOnUPDOWN(_thisMdl_, 1, 5, WRAP, SLOW_CHANGE);
+          _action_ = incrDecrU8tOnUPDOWN(_action_, 0, 4, WRAP, SLOW_CHANGE);
+        
+        else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYFROMMODEL))
+          _thisMdl_ = incrDecrU8tOnUPDOWN(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
+        
         else if (focusedItem == 3 && isEditMode) //confirm action
         {
           if(_action_ == RENAMEMODEL)
           {
             _action_ = LOADMODEL; //reinit
-            _thisMdl_ = activeModel; //reinit
-            eeReadModelName(activeModel);
+            _thisMdl_ = Sys.activeModel; //reinit
             changeToScreen(POPUP_RENAME_MODEL);
           }
           else
           {
             if(_action_ == LOADMODEL)
             {
+              //Save the active model before changing to another model
+              eeSaveModelData(Sys.activeModel);
+              //load into ram
+              eeReadModelData(_thisMdl_);
+              //set as active model
+              Sys.activeModel = _thisMdl_; 
+
               makeToast(F("Loaded"), 1500);
-              activeModel = _thisMdl_;
-              eeReadModelName(activeModel);
             }
-            else if(_action_ == COPYMODEL)
+            else if(_action_ == COPYFROMMODEL)
             {
-              makeToast(F("Copied"), 1500);
-              eeCopyModel(_thisMdl_, activeModel);
-            }
-            else if(_action_ == RESETMODEL)
-            {
-              makeToast(F("Reset"), 1500);
-              eeCopyModel(6, activeModel); 
-            }
-            else if(_action_ == DELETEMODEL)
-            {
-              makeToast(F("Deleted"), 1500);
-              eeCopyModel(6, activeModel);
-              eeReadModelName(6);
-              eeUpdateModelName(activeModel);
-            }
+              //temporarily store model name as we shall maintain it 
+              strcpy(_tmpBuff, Model.modelName);
+              //load source model into ram
+              eeReadModelData(_thisMdl_);
+              //restore model name
+              strcpy(Model.modelName, _tmpBuff);
+              //save
+              eeSaveModelData(Sys.activeModel);
               
-            eeReadModelBasicData(activeModel);
-            eeReadMixData(activeModel);
-            rfModuleEnabled = false;
+              makeToast(F("Copied"), 1500);
+            }
+            else if (_action_ == RESETMODEL)
+            {
+              //set defaults, except the name
+              setDefaultModelBasicParams();
+              setDefaultModelMixerParams();
+              //save
+              eeSaveModelData(Sys.activeModel);
+
+              makeToast(F("Reset"), 1500);
+            }
+            else if (_action_ == DELETEMODEL)
+            {
+              //set defaults, as well as name
+              setDefaultModelBasicParams();
+              setDefaultModelMixerParams();
+              setDefaultModelName();
+              //save
+              eeSaveModelData(Sys.activeModel);
+              
+              makeToast(F("Deleted"), 1500);
+            }
+
+            //reset other stuff
             resetThrottleTimer();
-            eeUpdateSysConfig();
-            _action_ = LOADMODEL;
-            _thisMdl_ = activeModel;
-            eeReadModelName(activeModel);
+            Sys.rfOutputEnabled = false;
+            
+            //save system
+            eeSaveSysConfig();
+            
+            //reinit
+            _action_  = LOADMODEL;
+            _thisMdl_ = Sys.activeModel;
+            
             changeToScreen(HOME_SCREEN);
           }
         }
 
         if (heldButton == SELECT_KEY)
         {
+          //reinit
           _action_ = LOADMODEL;
-          _thisMdl_ = activeModel;
-          eeReadModelName(activeModel);
+          _thisMdl_ = Sys.activeModel;
+          
           changeToScreen(MAIN_MENU);
         }
       }
@@ -654,15 +749,15 @@ void HandleMainUI()
         
         display.setCursor(19,14);
         display.print(F("Rename Model"));
-        display.print(activeModel); 
+        display.print(Sys.activeModel); 
         display.setCursor(19,23);
         display.print(F("Name:  "));
-        display.print(modelName);
+        display.print(Model.modelName);
         
         isEditMode = true;
 
         static uint8_t charPos = 0;
-        uint8_t thisChar = *(modelName+charPos) ;
+        uint8_t thisChar = Model.modelName[charPos] ;
         
         if(thisChar == 32) thisChar = 0; //map ascii 32 (space) to 0
         else if(thisChar >= 65 && thisChar <= 90) thisChar -= 64; //map ascii 65..90 to 1..26
@@ -676,7 +771,7 @@ void HandleMainUI()
         else if(thisChar >= 27 && thisChar <= 39) thisChar += 18; //map 27..39 to ascii 45..57
 
         //write
-        *(modelName+charPos) = thisChar;
+        Model.modelName[charPos] = thisChar;
         
         //draw blinking cursor
         if ((millis() - buttonReleaseTime) % 1000 < 500 || buttonCode > 0)
@@ -691,10 +786,10 @@ void HandleMainUI()
           heldButton = 0; //override. prevents false triggers
         }
           
-        if(charPos == (sizeof(modelName)/sizeof(modelName[0])) - 1) //done renaming. Exit
+        if(charPos == (sizeof(Model.modelName)/sizeof(Model.modelName[0])) - 1) //done renaming. Exit
         {
           charPos = 0;
-          eeUpdateModelName(activeModel);
+          eeSaveModelData(Sys.activeModel);
           changeToScreen(HOME_SCREEN); 
           makeToast(F("Done"), 1500);
         }
@@ -706,14 +801,14 @@ void HandleMainUI()
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_CURVES])));
         drawHeader();
 
-        enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE = 3};
+        enum{AIL_CURVE = 0, ELE_CURVE, RUD_CURVE, THR_CURVE};
         static uint8_t displayedCurve = AIL_CURVE;
         
         if (focusedItem == 1) //switch to another curve
-          displayedCurve = incrDecrU8tOnUPDOWN(displayedCurve, AIL_CURVE, THR_CURVE, WRAP, SLOW_CHANGE);
+          displayedCurve = incrDecrU8tOnUPDOWN(displayedCurve, 0, 3, WRAP, SLOW_CHANGE);
           
         uint8_t _maxFocusableItems = 1;
-    
+        
         /////////////////RATES AND EXPO////////////////////////////////////////
         if(displayedCurve < THR_CURVE)  
         {  
@@ -724,66 +819,66 @@ void HandleMainUI()
           //-----Pass parameters to the arrays for rates and expo-----
           if (displayedCurve == AIL_CURVE)
           {
-            _rate[0] = RateNormal[AILRTE];
-            _rate[1] = RateSport[AILRTE];
-            _expo[0] = ExpoNormal[AILRTE];
-            _expo[1] = ExpoSport[AILRTE];
+            _rate[0] = Model.RateNormal[AILRTE];
+            _rate[1] = Model.RateSport[AILRTE];
+            _expo[0] = Model.ExpoNormal[AILRTE];
+            _expo[1] = Model.ExpoSport[AILRTE];
           }
           else if (displayedCurve == ELE_CURVE)
           {
-            _rate[0] = RateNormal[ELERTE];
-            _rate[1] = RateSport[ELERTE];
-            _expo[0] = ExpoNormal[ELERTE];
-            _expo[1] = ExpoSport[ELERTE];
+            _rate[0] = Model.RateNormal[ELERTE];
+            _rate[1] = Model.RateSport[ELERTE];
+            _expo[0] = Model.ExpoNormal[ELERTE];
+            _expo[1] = Model.ExpoSport[ELERTE];
           }
           else if (displayedCurve == RUD_CURVE)
           {
-            _rate[0] = RateNormal[RUDRTE];
-            _rate[1] = RateSport[RUDRTE];
-            _expo[0] = ExpoNormal[RUDRTE];
-            _expo[1] = ExpoSport[RUDRTE];
+            _rate[0] = Model.RateNormal[RUDRTE];
+            _rate[1] = Model.RateSport[RUDRTE];
+            _expo[0] = Model.ExpoNormal[RUDRTE];
+            _expo[1] = Model.ExpoSport[RUDRTE];
           }
           
           //-----Adjudt values on key presses----
           if (focusedItem == 2) //adjust rate
           {
-            if(SwBEngaged == false || DualRateEnabled[displayedCurve] == false)
+            if(SwBEngaged == false || Model.DualRateEnabled[displayedCurve] == false)
               _rate[0] = incrDecrU8tOnUPDOWN(_rate[0], 0, 100, NOWRAP, PRESSED_OR_HELD); 
             else
               _rate[1] = incrDecrU8tOnUPDOWN(_rate[1], 0, 100, NOWRAP, PRESSED_OR_HELD); 
           }
           else if (focusedItem == 3) //adjust expo
           {
-            if(SwBEngaged == false || DualRateEnabled[displayedCurve] == false)
+            if(SwBEngaged == false || Model.DualRateEnabled[displayedCurve] == false)
               _expo[0] = incrDecrU8tOnUPDOWN(_expo[0], 0, 200, NOWRAP, PRESSED_OR_HELD);
             else 
               _expo[1] = incrDecrU8tOnUPDOWN(_expo[1], 0, 200, NOWRAP, PRESSED_OR_HELD);
           }
           else if (focusedItem == 4) //toggle dualrate
-            DualRateEnabled[displayedCurve] = incrDecrU8tOnUPDOWN(DualRateEnabled[displayedCurve],0,1,WRAP,PRESSED_ONLY);
+            Model.DualRateEnabled[displayedCurve] = incrDecrU8tOnUPDOWN(Model.DualRateEnabled[displayedCurve],0,1,WRAP,PRESSED_ONLY);
         
           
           //------ Write the values ------
           if (displayedCurve == AIL_CURVE)
           {
-            RateNormal[AILRTE] = _rate[0];
-            RateSport[AILRTE]  = _rate[1];
-            ExpoNormal[AILRTE] = _expo[0];
-            ExpoSport[AILRTE]  = _expo[1];
+            Model.RateNormal[AILRTE] = _rate[0];
+            Model.RateSport[AILRTE]  = _rate[1];
+            Model.ExpoNormal[AILRTE] = _expo[0];
+            Model.ExpoSport[AILRTE]  = _expo[1];
           }
           else if (displayedCurve == ELE_CURVE)
           {
-            RateNormal[ELERTE] = _rate[0];
-            RateSport[ELERTE]  = _rate[1];
-            ExpoNormal[ELERTE] = _expo[0];
-            ExpoSport[ELERTE]  = _expo[1];
+            Model.RateNormal[ELERTE] = _rate[0];
+            Model.RateSport[ELERTE]  = _rate[1];
+            Model.ExpoNormal[ELERTE] = _expo[0];
+            Model.ExpoSport[ELERTE]  = _expo[1];
           }
           else if (displayedCurve == RUD_CURVE)
           {
-            RateNormal[RUDRTE] = _rate[0];
-            RateSport[RUDRTE]  = _rate[1];
-            ExpoNormal[RUDRTE] = _expo[0];
-            ExpoSport[RUDRTE]  = _expo[1];
+            Model.RateNormal[RUDRTE] = _rate[0];
+            Model.RateSport[RUDRTE]  = _rate[1];
+            Model.ExpoNormal[RUDRTE] = _expo[0];
+            Model.ExpoSport[RUDRTE]  = _expo[1];
           }
           
           //----Show on screen----
@@ -808,7 +903,7 @@ void HandleMainUI()
           }
           
           uint8_t _datIDX = 1; 
-          if(SwBEngaged == false || DualRateEnabled[displayedCurve] == false)
+          if(SwBEngaged == false || Model.DualRateEnabled[displayedCurve] == false)
             _datIDX = 0; 
           
           display.setCursor(0, 20);
@@ -822,12 +917,12 @@ void HandleMainUI()
           
           display.setCursor(0, 38);
           display.print(F("D/R :  "));
-          drawCheckbox(42, 38, DualRateEnabled[displayedCurve]);
+          drawCheckbox(42, 38, Model.DualRateEnabled[displayedCurve]);
 
           if( SwBEngaged == true 
-              && ((displayedCurve == AIL_CURVE && DualRateEnabled[AILRTE] == true)
-                   || (displayedCurve == ELE_CURVE && DualRateEnabled[ELERTE] == true)
-                   || (displayedCurve == RUD_CURVE && DualRateEnabled[RUDRTE] == true)))
+              && ((displayedCurve == AIL_CURVE && Model.DualRateEnabled[AILRTE] == true)
+                   || (displayedCurve == ELE_CURVE && Model.DualRateEnabled[ELERTE] == true)
+                   || (displayedCurve == RUD_CURVE && Model.DualRateEnabled[RUDRTE] == true)))
           { 
             display.drawRect(0,47,33,11,BLACK);
             display.setCursor(2,49);
@@ -840,7 +935,7 @@ void HandleMainUI()
           int qq = calcRateExpo(_stickInpt, _rate[_datIDX], _expo[_datIDX]) / 20;
           display.fillRect(99 + _stickInpt/20, 35 - qq, 3, 3, BLACK);
         }
-
+    
         ////////////////THROTTLE CURVE////////////////////////////////////////
         if(displayedCurve == THR_CURVE)
         {
@@ -853,7 +948,7 @@ void HandleMainUI()
           if (focusedItem >= 2)
           {
             int _idx = 6 - focusedItem;
-            ThrottlePts[_idx] = incrDecrU8tOnUPDOWN(ThrottlePts[_idx], 0, 200, NOWRAP, PRESSED_OR_HELD);
+            Model.ThrottlePts[_idx] = incrDecrU8tOnUPDOWN(Model.ThrottlePts[_idx], 0, 200, NOWRAP, PRESSED_OR_HELD);
           }
    
           display.setCursor(0,20);
@@ -863,10 +958,10 @@ void HandleMainUI()
             display.setCursor(18, 20 + i * 9);
             display.write(101 - i); //e,d,c,b,a
             display.print(F(":  "));
-            display.print(ThrottlePts[4 - i] - 100);
+            display.print(Model.ThrottlePts[4 - i] - 100);
           }
           
-          //----Show graph 
+          //----Show graph
           
           //draw the axes
           display.drawVLine(100, 11, 51, BLACK);
@@ -877,7 +972,7 @@ void HandleMainUI()
           int xpts[5] = {0, 250, 500, 750, 1000};
           int ypts[5];
           for(int i = 0; i < 5; i++)
-            ypts[i] = (int)ThrottlePts[i] * 5;
+            ypts[i] = (int)Model.ThrottlePts[i] * 5;
                             
           for (int xval = 0; xval <= 50; xval++) //plot
           {
@@ -907,7 +1002,7 @@ void HandleMainUI()
         ////// Exit
         if (heldButton == SELECT_KEY)
         {
-          eeUpdateModelBasicData(activeModel);
+          eeSaveModelData(Sys.activeModel);
           changeToScreen(MAIN_MENU);
         }
       }
@@ -924,46 +1019,46 @@ void HandleMainUI()
         
         display.setCursor(6, 16);
         display.print(F("Output:  "));
-        int _outNameIndex = MixOut[thisMixNum];
+        int _outNameIndex = Model.MixOut[thisMixNum];
         strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_outNameIndex])));
         display.print(txtBuff);
         
         display.setCursor(12, 24);
         display.print(F("Input:  "));
-        int _In1NameIndex = MixIn1[thisMixNum];
+        int _In1NameIndex = Model.MixIn1[thisMixNum];
         strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])));
         display.print(txtBuff);
         
         display.setCursor(97, 24);
-        int _In2NameIndex = MixIn2[thisMixNum];
+        int _In2NameIndex = Model.MixIn2[thisMixNum];
         strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])));
         display.print(txtBuff);
         
         display.setCursor(6, 32);
         display.print(F("Weight:  "));
-        display.print(MixIn1Weight[thisMixNum] - 100);
+        display.print(Model.MixIn1Weight[thisMixNum] - 100);
         display.print(F("%"));
         display.setCursor(97, 32);
-        display.print(MixIn2Weight[thisMixNum] - 100);
+        display.print(Model.MixIn2Weight[thisMixNum] - 100);
         display.print(F("%"));
         
         display.setCursor(18, 40);
         display.print(F("Diff:  "));
-        display.print(MixIn1Diff[thisMixNum] - 100);
+        display.print(Model.MixIn1Diff[thisMixNum] - 100);
         display.print(F("%"));
         display.setCursor(97, 40);
-        display.print(MixIn2Diff[thisMixNum] - 100);
+        display.print(Model.MixIn2Diff[thisMixNum] - 100);
         display.print(F("%"));
         
         display.setCursor(6, 48);
         display.print(F("Offset:  "));
-        display.print(MixIn1Offset[thisMixNum] - 100);
+        display.print(Model.MixIn1Offset[thisMixNum] - 100);
         display.setCursor(97, 48);
-        display.print(MixIn2Offset[thisMixNum] - 100);
+        display.print(Model.MixIn2Offset[thisMixNum] - 100);
         
         display.setCursor(24, 56);
         display.print(F("Mux:  "));
-        if(MixOperator[thisMixNum] == 0)
+        if(Model.MixOperator[thisMixNum] == 0)
           display.print(F("Add"));
         else 
           display.print(F("Multiply"));
@@ -986,25 +1081,25 @@ void HandleMainUI()
         if (focusedItem == 1)     //Change to another mixer slot
           thisMixNum = incrDecrU8tOnUPDOWN(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, SLOW_CHANGE);
         else if(focusedItem == 2) //change output
-          MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(MixOut[thisMixNum], 9, 23, NOWRAP, SLOW_CHANGE);
+          Model.MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOut[thisMixNum], IDX_NONE, IDX_VRT2, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 3) //change input 1
-          MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1[thisMixNum], 0, 23, NOWRAP, SLOW_CHANGE);
+          Model.MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1[thisMixNum], 0, IDX_VRT2, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 4) //adjust weight 1
-          MixIn1Weight[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn1Weight[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 5) //adjust differential 1
-          MixIn1Diff[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn1Diff[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 6) //adjust offset 1
-          MixIn1Offset[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn1Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn1Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 7) //change operator
-          MixOperator[thisMixNum] = incrDecrU8tOnUPDOWN(MixOperator[thisMixNum], 0, 1, WRAP, PRESSED_ONLY);
+          Model.MixOperator[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOperator[thisMixNum], 0, 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 8) //change input 2
-          MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2[thisMixNum], 0, 23, NOWRAP, SLOW_CHANGE);
+          Model.MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2[thisMixNum], 0, IDX_VRT2, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 9) //adjust weight 2
-          MixIn2Weight[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn2Weight[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 10) //adjust differential 2
-          MixIn2Diff[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn2Diff[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 11) //adjust offset 2
-          MixIn2Offset[thisMixNum] = incrDecrU8tOnUPDOWN(MixIn2Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn2Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         
         //open context menu
         if(focusedItem == 12 && clickedButton == SELECT_KEY)
@@ -1013,7 +1108,7 @@ void HandleMainUI()
         //go back to main menu
         if (heldButton == SELECT_KEY)
         {
-          eeUpdateMixData(activeModel);
+          eeSaveModelData(Sys.activeModel);
           changeToScreen(MAIN_MENU);
         }
       }
@@ -1029,12 +1124,12 @@ void HandleMainUI()
         
         if(_selection == 1) //view outputs
         {
-          eeUpdateMixData(activeModel);
+          eeSaveModelData(Sys.activeModel);
           changeToScreen(MODE_MIXER_OUTPUT);
         }
         else if(_selection == 2) //reset this mix
         {
-          eeCopyMixFrom(6, thisMixNum); //copy from hidden default model
+          setDefaultModelMixerParams(thisMixNum);
           changeToScreen(MODE_MIXER);
         }
         else if(_selection == 3) //move mix
@@ -1051,9 +1146,7 @@ void HandleMainUI()
         }
         else if(_selection == 5) //reset all mixes
         {
-          for(int _thisMix = 0; _thisMix < NUM_MIXSLOTS; _thisMix++)
-            eeCopyMixFrom(6, _thisMix); //copy from hidden default model
-
+          setDefaultModelMixerParams();
           thisMixNum = 0;
           destMixNum = 0;
           changeToScreen(MODE_MIXER);
@@ -1072,7 +1165,7 @@ void HandleMainUI()
         display.print(F("Ch"));
         
         // Graph mixer outputs
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < NUM_PRP_CHANNLES; i++)
         {
           int _outVal = mixerChOutGraphVals[i] / 5;
           int _xOffset = i*13;
@@ -1120,16 +1213,16 @@ void HandleMainUI()
           uint8_t newPostn = destMixNum;
           
           //store temporarily the old position's data
-          uint8_t _mixout      =   MixOut[oldPostn];
-          uint8_t _mix1in      =   MixIn1[oldPostn];
-          uint8_t _mix1weight  =   MixIn1Weight[oldPostn];
-          uint8_t _mix1offset1 =   MixIn1Offset[oldPostn];
-          uint8_t _mix1diff    =   MixIn1Diff[oldPostn];
-          uint8_t _mixOper     =   MixOperator[oldPostn];
-          uint8_t _mix2in      =   MixIn2[oldPostn];
-          uint8_t _mix2weight  =   MixIn2Weight[oldPostn];
-          uint8_t _mix2offset1 =   MixIn2Offset[oldPostn];
-          uint8_t _mix2diff    =   MixIn2Diff[oldPostn];
+          uint8_t _mixout      =   Model.MixOut[oldPostn];
+          uint8_t _mix1in      =   Model.MixIn1[oldPostn];
+          uint8_t _mix1weight  =   Model.MixIn1Weight[oldPostn];
+          uint8_t _mix1offset1 =   Model.MixIn1Offset[oldPostn];
+          uint8_t _mix1diff    =   Model.MixIn1Diff[oldPostn];
+          uint8_t _mixOper     =   Model.MixOperator[oldPostn];
+          uint8_t _mix2in      =   Model.MixIn2[oldPostn];
+          uint8_t _mix2weight  =   Model.MixIn2Weight[oldPostn];
+          uint8_t _mix2offset1 =   Model.MixIn2Offset[oldPostn];
+          uint8_t _mix2diff    =   Model.MixIn2Diff[oldPostn];
           
           //shift elements of the arrays
           uint8_t thisPostn = oldPostn;
@@ -1137,16 +1230,16 @@ void HandleMainUI()
           {
             while(thisPostn > newPostn)
             {
-              MixOut[thisPostn]       = MixOut[thisPostn-1];
-              MixIn1[thisPostn]       = MixIn1[thisPostn-1];
-              MixIn1Weight[thisPostn] = MixIn1Weight[thisPostn-1];
-              MixIn1Offset[thisPostn] = MixIn1Offset[thisPostn-1];
-              MixIn1Diff[thisPostn]   = MixIn1Diff[thisPostn-1];
-              MixOperator[thisPostn]  = MixOperator[thisPostn-1];
-              MixIn2[thisPostn]       = MixIn2[thisPostn-1];
-              MixIn2Weight[thisPostn] = MixIn2Weight[thisPostn-1];
-              MixIn2Offset[thisPostn] = MixIn2Offset[thisPostn-1];
-              MixIn2Diff[thisPostn]   = MixIn2Diff[thisPostn-1];
+              Model.MixOut[thisPostn]       = Model.MixOut[thisPostn-1];
+              Model.MixIn1[thisPostn]       = Model.MixIn1[thisPostn-1];
+              Model.MixIn1Weight[thisPostn] = Model.MixIn1Weight[thisPostn-1];
+              Model.MixIn1Offset[thisPostn] = Model.MixIn1Offset[thisPostn-1];
+              Model.MixIn1Diff[thisPostn]   = Model.MixIn1Diff[thisPostn-1];
+              Model.MixOperator[thisPostn]  = Model.MixOperator[thisPostn-1];
+              Model.MixIn2[thisPostn]       = Model.MixIn2[thisPostn-1];
+              Model.MixIn2Weight[thisPostn] = Model.MixIn2Weight[thisPostn-1];
+              Model.MixIn2Offset[thisPostn] = Model.MixIn2Offset[thisPostn-1];
+              Model.MixIn2Diff[thisPostn]   = Model.MixIn2Diff[thisPostn-1];
               
               thisPostn--;
             }
@@ -1155,32 +1248,32 @@ void HandleMainUI()
           {
             while(thisPostn < newPostn)
             {
-              MixOut[thisPostn]       = MixOut[thisPostn+1];
-              MixIn1[thisPostn]       = MixIn1[thisPostn+1];
-              MixIn1Weight[thisPostn] = MixIn1Weight[thisPostn+1];
-              MixIn1Offset[thisPostn] = MixIn1Offset[thisPostn+1];
-              MixIn1Diff[thisPostn]   = MixIn1Diff[thisPostn+1];
-              MixOperator[thisPostn]  = MixOperator[thisPostn+1];
-              MixIn2[thisPostn]       = MixIn2[thisPostn+1];
-              MixIn2Weight[thisPostn] = MixIn2Weight[thisPostn+1];
-              MixIn2Offset[thisPostn] = MixIn2Offset[thisPostn+1];
-              MixIn2Diff[thisPostn]   = MixIn2Diff[thisPostn+1];
+              Model.MixOut[thisPostn]       = Model.MixOut[thisPostn+1];
+              Model.MixIn1[thisPostn]       = Model.MixIn1[thisPostn+1];
+              Model.MixIn1Weight[thisPostn] = Model.MixIn1Weight[thisPostn+1];
+              Model.MixIn1Offset[thisPostn] = Model.MixIn1Offset[thisPostn+1];
+              Model.MixIn1Diff[thisPostn]   = Model.MixIn1Diff[thisPostn+1];
+              Model.MixOperator[thisPostn]  = Model.MixOperator[thisPostn+1];
+              Model.MixIn2[thisPostn]       = Model.MixIn2[thisPostn+1];
+              Model.MixIn2Weight[thisPostn] = Model.MixIn2Weight[thisPostn+1];
+              Model.MixIn2Offset[thisPostn] = Model.MixIn2Offset[thisPostn+1];
+              Model.MixIn2Diff[thisPostn]   = Model.MixIn2Diff[thisPostn+1];
               
               thisPostn++;
             }
           }
           
           //copy from temporary into new position
-          MixOut[newPostn]       = _mixout;     
-          MixIn1[newPostn]       = _mix1in;    
-          MixIn1Weight[newPostn] = _mix1weight;
-          MixIn1Offset[newPostn] = _mix1offset1;
-          MixIn1Diff[newPostn]   = _mix1diff;  
-          MixOperator[newPostn]  = _mixOper;   
-          MixIn2[newPostn]       = _mix2in;    
-          MixIn2Weight[newPostn] = _mix2weight; 
-          MixIn2Offset[newPostn] = _mix2offset1;
-          MixIn2Diff[newPostn]   = _mix2diff;  
+          Model.MixOut[newPostn]       = _mixout;     
+          Model.MixIn1[newPostn]       = _mix1in;    
+          Model.MixIn1Weight[newPostn] = _mix1weight;
+          Model.MixIn1Offset[newPostn] = _mix1offset1;
+          Model.MixIn1Diff[newPostn]   = _mix1diff;  
+          Model.MixOperator[newPostn]  = _mixOper;   
+          Model.MixIn2[newPostn]       = _mix2in;    
+          Model.MixIn2Weight[newPostn] = _mix2weight; 
+          Model.MixIn2Offset[newPostn] = _mix2offset1;
+          Model.MixIn2Diff[newPostn]   = _mix2diff;  
 
           thisMixNum = destMixNum; //display the destination mix slot when we go back to mixer screen
           destMixNum = thisMixNum;
@@ -1210,16 +1303,16 @@ void HandleMainUI()
         
         if(isEditMode == false)
         {
-          MixOut[destMixNum]       = MixOut[thisMixNum];
-          MixIn1[destMixNum]       = MixIn1[thisMixNum];
-          MixIn1Weight[destMixNum] = MixIn1Weight[thisMixNum];
-          MixIn1Offset[destMixNum] = MixIn1Offset[thisMixNum];
-          MixIn1Diff[destMixNum]   = MixIn1Diff[thisMixNum];
-          MixOperator[destMixNum]  = MixOperator[thisMixNum];
-          MixIn2[destMixNum]       = MixIn2[thisMixNum];
-          MixIn2Weight[destMixNum] = MixIn2Weight[thisMixNum];
-          MixIn2Offset[destMixNum] = MixIn2Offset[thisMixNum];
-          MixIn2Diff[destMixNum]   = MixIn2Diff[thisMixNum];
+          Model.MixOut[destMixNum]       = Model.MixOut[thisMixNum];
+          Model.MixIn1[destMixNum]       = Model.MixIn1[thisMixNum];
+          Model.MixIn1Weight[destMixNum] = Model.MixIn1Weight[thisMixNum];
+          Model.MixIn1Offset[destMixNum] = Model.MixIn1Offset[thisMixNum];
+          Model.MixIn1Diff[destMixNum]   = Model.MixIn1Diff[thisMixNum];
+          Model.MixOperator[destMixNum]  = Model.MixOperator[thisMixNum];
+          Model.MixIn2[destMixNum]       = Model.MixIn2[thisMixNum];
+          Model.MixIn2Weight[destMixNum] = Model.MixIn2Weight[thisMixNum];
+          Model.MixIn2Offset[destMixNum] = Model.MixIn2Offset[thisMixNum];
+          Model.MixIn2Diff[destMixNum]   = Model.MixIn2Diff[thisMixNum];
            
           thisMixNum = destMixNum; //display the destination when we go back to mixer screen
           destMixNum = thisMixNum;
@@ -1243,19 +1336,19 @@ void HandleMainUI()
         static uint8_t _selectedChannel = 0; //0 is ch1, 1 is ch2, etc.
     
         if (focusedItem == 1)
-          _selectedChannel = incrDecrU8tOnUPDOWN(_selectedChannel, 0, 7, WRAP, SLOW_CHANGE); //8 channels
+          _selectedChannel = incrDecrU8tOnUPDOWN(_selectedChannel, 0, NUM_PRP_CHANNLES - 1, WRAP, SLOW_CHANGE); 
         else if (focusedItem == 2)
-          Reverse[_selectedChannel] = incrDecrU8tOnUPDOWN(Reverse[_selectedChannel], 0, 1, WRAP, PRESSED_ONLY);
+          Model.Reverse[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.Reverse[_selectedChannel], 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          Subtrim[_selectedChannel] = incrDecrU8tOnUPDOWN(Subtrim[_selectedChannel], 25, 75, NOWRAP, SLOW_CHANGE);
+          Model.Subtrim[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.Subtrim[_selectedChannel], 25, 75, NOWRAP, SLOW_CHANGE);
         else if (focusedItem == 4)
-          CutValue[_selectedChannel] = incrDecrU8tOnUPDOWN(CutValue[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
+          Model.CutValue[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.CutValue[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 5)
-          Failsafe[_selectedChannel] = incrDecrU8tOnUPDOWN(Failsafe[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
+          Model.Failsafe[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.Failsafe[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 6)
-          EndpointL[_selectedChannel] = incrDecrU8tOnUPDOWN(EndpointL[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.EndpointL[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.EndpointL[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 7)
-          EndpointR[_selectedChannel] = incrDecrU8tOnUPDOWN(EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.EndpointR[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
 
         //-------Show on lcd---------------
         display.setCursor(49, 8);
@@ -1264,34 +1357,34 @@ void HandleMainUI()
         
         display.setCursor(19, 16);
         display.print(F("Reverse:  "));
-        drawCheckbox(79, 16, Reverse[_selectedChannel]);
+        drawCheckbox(79, 16, Model.Reverse[_selectedChannel]);
 
         display.setCursor(19, 24);
         display.print(F("Subtrim:  "));
-        int _trmQQ = int(Subtrim[_selectedChannel]) - 50;
+        int _trmQQ = int(Model.Subtrim[_selectedChannel]) - 50;
         display.print(_trmQQ); //show as centered about 50
         
         display.setCursor(43, 32);
         display.print(F("Cut:  "));
-        if(CutValue[_selectedChannel]== 0)
+        if(Model.CutValue[_selectedChannel]== 0)
           display.print(F("Off"));
         else
-          display.print(CutValue[_selectedChannel] - 101);
+          display.print(Model.CutValue[_selectedChannel] - 101);
         
         display.setCursor(19, 40);
         display.print(F("Failsaf:  "));
-        if(Failsafe[_selectedChannel]== 0)
+        if(Model.Failsafe[_selectedChannel]== 0)
           display.print(F("Off"));
         else
-          display.print(Failsafe[_selectedChannel] - 101);
+          display.print(Model.Failsafe[_selectedChannel] - 101);
 
         display.setCursor(25, 48);
         display.print(F("Travel:  "));
-        display.print(0 - EndpointL[_selectedChannel]);
+        display.print(0 - Model.EndpointL[_selectedChannel]);
         
         display.setCursor(49, 56);
         display.print(F("to:  "));
-        display.print(EndpointR[_selectedChannel]);
+        display.print(Model.EndpointR[_selectedChannel]);
         
         //----show the current channel output value (right align)
         int16_t outVal = ChOut[_selectedChannel] / 5;
@@ -1307,7 +1400,7 @@ void HandleMainUI()
 
         if (heldButton == SELECT_KEY)
         {
-          eeUpdateModelBasicData(activeModel);
+          eeSaveModelData(Sys.activeModel);
           changeToScreen(MAIN_MENU);
         }
       }
@@ -1318,170 +1411,49 @@ void HandleMainUI()
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_SYSTEM])));
         drawHeader();
 
-        display.setCursor(7, 10);
-        display.print(F("RF module:  "));
-        drawCheckbox(79, 10, rfModuleEnabled);
+        display.setCursor(13, 10);
+        display.print(F("RFoutput:"));
+        drawCheckbox(79, 10, Sys.rfOutputEnabled);
         
-        display.setCursor(7, 19);
-        display.print(F("Backlight:  "));
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[backlightMode])));
+        display.setCursor(25, 19);
+        display.print(F("Sounds:  "));
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])));
         display.print(txtBuff);
         
-        display.setCursor(31, 28);
-        display.print(F("Sound:  "));
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[soundMode])));
+        display.setCursor(13, 28);
+        display.print(F("Backlght:  "));
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[Sys.backlightMode])));
         display.print(txtBuff);
+        
+        display.setCursor(13, 37);
+        display.print(F("Ch3 Mode:  "));
+        if(Sys.PWM_Mode_Ch3 == 1) display.print(F("ServoPWM"));
+        else  display.print(F("PWM"));
 
         changeFocusOnUPDOWN(4);
         toggleEditModeOnSelectClicked();
-        if(focusedItem < 4)
-          drawCursor(71, 10 + (focusedItem - 1) * 9);
-        
-        //show menu icon
-        display.fillRect(120, 0, 8, 7, WHITE);
-        if(focusedItem == 4)
-          display.drawBitmap(120, 0, menu_icon_focused, 8, 7, 1);
-        else
-            display.drawBitmap(120, 0, menu_icon, 8, 7, 1);
+        drawCursor(71, 10 + (focusedItem - 1) * 9);
         
         //edit values
         if (focusedItem == 1)
-          rfModuleEnabled = incrDecrU8tOnUPDOWN(rfModuleEnabled, 0, 1, WRAP, PRESSED_ONLY);
+          Sys.rfOutputEnabled = incrDecrU8tOnUPDOWN(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 2)
-          backlightMode = incrDecrU8tOnUPDOWN(backlightMode, 0, 4, WRAP, PRESSED_ONLY);
+          Sys.soundMode = incrDecrU8tOnUPDOWN(Sys.soundMode, 0, 3, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          soundMode = incrDecrU8tOnUPDOWN(soundMode, 0, 3, WRAP, PRESSED_ONLY);
-
-        /// --- Popup if up or down key held
-        if(focusedItem == 4 && clickedButton == SELECT_KEY)
-          changeToScreen(POPUP_SYS_MENU);
+          Sys.backlightMode = incrDecrU8tOnUPDOWN(Sys.backlightMode, 0, 4, WRAP, PRESSED_ONLY);     
+        else if (focusedItem == 4)
+        {
+          Sys.PWM_Mode_Ch3 = incrDecrU8tOnUPDOWN(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
+          if(isEditMode && (pressedButton == UP_KEY || pressedButton == DOWN_KEY))
+          {
+            makeToast(F("Restart receiver"), 2000);
+          }
+        }
 
         //go back to main menu
         if (heldButton == SELECT_KEY)
         {
-          eeUpdateSysConfig();
-          changeToScreen(MAIN_MENU);
-        }
-      }
-      break;
-      
-    case POPUP_SYS_MENU:
-      {
-        changeFocusOnUPDOWN(NUM_ITEMS_SYSTEM_POPUP);
-        drawPopupMenu(sysMenu, NUM_ITEMS_SYSTEM_POPUP);
-
-        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
-        if(_selection == 1) 
-          changeToScreen(MODE_SERVO_SETUP);
-        else if(_selection == 2)
-          changeToScreen(MODE_BATTERY_SETUP);
-        else if(_selection == 3)
-          changeToScreen(MODE_CALIB);
-        else if(_selection == 4)
-          showPktsPerSec = !showPktsPerSec;
-        else if(heldButton == SELECT_KEY) 
-          changeToScreen(MODE_SYSTEM);
-      }
-      break;
-      
-    case MODE_SERVO_SETUP:
-      {
-        strcpy_P(txtBuff, PSTR("Servo setup"));
-        drawHeader();
-      
-        display.setCursor(13, 10);
-        display.print(F("Ch3 Mode:  "));
-        if(PWM_Mode_Ch3 == 1) 
-          display.print(F("ServoPWM"));
-        else  
-          display.print(F("PWM"));
-
-        changeFocusOnUPDOWN(1);
-        toggleEditModeOnSelectClicked();
-        drawCursor(71, (focusedItem * 9) + 1);
-        
-        if (focusedItem == 1 && isEditMode)
-        {
-          PWM_Mode_Ch3 = incrDecrU8tOnUPDOWN(PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
-          if(pressedButton == UP_KEY || pressedButton == DOWN_KEY)
-            makeToast(F("Restart receiver"), 2000);
-        }
-
-        if (heldButton == SELECT_KEY)
-        {
-          eeUpdateSysConfig();
-          changeToScreen(MAIN_MENU);
-        }
-      }
-      break;
-      
-    case MODE_BATTERY_SETUP:
-      {
-        strcpy_P(txtBuff, PSTR("Battery"));
-        drawHeader();
-
-        display.setCursor(1, 10);
-        display.print(F("Multiplier:  0."));
-        display.print(battVfactor);
-        
-        display.setCursor(1,19);
-        display.print(F("Gauge min :  "));
-        printVolts(battVoltsMin);
-
-        display.setCursor(1,28);
-        display.print(F("Gauge max :  "));
-        printVolts(battVoltsMax);
-        
-        uint8_t _wdth = 33;
-        if(battVoltsNow > 9999)
-          _wdth = 39;
-        display.drawRect(77,37,_wdth,11,BLACK);
-        display.setCursor(79,39);
-        printVolts(battVoltsNow);
-
-        changeFocusOnUPDOWN(3);
-        toggleEditModeOnSelectClicked();
-        drawCursor(71, (focusedItem * 9) + 1);
-        
-        if(focusedItem == 1 && isEditMode)
-        {
-          if((pressedButton == UP_KEY || heldButton == UP_KEY) && battVfactor < 999)
-            battVfactor++;
-          else if((pressedButton == DOWN_KEY || heldButton == DOWN_KEY) && battVfactor > 100)
-            battVfactor--;
-        }
-        
-        else if(focusedItem == 2 && isEditMode)
-        {
-          int _battV = battVoltsMin;
-          if(pressedButton == UP_KEY || heldButton == UP_KEY) 
-            _battV += 50;
-          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) 
-            _battV -= 50;
-          if(_battV > battVoltsMax - 100) 
-            _battV = battVoltsMax - 100;
-          else if(_battV < 2500) 
-            _battV = 2500;
-          battVoltsMin = _battV;
-        }
-        
-        else if(focusedItem == 3 && isEditMode)
-        {
-          int _battV = battVoltsMax;
-          if(pressedButton == UP_KEY || heldButton == UP_KEY) 
-            _battV += 50;
-          else if(pressedButton == DOWN_KEY || heldButton == DOWN_KEY) 
-            _battV -= 50;
-          if(_battV < battVoltsMin + 100) 
-            _battV = battVoltsMin + 100;
-          else if(_battV > 12500) 
-            _battV = 12500;
-          battVoltsMax = _battV;
-        }
-
-        if (heldButton == SELECT_KEY)
-        {
-          eeUpdateSysConfig();
+          eeSaveSysConfig();
           changeToScreen(MAIN_MENU);
         }
       }
@@ -1501,58 +1473,35 @@ void HandleMainUI()
         if(calibInitialised == false)
         {
           //set values to lowest
-          rollMin = 1023;  rollMax = 0;
-          pitchMin = 1023; pitchMax = 0;
-          yawMin = 1023;   yawMax = 0;
-          thrtlMin = 1023; thrtlMax = 0;
+          Sys.rollMin = 1023;  Sys.rollMax = 0;
+          Sys.pitchMin = 1023; Sys.pitchMax = 0;
+          Sys.yawMin = 1023;   Sys.yawMax = 0;
+          Sys.thrtlMin = 1023; Sys.thrtlMax = 0;
 
           calibInitialised = true;
         }
 
         display.setCursor(24, 16);
         display.print(F("[OK] when done"));
-        
-        if(calibStage != STICKS_DEADZONE)
-        {
-          display.setCursor(37, 32);
-          display.print(F("roll:"));
-          display.setCursor(37, 40);
-          display.print(F("ptch:"));
-          display.setCursor(37, 56);
-          display.print(F("yaw :"));
-        }
-        
+
         if (calibStage == STICKS_MOVE) 
         {
-          display.setCursor(37, 48);
-          display.print(F("thrt:"));
-
           display.setCursor(13, 8);
           display.print(F("Move sticks fully"));
 
           //get min and max
-          int _reading = analogRead(ROLLINPIN);
-          if (_reading < rollMin)       rollMin = _reading;
-          else if (_reading > rollMax)  rollMax = _reading;
-          _reading = analogRead(YAWINPIN);
-          if (_reading < yawMin)        yawMin = _reading;
-          else if (_reading > yawMax)   yawMax = _reading;
-          _reading = analogRead(PITCHINPIN);
-          if (_reading < pitchMin)      pitchMin = _reading;
-          else if (_reading > pitchMax) pitchMax = _reading;
-          _reading = analogRead(THROTTLEINPIN);
-          if (_reading < thrtlMin)      thrtlMin = _reading;
-          else if (_reading > thrtlMax) thrtlMax = _reading;
-
-          //show data
-          int _theMinMax[8] = {rollMin, rollMax, pitchMin, pitchMax, thrtlMin, thrtlMax, yawMin, yawMax};
-          for (int i = 0; i < 8; i += 2)
-          {
-            display.setCursor(73, 32 + ((i * 8) / 2));
-            display.print(_theMinMax[i]);
-            display.print(F(","));
-            display.print(_theMinMax[i + 1]);
-          }
+          int _reading = analogRead(PIN_ROLL);
+          if (_reading < Sys.rollMin)       Sys.rollMin = _reading;
+          else if (_reading > Sys.rollMax)  Sys.rollMax = _reading;
+          _reading = analogRead(PIN_YAW);
+          if (_reading < Sys.yawMin)        Sys.yawMin = _reading;
+          else if (_reading > Sys.yawMax)   Sys.yawMax = _reading;
+          _reading = analogRead(PIN_PITCH);
+          if (_reading < Sys.pitchMin)      Sys.pitchMin = _reading;
+          else if (_reading > Sys.pitchMax) Sys.pitchMax = _reading;
+          _reading = analogRead(PIN_THROTTLE);
+          if (_reading < Sys.thrtlMin)      Sys.thrtlMin = _reading;
+          else if (_reading > Sys.thrtlMax) Sys.thrtlMax = _reading;
 
           if (clickedButton == SELECT_KEY)
             calibStage = STICKS_CENTER;
@@ -1564,39 +1513,29 @@ void HandleMainUI()
           display.print(F("Center sticks"));
 
           //get stick centers
-          rollCenterVal  = analogRead(ROLLINPIN);
-          yawCenterVal   = analogRead(YAWINPIN);
-          pitchCenterVal = analogRead(PITCHINPIN);
-
-          //show data
-          int _theCenters[4] = {rollCenterVal, pitchCenterVal, 512, yawCenterVal};
-          for (int i = 0; i < 4; i += 1)
-          {
-            if(i == 2)
-              continue; 
-            display.setCursor(73, 33 + i * 8);
-            display.print(_theCenters[i]);
-          }
+          Sys.rollCenterVal  = analogRead(PIN_ROLL);
+          Sys.yawCenterVal   = analogRead(PIN_YAW);
+          Sys.pitchCenterVal = analogRead(PIN_PITCH);
 
           if (clickedButton == SELECT_KEY)
           {
             //Add slight deadband(about 1.5%) at each stick ends to stabilise readings at ends
             //For a range of 0 to 5V, min max are 0.07V and 4.92V
-            int ddznQQ = (rollMax - rollMin) / 64;
-            rollMax -= ddznQQ;
-            rollMin += ddznQQ;
+            int ddznQQ = (Sys.rollMax - Sys.rollMin) / 64;
+            Sys.rollMax -= ddznQQ;
+            Sys.rollMin += ddznQQ;
 
-            ddznQQ = (pitchMax - pitchMin) / 64;
-            pitchMax -= ddznQQ;
-            pitchMin += ddznQQ;
+            ddznQQ = (Sys.pitchMax - Sys.pitchMin) / 64;
+            Sys.pitchMax -= ddznQQ;
+            Sys.pitchMin += ddznQQ;
 
-            ddznQQ = (thrtlMax - thrtlMin) / 64;
-            thrtlMax -= ddznQQ;
-            thrtlMin += ddznQQ;
+            ddznQQ = (Sys.thrtlMax - Sys.thrtlMin) / 64;
+            Sys.thrtlMax -= ddznQQ;
+            Sys.thrtlMin += ddznQQ;
 
-            ddznQQ = (yawMax - yawMin) / 64;
-            yawMax -= ddznQQ;
-            yawMin += ddznQQ;
+            ddznQQ = (Sys.yawMax - Sys.yawMin) / 64;
+            Sys.yawMax -= ddznQQ;
+            Sys.yawMin += ddznQQ;
             
             calibStage = STICKS_DEADZONE;
           }
@@ -1604,28 +1543,24 @@ void HandleMainUI()
         
         else if (calibStage == STICKS_DEADZONE)
         {
-          
           display.setCursor(20, 8);
           display.print(F("Adjust deadzone"));
           
           isEditMode = true;
-          deadZonePerc = incrDecrU8tOnUPDOWN(deadZonePerc, 0, 15, NOWRAP, PRESSED_OR_HELD);
+          Sys.deadZonePerc = incrDecrU8tOnUPDOWN(Sys.deadZonePerc, 0, 15, NOWRAP, PRESSED_OR_HELD);
           drawCursor(52, 34);
           isEditMode = false;
           
           display.setCursor(59,34);
-          display.print(deadZonePerc);
+          display.print(Sys.deadZonePerc);
           display.print(F("%"));
-          
-          display.setCursor(11, 56);
-          display.print(F("(roll, pitch, yaw)"));
 
           if (clickedButton == SELECT_KEY) //exit
           {
             isCalibratingSticks = false;
             calibInitialised = false;
             calibStage = STICKS_MOVE;
-            eeUpdateSysConfig();
+            eeSaveSysConfig();
             changeToScreen(HOME_SCREEN);
             makeToast(F("Calibrated"), 1500);
             //reset main menu view
@@ -1642,27 +1577,24 @@ void HandleMainUI()
         drawHeader();
 
         //Show battery voltage
-        display.setCursor(25,10);
-        display.print(F("Batt   "));
+        display.setCursor(19,10);
+        display.print(F("Battery: "));
         printVolts(battVoltsNow);
         
         //Show uptime
-        display.setCursor(25,19);
-        display.print(F("Uptime "));
-        printHHMMSS(millis(), 67, 19);
+        display.setCursor(19,19);
+        display.print(F("Uptime:  "));
+        printHHMMSS(millis(), 73, 19);
         
-        //show sketch version and date
-        display.setCursor(25, 28);
-        display.print(F("Ver    "));
+        //show version
+        display.setCursor(19, 28);
+        display.print(F("FW ver:  "));
         display.print(F(_SKETCHVERSION));
-
-        // show author contact
-        display.setCursor(25, 37);
-        display.print(F("Dev    "));
-        display.print(F("buk7456"));
-        display.setCursor(67, 46);
-        display.print(F("@gmail.com"));
         
+        //Show author
+        display.setCursor(19, 37);
+        display.print(F("Devlpr:  buk7456"));
+
         if (heldButton == SELECT_KEY)
           changeToScreen(MAIN_MENU);
       }
@@ -1684,70 +1616,15 @@ void HandleMainUI()
       display.print(F(" "));
     display.print(pktRate);
   }
-  
+
   ///----------------- SHOW ON PHYSICAL LCD -------------------
   display.display(); //show on physical lcd
   display.clearDisplay(); //clear graphics buffer
 }
 
-//================================= Helpers ========================================================
 
-void detectButtonEvents()
-{
-  /* 
-  Modifies the pressedButton, clickedButton and heldButton variables, buttonStartTime 
-  and buttonReleaseTime.
-  Events
-  - pressedButton is triggered once when the button goes down
-  - clickedButton is triggered when the button is released before heldButton event
-  - heldButton is triggered when button is held down long enough  
-  */
-  
-  static uint8_t lastButtonCode = 0;
-  static bool buttonActive = false, longPressActive = false;
-  
-  pressedButton = 0; //clear 
-  
-  if (buttonCode > 0 && (millis() - buttonReleaseTime > 100)) //button down  
-  {
-    if (buttonActive == false)
-    {
-      buttonActive = true;
-      buttonStartTime = millis();
-      lastButtonCode = buttonCode;
-      pressedButton = buttonCode; //event
-    }
+///====================================== HELPERS ==================================================
 
-    if ((millis() - buttonStartTime > LONGPRESSTIME) && longPressActive == false)
-    {
-      longPressActive = true;
-      heldButton = buttonCode; //event
-    }
-  }
-
-  else //button released
-  {
-    if(buttonActive == true)
-    {
-      buttonReleaseTime = millis();
-      buttonActive = false;
-    }
-    
-    if (longPressActive == true)
-    {
-      longPressActive = false;
-      heldButton = 0;
-      lastButtonCode = 0; //avoids falsely triggering clickedButton event
-    }
-    else
-    {
-      clickedButton = lastButtonCode;
-      lastButtonCode = 0; //enables setting clickedButton event only once
-    }
-  }
-}
-
-//--------------------------------------------------------------------------------------------------
 void toggleEditModeOnSelectClicked()
 {
   if (clickedButton == SELECT_KEY)
@@ -1755,6 +1632,7 @@ void toggleEditModeOnSelectClicked()
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
 {
   //Prints the time as mm:ss or hh:mm:ss at the specified screen cordinates
@@ -1781,6 +1659,7 @@ void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void printVolts(int _milliVolts)
 {
   int val = _milliVolts / 10;
@@ -1794,6 +1673,7 @@ void printVolts(int _milliVolts)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state)
 {
   //Increments/decrements the passed uint8_t value between the specified limit. 
@@ -1858,6 +1738,7 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void changeFocusOnUPDOWN(uint8_t _maxItemNo)
 {
   if(isEditMode == true)
@@ -1882,6 +1763,7 @@ void changeFocusOnUPDOWN(uint8_t _maxItemNo)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void changeToScreen(int8_t _theScrn)
 {
   theScreen = _theScrn;
@@ -1891,6 +1773,7 @@ void changeToScreen(int8_t _theScrn)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void drawCursor(int16_t _xpos, int16_t _ypos)
 {
   if(isEditMode) //draw blinking cursor
@@ -1903,6 +1786,7 @@ void drawCursor(int16_t _xpos, int16_t _ypos)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void plotRateExpo(uint8_t _rate, uint8_t _expo)
 {
   display.drawVLine(100, 11, 51, BLACK);
@@ -1916,6 +1800,7 @@ void plotRateExpo(uint8_t _rate, uint8_t _expo)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void drawHeader()
 {
   int _txtWidthPix = strlen(txtBuff) * 6;
@@ -1928,6 +1813,7 @@ void drawHeader()
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
 {
   _numMenuItems -= 1; //exclude menu heading in count
@@ -1996,6 +1882,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void resetThrottleTimer()
 {
   throttleTimerElapsedTime = 0;
@@ -2004,6 +1891,7 @@ void resetThrottleTimer()
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void makeToast(const __FlashStringHelper* text, unsigned long _duration)
 {
   toastText = text;
@@ -2026,16 +1914,7 @@ void drawToast()
 }
 
 //--------------------------------------------------------------------------------------------------
-void drawWarning(const __FlashStringHelper* text)
-{
-  display.drawBitmap(56, 17, warningTriangle, 16, 15, BLACK);
-  int _txtWidthPix = 6 * strlen_P((const char *)text); //(const char*) casts
-  int x_offset = (display.width() - _txtWidthPix) / 2; //middle align
-  display.setCursor(x_offset, 40);
-  display.print(text);
-}
 
-//--------------------------------------------------------------------------------------------------
 void drawPopupMenu(const char *const list[], int8_t _numItems)
 {
   //Calculate y offset for text item 0. Items are center aligned
@@ -2061,10 +1940,61 @@ void drawPopupMenu(const char *const list[], int8_t _numItems)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val)
 {
   if (_val == true)
     display.drawBitmap(_xcord, _ycord, checkbox_checked, 7, 7, 1);
   else
     display.drawBitmap(_xcord, _ycord, checkbox_unchecked, 7, 7, 1);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+bool isDefaultModelName(char* _nameBuff, uint8_t _len)
+{
+  /* Checks whether the passed model name is default */
+  
+  uint8_t _count = 0;
+  for(uint8_t i = 0; i < _len - 1; i++)
+  {
+    if(*(_nameBuff + i) == ' ') //check if it is a space character
+      _count++;
+  }
+  if(_count == (_len - 1)) 
+    return true;
+  else 
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
+{
+  uint8_t _heldBtn = 0;
+  if(thisLoopNum % (200 / fixedLoopTime) == 1) 
+    _heldBtn = heldButton;
+  
+  if((pressedButton == _decrButton || _heldBtn == _decrButton) && _val > 75)
+  {    
+    _val--;
+    audioToPlay = AUDIO_SWITCHMOVED;
+  }
+  else if((pressedButton == _incrButton || _heldBtn == _incrButton) && _val < 125)
+  {
+    _val++;
+    audioToPlay = AUDIO_SWITCHMOVED;
+  }
+  return _val;
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void showTrimData(const __FlashStringHelper* text, uint8_t _trimVal)
+{
+  display.setCursor(86, 32);
+  display.print(text);
+  display.setCursor(86, 44);
+  if(_trimVal > 100)
+    display.print(F("+"));
+  display.print(_trimVal - 100);
 }
