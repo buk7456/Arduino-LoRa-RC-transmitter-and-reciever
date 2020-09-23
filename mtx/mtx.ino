@@ -1,17 +1,16 @@
 
-/**************************************************************************************************
+/***************************************************************************************************
   Transmitter master mcu code for Atmega328p
 
-  This code reads stick inputs, handles User Interface, outputs via serial to a second mcu chip
-  that handles the actual transmission via Rf module to the receiver.
-  See the schematics.
-  buk7456@gmail.com   2019 - 2020
+  buk7456 at gmail dot com   
+  2020
   
   Released under the MIT Licence
   Tested to compile on Arduino IDE 1.8.9 or later
   Sketch should compile without warnings even with -WALL. Only warning is the Low memory.
   
-  FREE RAM AFTER COMPILE SHOULD BE GREATER THAN 340 BYTES !
+  FREE RAM AFTER COMPILE SHOULD BE ATLEAST 300 BYTES 
+  
 ***************************************************************************************************/
 
 #include <avr/pgmspace.h>
@@ -22,149 +21,156 @@
 
 #include "config.h"
 #include "common.h"
-#include "io.h"
 #include "eestore.h"
+#include "io.h"
 #include "bitmaps.h"
 #include "ui_128x64.h" 
 
 // Declarations 
-void sendToSlaveMCU(); //sends radio data to slave mcu
-void serialWrite14bit(uint16_t value); //helper
+void serialSendData(); 
 void checkBattery();
 
+void serialWrite14bit(uint16_t value); //helper
+
 //===================================== setup ======================================================
+
 void setup()
 {
-  pinMode(ROW1_MTRX_PIN, INPUT);
-  pinMode(ROW2_MTRX_PIN, INPUT);
-  pinMode(COL1_MTRX_PIN, OUTPUT);
-  pinMode(COL2_MTRX_PIN, OUTPUT);
-  pinMode(COL3_MTRX_PIN, OUTPUT);
-
-  Serial.begin(UARTBAUDRATE);
-  delay(200);
+  pinMode(PIN_ROW1, INPUT);
+  pinMode(PIN_ROW2, INPUT);
+  pinMode(PIN_COL1, OUTPUT);
+  pinMode(PIN_COL2, OUTPUT);
+  pinMode(PIN_COL3, OUTPUT);
+  
+  SPI.begin(); //Still needed even when using SPI transactions
 
   display.begin();
   display.setTextWrap(false);
   
+  Serial.begin(UART_BAUD_RATE);
+  delay(200);
+  
+  //initialise with safe values. Will be overridden by reading from eeprom
+  setDefaultModelName();
+  setDefaultModelBasicParams();
+  setDefaultModelMixerParams();
+  
+  //Boot UI
+  readSwitchesAndButtons();
+  if(buttonCode == SELECT_KEY)
+  {
+    HandleBootUI(); //blocking
+  }
+  
+  //compute eeprom start address for model data and number of possible models we can have
+  eeModelDataStartAddress = eeSysDataStartAddress + sizeof(Sys);
+  numOfModels = ((E2END + 1) - eeModelDataStartAddress) / sizeof(Model); //E2END is last address
 
-  /********* EEPROM init **************
-    Check for flag. If flag value is not what we expect, overwrite values in eeprom
-    with defaults (initial values of certain global variables), Then write flag.
-  */
-  uint8_t eeCheckMark = EEPROM.read(_EEPROM_INIT);
+  /********* EEPROM init ***************/
+  uint8_t eeCheckMark = EEPROM.read(0);
   if (eeCheckMark != EE_INITFLAG)
   {
-    DrawEEWarning();
     while(buttonCode == 0)
     {
+      DisplayFullScreenMsg(F("Press any key"));
       readSwitchesAndButtons();
       delay(30);
     }
-    DrawEEFormatMsg();
-    eeUpdateSysConfig();
-    for (uint8_t mdlNo = 1; mdlNo <= 6; mdlNo++)
-    {
-      eeUpdateModelBasicData(mdlNo);
-      eeUpdateMixData(mdlNo);
-      eeUpdateModelName(mdlNo);
-    }
-    EEPROM.write(_EEPROM_INIT, EE_INITFLAG);
+    DisplayFullScreenMsg(F("Formating.."));
+    eeSaveSysConfig();
+    for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
+      eeSaveModelData(mdlNo);
+ 
+    EEPROM.write(0, EE_INITFLAG);
     delay(1000);
-    
     changeToScreen(MODE_CALIB); //Set to sticks calib screen
-
     buttonCode = 0;    
   }
 
   ///--------- Load data from eeprom -----------
-  DrawLoadingMsg();
+  DisplayFullScreenMsg(F("Loading.."));
   delay(500);
   eeReadSysConfig();
-  eeReadModelBasicData(activeModel);
-  eeReadMixData(activeModel); 
-  eeReadModelName(activeModel);
-  
+  eeReadModelData(Sys.activeModel);
+
+  ///--------- Init battery reading --------------
   battVoltsNow = battVoltsMax; 
   
-  ///--------- Override sounds mode if up key held while starting up ----------
+  ///--------- Overrides on startup ----------
   readSwitchesAndButtons();
-  if(buttonCode == UP_KEY)
+  if(buttonCode == UP_KEY) //mute
   {
-    soundMode = SOUND_OFF;
-    eeUpdateSysConfig();
+    Sys.soundMode = SOUND_OFF;
+    eeSaveSysConfig();
   }
+  buttonCode = 0;
   
-  ///----------Warn throttle if throttle position is more than 5% above minimum---
+  ///---------- Warn throttle if throttle position is more than 5% above minimum ---
   readSwitchesAndButtons();
   readSticks();
-  bool _rfState = rfModuleEnabled; //temporarily store rf state as we are going to override it
+  bool _rfState = Sys.rfOutputEnabled;
   while (throttleIn > -450 && SwAEngaged == false)
   {
-    DrawThrottleWarning();
+    DisplayFullScreenMsg(F("Check throttle"));
     readSwitchesAndButtons();
     readSticks();
     //play warning sound
     audioToPlay = AUDIO_THROTTLEWARN;
-    //override rfModuleEnabled before sending to slave
-    rfModuleEnabled = false;
-    sendToSlaveMCU();
+    Sys.rfOutputEnabled = false; //overide
+    serialSendData();
     delay(30);
   }
-  rfModuleEnabled = _rfState; //restore original value before override
+  Sys.rfOutputEnabled = _rfState; //restore
 
+  //------------------- Init throttle timer -------------------------
   throttleTimerLastPaused = millis(); 
+  
 }
 
 //===================================== main =======================================================
+
 void loop()
 {
   unsigned long loopStartTime = millis();
-  
   thisLoopNum++;
   
-  /// -------- CHECk BATTERY --------------------
   checkBattery();
-
-  /// --------- CORE FUNCTIONS ------------------
   readSwitchesAndButtons();
+  determineButtonEvent();
   readSticks();
   computeChannelOutputs();
- 
-  /// -------- USER INTERFACE -------------------
   HandleMainUI();
+  serialSendData();
   
-  /// -------- SEND CHANNEL DATA AND OTHER STATUSES VIA UART TO SLAVE MCU -----
-  sendToSlaveMCU();
-
-  ///--------- READ RETURNED BYTE ---------------
-  //Slave mcu only sends back this parameter
   while (Serial.available() > 0)
   {
     returnedByte = Serial.read();
   }
 
-  /// ---------- LIMIT MAX RATE OF LOOP ---------
+  //limit max rate of loop
   unsigned long loopTime = millis() - loopStartTime;
-  if(loopTime < uint32_t(fixedLoopTime))
-    delay(uint32_t(fixedLoopTime) - loopTime);
-  
-  // -- Debug info --
-  // display.setCursor(0,57);
-  // display.print(loopTime);
+  if(loopTime < fixedLoopTime) 
+    delay(fixedLoopTime - loopTime);
+  // display.setCursor(0, 0); //benchmarking
+  // display.print(loopTime); //benchmarking
 }
 
 //==================================================================================================
 
-void sendToSlaveMCU()
+void serialSendData()
 {
+  /* if(Sys.rfOutputEnabled == false)
+  {
+    return;
+  } */
+  
   /** Master to Slave MCU communication format as below
   
   byte 0 - Start of message 0xBB
   byte 1 - Status byte 
-      bit7 - always 0
-      bit6 - Backlight 1 on, 0 off
-      bit5 - Battery status, 1 healthy, 0 low
+      bit7 - 0
+      bit6 - backlight 1 on, 0 off
+      bit5 - 0
       bit4 - RF module, 1 on, 0 off 
       bit3 - DigChA, 1 on, 0 off
       bit2 - DigChB, 1 on, 0 off
@@ -180,37 +186,34 @@ void sendToSlaveMCU()
   Serial.write(0xBB); 
   
   /// ---- status byte
-  
   uint8_t status = 0x00;
   
   static unsigned long lastBtnDownTime = 0;
   if(buttonCode > 0) 
     lastBtnDownTime = millis();
   unsigned long elapsed = millis() - lastBtnDownTime;
-  if(backlightMode == BACKLIGHT_ON 
-     || (backlightMode == BACKLIGHT_5S  && elapsed < 5000UL )
-     || (backlightMode == BACKLIGHT_15S && elapsed < 15000UL)
-     || (backlightMode == BACKLIGHT_60S && elapsed < 60000UL)) 
+  if(Sys.backlightMode == BACKLIGHT_ON 
+     || (Sys.backlightMode == BACKLIGHT_5S  && elapsed < 5000UL )
+     || (Sys.backlightMode == BACKLIGHT_15S && elapsed < 15000UL)
+     || (Sys.backlightMode == BACKLIGHT_60S && elapsed < 60000UL)) 
     status |= 0x40;
   
   status |= (battState & 0x01) << 5;
-  status |= (rfModuleEnabled & 0x01) << 4;
+  
+  status |= (Sys.rfOutputEnabled & 0x01) << 4;
   status |= DigChA << 3;
   status |= DigChB << 2;
-  status |= PWM_Mode_Ch3 << 1;
-  
+  status |= Sys.PWM_Mode_Ch3 << 1;
   bool isFailsafeData = false; 
-  if(thisLoopNum % (1600 / fixedLoopTime) == 1) 
+  if(thisLoopNum % (2000 / fixedLoopTime) == 1) 
     isFailsafeData = true;
-
   status |= isFailsafeData & 0x01;
-  
   Serial.write(status); 
   
   /// ---- channel data and failsafes
   if(isFailsafeData == false) 
   {
-    for(uint8_t i = 0; i < 8; i++)
+    for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
     {
       uint16_t val = (ChOut[i] + 500) & 0xFFFF; 
       serialWrite14bit(val);
@@ -218,26 +221,26 @@ void sendToSlaveMCU()
   }
   else //send failsafe
   {
-    for(uint8_t i = 0; i < 8; i++)
+    for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
     {
-      if(Failsafe[i] == 0) //failsafe not specified, send 1023
+      if(Model.Failsafe[i] == 0) //failsafe not specified, send 1023
         serialWrite14bit(1023);
       else //failsafe specified, send it
       {
-        uint16_t fsf = (Failsafe[i] - 1) * 5;
-        uint16_t lowerLim = (100 - EndpointL[i]) * 5;
-        uint16_t upperLim = (100 + EndpointR[i]) * 5;
+        uint16_t fsf = (Model.Failsafe[i] - 1) * 5;
+        uint16_t lowerLim = (100 - Model.EndpointL[i]) * 5;
+        uint16_t upperLim = (100 + Model.EndpointR[i]) * 5;
         if(fsf < lowerLim)  fsf = lowerLim;
         else if(fsf > upperLim) fsf = upperLim;
         serialWrite14bit(fsf);
       }
     }
   }
-
+  
   /// ---- sounds
-  if((soundMode == SOUND_OFF)
-      || (soundMode == SOUND_ALARMS && (audioToPlay == AUDIO_KEYTONE || audioToPlay == AUDIO_SWITCHMOVED))
-      || (soundMode == SOUND_NOKEY && audioToPlay == AUDIO_KEYTONE))
+  if((Sys.soundMode == SOUND_OFF)
+      || (Sys.soundMode == SOUND_ALARMS && audioToPlay >= AUDIO_SWITCHMOVED)
+      || (Sys.soundMode == SOUND_NOKEY && audioToPlay == AUDIO_KEYTONE))
     audioToPlay = AUDIO_NONE; 
 
   Serial.write(audioToPlay); 
@@ -254,6 +257,8 @@ void serialWrite14bit(uint16_t value)
   Serial.write((value >> 7) & 0x7f);
 }
 
+//--------------------------------------------------------------------------------------------------
+
 void checkBattery()
 {
   /* Apply smoothing to measurement. Cant afford to store any data points due to limited RAM,
@@ -267,13 +272,12 @@ void checkBattery()
   response.
   Formula x = x - x/n + a/n  */
   
-  long anaRd = ((long)analogRead(BATTVOLTSPIN) * battVfactor) / 100;
+  long anaRd = ((long)analogRead(PIN_BATTVOLTS) * battVfactor) / 100;
   long battV = ((long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd) / _NUM_SAMPLES; 
   battVoltsNow = int(battV); 
   
-  //add some hysterisis to battState
-  if (battState == _BATTGOOD && battVoltsNow <= battVoltsMin)
-    battState = _BATTLOW;
-  else if (battState == _BATTLOW && battVoltsNow > (battVoltsMin + 100)) //100mV hysteris
-    battState = _BATTGOOD;
+  if (battVoltsNow <= battVoltsMin)
+    battState = BATTLOW;
+  else if (battVoltsNow > (battVoltsMin + 100)) //100mV hysteris
+    battState = BATTHEALTY;
 }
