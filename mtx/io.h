@@ -12,6 +12,8 @@ int calcRateExpo(int _input, int _rate, int _expo);
 int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX);
 long weightAndOffset(int _input, int _weight, int _diff, int _offset);
 
+bool cutIsActivated();
+
 //==================================================================================================
 
 void readSwitchesAndButtons()
@@ -19,7 +21,7 @@ void readSwitchesAndButtons()
   digitalWrite(PIN_COL3, LOW);
   digitalWrite(PIN_COL2, LOW);
   digitalWrite(PIN_COL1, HIGH);
-  bool _swa = !digitalRead(PIN_ROW1); 
+  bool _swa = digitalRead(PIN_ROW1); 
   uint8_t _selectKey = digitalRead(PIN_ROW2);
   
   digitalWrite(PIN_COL1, LOW);
@@ -190,6 +192,13 @@ void computeChannelOutputs()
   
   //switches are slowed down to prevent abrupt change
   int _delta = 2 * fixedLoopTime;
+  
+  //Switch A
+  static int _SwAVal = -500;
+  if(SwAEngaged == true) _SwAVal += _delta;
+  else _SwAVal -= _delta;
+  _SwAVal = constrain(_SwAVal, -500, 500);
+  MixSources[IDX_SWA] = _SwAVal;
   
   //Switch B
   static int _SwBVal = -500;
@@ -464,3 +473,16 @@ int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
   return int(y); 
 }
 
+//--------------------------------------------------------------------------------------------------
+
+bool cutIsActivated()
+{
+  for(int i = 0; i < NUM_PRP_CHANNLES; i++)
+  {
+    if(Model.CutValue[i] > 0 && SwAEngaged == false)
+    {
+      return true;
+    }
+  }
+  return false;
+}
