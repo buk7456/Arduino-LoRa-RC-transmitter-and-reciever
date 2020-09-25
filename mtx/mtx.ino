@@ -109,7 +109,7 @@ void setup()
   readSwitchesAndButtons();
   readSticks();
   bool _rfState = Sys.rfOutputEnabled;
-  while (throttleIn > -450 && SwAEngaged == false)
+  while (throttleIn > -450)
   {
     DisplayFullScreenMsg(F("Check throttle"));
     readSwitchesAndButtons();
