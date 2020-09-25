@@ -54,7 +54,7 @@ This controller implements a free mixer that offers flexiblity with what we want
 
 ##### Mix sources:
 - Raw stick inputs (roll, pitch, throttle, yaw, knob)
-- Switches (SwB, SwC, SwD)
+- Switches (SwA, SwB, SwC, SwD)
 - Curves (Aileron, Elevator, Throttle, Rudder)
 - Channels (Ch1 to Ch8)
 - Temporary variables (Virt1, Virt2)
