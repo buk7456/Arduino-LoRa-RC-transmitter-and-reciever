@@ -32,13 +32,13 @@ enum {
   //Mixer sources. These are indexes in mix sources array. The last item shoud be virtual2
   //Same order as the name order in the UI
   IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
-  IDX_SWB, IDX_SWC, IDX_SWD,
+  IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
   IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
   IDX_NONE, 
   IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8,
   IDX_VRT1, IDX_VRT2
 };
-#define NUM_MIXSOURCES 23 //should match the above, else segfaults
+#define NUM_MIXSOURCES 24 //should match the above, else segfaults
 
 #define NUM_PRP_CHANNLES 8  //Number of proportional channels ## Leave this
 
