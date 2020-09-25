@@ -107,30 +107,31 @@ char const srcName1[]  PROGMEM = "ptch";
 char const srcName2[]  PROGMEM = "thrt";
 char const srcName3[]  PROGMEM = "yaw";
 char const srcName4[]  PROGMEM = "knob";
-char const srcName5[]  PROGMEM = "SwB"; 
-char const srcName6[]  PROGMEM = "SwC"; 
-char const srcName7[]  PROGMEM = "SwD"; 
-char const srcName8[]  PROGMEM = "Ail";
-char const srcName9[]  PROGMEM = "Ele";
-char const srcName10[] PROGMEM = "Thrt";
-char const srcName11[] PROGMEM = "Rud";
-char const srcName12[] PROGMEM = "None";
-char const srcName13[] PROGMEM = "Ch1";
-char const srcName14[] PROGMEM = "Ch2";
-char const srcName15[] PROGMEM = "Ch3";
-char const srcName16[] PROGMEM = "Ch4";
-char const srcName17[] PROGMEM = "Ch5";
-char const srcName18[] PROGMEM = "Ch6";
-char const srcName19[] PROGMEM = "Ch7";
-char const srcName20[] PROGMEM = "Ch8";
-char const srcName21[] PROGMEM = "Virt1";
-char const srcName22[] PROGMEM = "Virt2";
+char const srcName5[]  PROGMEM = "SwA"; 
+char const srcName6[]  PROGMEM = "SwB"; 
+char const srcName7[]  PROGMEM = "SwC"; 
+char const srcName8[]  PROGMEM = "SwD"; 
+char const srcName9[]  PROGMEM = "Ail";
+char const srcName10[] PROGMEM = "Ele";
+char const srcName11[] PROGMEM = "Thrt";
+char const srcName12[] PROGMEM = "Rud";
+char const srcName13[] PROGMEM = "None";
+char const srcName14[] PROGMEM = "Ch1";
+char const srcName15[] PROGMEM = "Ch2";
+char const srcName16[] PROGMEM = "Ch3";
+char const srcName17[] PROGMEM = "Ch4";
+char const srcName18[] PROGMEM = "Ch5";
+char const srcName19[] PROGMEM = "Ch6";
+char const srcName20[] PROGMEM = "Ch7";
+char const srcName21[] PROGMEM = "Ch8";
+char const srcName22[] PROGMEM = "Virt1";
+char const srcName23[] PROGMEM = "Virt2";
 
 const char *const srcNames[] PROGMEM = { //table to refer to the strings
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
-  srcName22
+  srcName22, srcName23
 };
 
 // --- Other strings ----
@@ -285,13 +286,16 @@ void HandleMainUI()
   
   int thStpwtch = -500 + (10 * int(Model.throttleTimerMinThrottle));
   unsigned long timerCountDownInitVal = Model.throttleTimerCntDnInitMinutes * 60000UL;
-  if (throttleIn >= thStpwtch && SwAEngaged == false) //run throttle timer
-    throttleTimerElapsedTime = throttleTimerLastElapsedTime + millis() - throttleTimerLastPaused;
-  else //pause timer
+  if(throttleIn <= thStpwtch || cutIsActivated()) //pause
   {
     throttleTimerLastElapsedTime = throttleTimerElapsedTime;
     throttleTimerLastPaused = millis();
   }
+  else //run
+  {
+    throttleTimerElapsedTime = throttleTimerLastElapsedTime + millis() - throttleTimerLastPaused;
+  }
+ 
   //play audio
   if(Model.throttleTimerType == TIMERCOUNTDOWN && throttleTimerElapsedTime > timerCountDownInitVal)
   {
@@ -342,21 +346,17 @@ void HandleMainUI()
       {
         enum {NORMALMODE = 0, DIGCHMODE, TRIMMODE };
         static uint8_t homeScreenMode = NORMALMODE;
-
-        static uint8_t _selectedTrim = 0; //AIL, ELE, THR, RUD
+        static uint8_t selectedTrim = 0; //AIL, ELE, THR, RUD
+        static bool trimIsPendingSave = false;
         
         //----------Show a graphical battery gauge---------
-        //This crude battery fuel gauge doesnt cater for state of charge measurement...
-        //only battery voltage.
+        //This crude battery gauge doesn't indicate state of charge; only battery voltage
         display.drawRect(0, 0, 18, 7, BLACK);
         display.drawVLine(18, 2, 3, BLACK);
-        
         static int8_t lastNumOfBars = 19;
-        
         if(battState == BATTHEALTY)
         {
-          long _numBars = (20L *(battVoltsNow - battVoltsMin)) / (battVoltsMax - battVoltsMin); 
-          int8_t numOfBars = _numBars & 0xFF;
+          int8_t numOfBars = (20L *(battVoltsNow - battVoltsMin)) / (battVoltsMax - battVoltsMin);
           if(numOfBars > 19) 
             numOfBars = 19;
           if (numOfBars > lastNumOfBars && numOfBars - lastNumOfBars < 2) //prevent jitter at boundaries
@@ -365,20 +365,11 @@ void HandleMainUI()
             display.fillRect(2 + i*3, 2, 2, 3, BLACK);
           lastNumOfBars = numOfBars;
         }
-
-        //---------show cut icon -----------
-        if (SwAEngaged == true)
-        {
-          for(int i = 0; i < NUM_PRP_CHANNLES; i++)
-          {
-            if(Model.CutValue[i] > 0) //if cut specified
-            {
-              display.drawBitmap(63, 1, cut_icon, 13, 6, 1);
-              break;
-            }
-          }
-        }
         
+        //---------show cut icon -----------
+        if (cutIsActivated())
+          display.drawBitmap(63, 1, cut_icon, 13, 6, 1);
+
         //---------show dualrate icon --------
         if (SwBEngaged && (Model.DualRateEnabled[AILRTE] || Model.DualRateEnabled[ELERTE] || Model.DualRateEnabled[RUDRTE]))
           display.drawBitmap(79, 1, dualrate_icon, 13, 6, 1);
@@ -431,12 +422,12 @@ void HandleMainUI()
           }
         }
         
-
         //------- Show generic timer ------------
         printHHMMSS(stopwatchElapsedTime, 20, 45);
 
-        //------ Control -----
-        if(homeScreenMode == DIGCHMODE) //show and control digital channels
+        //---------------------------------------
+        
+        if(homeScreenMode == DIGCHMODE)
         {
           display.drawBitmap(53, 0, lock_icon, 6, 7, 1); 
           //handle keys
@@ -449,7 +440,7 @@ void HandleMainUI()
           if(DigChB) display.drawBitmap(110, 29, chB_icon1, 9, 9, 1);
           else display.drawBitmap(110, 29, chB_icon0, 9, 9, 1);
         }
-        else if(homeScreenMode == TRIMMODE) //adjust trims
+        else if(homeScreenMode == TRIMMODE)
         {
           display.drawBitmap(53, 0, lock_icon, 6, 7, 1); 
           
@@ -459,16 +450,21 @@ void HandleMainUI()
           if(clickedButton == SELECT_KEY) 
           {
             audioToPlay = AUDIO_TRIMSELECTED;
-            _selectedTrim++;
-            if(_selectedTrim > 3)
-              _selectedTrim = 0;
+            selectedTrim++;
+            if(selectedTrim > 3)
+              selectedTrim = 0;
           }
-          Model.Trim[_selectedTrim] = adjustTrim(DOWN_KEY, UP_KEY, Model.Trim[_selectedTrim]);
+          //adjust
+          uint8_t oldTrimVal = Model.Trim[selectedTrim];
+          Model.Trim[selectedTrim] = adjustTrim(DOWN_KEY, UP_KEY, Model.Trim[selectedTrim]);
+          if(Model.Trim[selectedTrim] != oldTrimVal)
+            trimIsPendingSave = true;
+          
           //show values
-          if(_selectedTrim == 0)      showTrimData(F("Ail"), Model.Trim[0]);
-          else if(_selectedTrim == 1) showTrimData(F("Ele"), Model.Trim[1]);
-          else if(_selectedTrim == 2) showTrimData(F("Thr"), Model.Trim[2]);
-          else if(_selectedTrim == 3) showTrimData(F("Rud"), Model.Trim[3]);
+          if(selectedTrim == 0)      showTrimData(F("Ail"), Model.Trim[0]);
+          else if(selectedTrim == 1) showTrimData(F("Ele"), Model.Trim[1]);
+          else if(selectedTrim == 2) showTrimData(F("Thr"), Model.Trim[2]);
+          else if(selectedTrim == 3) showTrimData(F("Rud"), Model.Trim[3]);
           
           display.drawHLine(68, 62, 51, BLACK);
           display.drawVLine(126, 12, 51, BLACK);
@@ -488,28 +484,30 @@ void HandleMainUI()
         
         //------------------------------
         
+        //save periodically
+        if(trimIsPendingSave && thisLoopNum % (5000 / fixedLoopTime) == 1)
+        {
+          eeSaveModelData(Sys.activeModel);
+          trimIsPendingSave = false;
+        }
+        
+        
         if (homeScreenMode == NORMALMODE && clickedButton == SELECT_KEY)
           changeToScreen(MAIN_MENU);
         else if (homeScreenMode != TRIMMODE && clickedButton == DOWN_KEY)
           changeToScreen(POPUP_TIMER_MENU);
-        else if(homeScreenMode != TRIMMODE && heldButton == DOWN_KEY 
-                && ((millis() - buttonStartTime) > (LONGPRESSTIME + 400)))
+        else if(homeScreenMode != TRIMMODE && heldButton == DOWN_KEY)
         {
           audioToPlay = AUDIO_KEYTONE;
-          if(homeScreenMode == NORMALMODE) 
-            homeScreenMode = DIGCHMODE;
-          else if(homeScreenMode == DIGCHMODE)
-            homeScreenMode = NORMALMODE;
+          if(homeScreenMode == NORMALMODE) homeScreenMode = DIGCHMODE;
+          else if(homeScreenMode == DIGCHMODE) homeScreenMode = NORMALMODE;
           heldButton = 0;
         }
-        else if(homeScreenMode != DIGCHMODE && heldButton == SELECT_KEY 
-                && ((millis() - buttonStartTime) > (LONGPRESSTIME + 400)))
+        else if(homeScreenMode != DIGCHMODE && heldButton == SELECT_KEY)
         {
           audioToPlay = AUDIO_SWITCHMOVED;
-          if(homeScreenMode == NORMALMODE) 
-            homeScreenMode = TRIMMODE;
-          else if(homeScreenMode == TRIMMODE)
-            homeScreenMode = NORMALMODE;
+          if(homeScreenMode == NORMALMODE) homeScreenMode = TRIMMODE;
+          else if(homeScreenMode == TRIMMODE) homeScreenMode = NORMALMODE;
           heldButton = 0;
         }
         
