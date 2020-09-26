@@ -27,16 +27,15 @@ enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2};
 
 ///================================================================================================
 
-//-- Boot popup menu strings. Max 14 characters per string
+//-- Boot popup menu strings. Max 15 characters per string
 #define NUM_ITEMS_BOOT_POPUP 4
-char const bootStr0[] PROGMEM = "Stick calibrte"; 
+char const bootStr0[] PROGMEM = "Calibrte sticks"; 
 char const bootStr1[] PROGMEM = "Show Pkts/sec"; 
 char const bootStr2[] PROGMEM = "Format EEPROM"; 
 char const bootStr3[] PROGMEM = "Cancel";
 const char *const bootMenu[] PROGMEM = { //table to refer to the strings
   bootStr0, bootStr1, bootStr2, bootStr3
 };
-
 
 //-- Main menu strings. Max 16 characters per string
 #define NUM_ITEMS_MAIN_MENU 7
@@ -76,7 +75,7 @@ enum
   MODE_CALIB,
 };
 
-//-- Timer popup menu strings. Max 14 characters per string
+//-- Timer popup menu strings. Max 15 characters per string
 char const tmrStr0[] PROGMEM = "Start timer 2"; //shown if timer2 is paused
 char const tmrStr1[] PROGMEM = "Stop timer 2";  //shown if timer2 is playing
 char const tmrStr2[] PROGMEM = "Reset timer 2";
@@ -90,7 +89,7 @@ const char *const timerMenuB[] PROGMEM = { //table to refer to the strings
   tmrStr1, tmrStr2, tmrStr3, tmrStr4
 };
 
-//-- Mixer popup menu strings. Max 14 characters per string
+//-- Mixer popup menu strings. Max 15 characters per string
 #define NUM_ITEMS_MIXER_POPUP 5
 char const mxrStr0[] PROGMEM = "View mixes"; 
 char const mxrStr1[] PROGMEM = "Reset mix"; 
@@ -220,7 +219,7 @@ void HandleBootUI()
   display.clearDisplay();
   drawPopupMenu(bootMenu, NUM_ITEMS_BOOT_POPUP);
   display.display();
-  while (buttonCode > 0)  //wait for no button release to prevent false trigger
+  while (buttonCode > 0)  //wait for button release to prevent false trigger
   {
     readSwitchesAndButtons();
   }
@@ -1122,7 +1121,6 @@ void HandleMainUI()
         
         if(_selection == 1) //view outputs
         {
-          eeSaveModelData(Sys.activeModel);
           changeToScreen(MODE_MIXER_OUTPUT);
         }
         else if(_selection == 2) //reset this mix
