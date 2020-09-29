@@ -242,6 +242,7 @@ void computeChannelOutputs()
   else
     MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateSport[AILRTE], Model.ExpoSport[AILRTE]);
   MixSources[IDX_AIL] += 5 * (Model.Trim[0] - 100);
+  MixSources[IDX_AIL] = constrain(MixSources[IDX_AIL], -500, 500);
   
   //Ele
   if(SwBEngaged == false || Model.DualRateEnabled[ELERTE] == false)
@@ -249,6 +250,7 @@ void computeChannelOutputs()
   else
     MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateSport[ELERTE], Model.ExpoSport[ELERTE]);
   MixSources[IDX_ELE] += 5 * (Model.Trim[1] - 100);
+  MixSources[IDX_ELE] = constrain(MixSources[IDX_ELE], -500, 500);
   
   //Thr
   int xpoints[5] = {-500, -250, 0, 250, 500};
@@ -257,6 +259,7 @@ void computeChannelOutputs()
     ypoints[i] = 5 * (Model.ThrottlePts[i] - 100);
   MixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
   MixSources[IDX_THRTL_CURV] += 5 * (Model.Trim[2] - 100);
+  MixSources[IDX_THRTL_CURV] = constrain(MixSources[IDX_THRTL_CURV], -500, 500);
   
   //Rud
   if(SwBEngaged == false || Model.DualRateEnabled[RUDRTE] == false)
@@ -264,6 +267,7 @@ void computeChannelOutputs()
   else
     MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
   MixSources[IDX_RUD] += 5 * (Model.Trim[3] - 100);
+  MixSources[IDX_RUD] = constrain(MixSources[IDX_RUD], -500, 500);
 
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
