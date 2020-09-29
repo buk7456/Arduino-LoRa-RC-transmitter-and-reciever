@@ -96,7 +96,7 @@ thus providing crow braking feature.
 3. Ch5 = -50%SwC{-50offset}
 4. Ch6 =  100%Ch5
 
-#### Flaperon
+##### Flaperon
 Left aileron in Ch1, right aileron in Ch8. Let's use SwC to activate the flaperons. When SwC is in upper position, flaperons are off. In middle position we deploy half flaperons, and in lower position we deploy full flaperons.
 1. Ch1 = -100%Ail + -50%SwC{-50offset}
 2. Ch8 =  100%Ail + -50%SwC{-50offset}
