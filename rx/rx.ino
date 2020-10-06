@@ -148,7 +148,7 @@ void setup()
   }
   
   //listen for bind
-  readBindPacket(); //blocking
+  readBindPacket(); 
   
   //Wait for failsafe transimission before proceeding
   while(failsafeReceived == false)
