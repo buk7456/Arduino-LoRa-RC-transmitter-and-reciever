@@ -1423,10 +1423,15 @@ void HandleMainUI()
         
         display.setCursor(13, 37);
         display.print(F("Ch3 Mode:  "));
-        if(Sys.PWM_Mode_Ch3 == 1) display.print(F("ServoPWM"));
-        else  display.print(F("PWM"));
-
-        changeFocusOnUPDOWN(4);
+        if(Sys.PWM_Mode_Ch3 == 1) 
+          display.print(F("ServoPWM"));
+        else  
+          display.print(F("PWM"));
+        
+        display.setCursor(79, 46);
+        display.print(F("Bind"));
+        
+        changeFocusOnUPDOWN(5);
         toggleEditModeOnSelectClicked();
         drawCursor(71, 10 + (focusedItem - 1) * 9);
         
@@ -1441,11 +1446,17 @@ void HandleMainUI()
         {
           Sys.PWM_Mode_Ch3 = incrDecrU8tOnUPDOWN(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
           if(isEditMode && (pressedButton == UP_KEY || pressedButton == DOWN_KEY))
-          {
             makeToast(F("Restart receiver"), 2000);
-          }
         }
-
+        else if (focusedItem == 5 && isEditMode)
+        {
+          bindActivated = true;
+          Sys.transmitterID = random(128) & 0x7F; //generate a random txID
+          eeSaveSysConfig();
+          makeToast(F("Sending bind.."), 2000);
+          changeToScreen(HOME_SCREEN);
+        }
+        
         //go back to main menu
         if (heldButton == SELECT_KEY)
         {
