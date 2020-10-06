@@ -36,17 +36,24 @@ void serialWrite14bit(uint16_t value); //helper
 
 void setup()
 {
+  //seed random number generator
+  randomSeed(analogRead(PIN_BATTVOLTS));
+  
+  //set up pins
   pinMode(PIN_ROW1, INPUT);
   pinMode(PIN_ROW2, INPUT);
   pinMode(PIN_COL1, OUTPUT);
   pinMode(PIN_COL2, OUTPUT);
   pinMode(PIN_COL3, OUTPUT);
   
+  //init spi 
   SPI.begin(); //Still needed even when using SPI transactions
 
+  //init lcd
   display.begin();
   display.setTextWrap(false);
   
+  //init serial port
   Serial.begin(UART_BAUD_RATE);
   delay(200);
   
@@ -77,6 +84,9 @@ void setup()
       delay(30);
     }
     DisplayFullScreenMsg(F("Formating.."));
+    //generate random transmitterID
+    Sys.transmitterID = random(128) & 0x7F;
+    //save
     eeSaveSysConfig();
     for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
       eeSaveModelData(mdlNo);
@@ -170,7 +180,7 @@ void serialSendData()
   byte 1 - Status byte 
       bit7 - 0
       bit6 - backlight 1 on, 0 off
-      bit5 - 0
+      bit5 - bind state 1 bind 0 operate
       bit4 - RF module, 1 on, 0 off 
       bit3 - DigChA, 1 on, 0 off
       bit2 - DigChB, 1 on, 0 off
@@ -178,8 +188,9 @@ void serialSendData()
       bit0 - Failsafe, 1 means failsafe data, 0 normal data
       
   byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
-  byte 18- Sound to play  (1 byte)
-  byte 19- End of message 0xDD
+  byte 18 - Sound to play  (1 byte)
+  byte 19 - Tx ID (1 byte)
+  byte 20 - End of message 0xDD
   */
   
   /// ---- message start
@@ -198,7 +209,8 @@ void serialSendData()
      || (Sys.backlightMode == BACKLIGHT_60S && elapsed < 60000UL)) 
     status |= 0x40;
   
-  status |= (battState & 0x01) << 5;
+  status |= (bindActivated & 0x01) << 5;
+  bindActivated = false;
   
   status |= (Sys.rfOutputEnabled & 0x01) << 4;
   status |= DigChA << 3;
@@ -245,6 +257,9 @@ void serialSendData()
 
   Serial.write(audioToPlay); 
   audioToPlay = AUDIO_NONE; //set to none
+  
+  /// ---- send transmitterID
+  Serial.write(Sys.transmitterID);
   
   /// ---- end of message
   Serial.write(0xDD); 
