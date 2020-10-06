@@ -1,5 +1,5 @@
 //-------------------------------
-#define _SKETCHVERSION "1.4.0"
+#define _SKETCHVERSION "1.5.0"
 //To update default values in EEPROM change the value below to anything between 0xAA and 0xAF.
 #define EE_INITFLAG 0xAE //WARNING: Changing this will overwrite all existing model data
 
