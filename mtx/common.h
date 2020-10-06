@@ -10,6 +10,8 @@ enum {SOUND_OFF = 0, SOUND_ALARMS, SOUND_NOKEY, SOUND_ALL};
 enum {BACKLIGHT_OFF = 0, BACKLIGHT_5S, BACKLIGHT_15S, BACKLIGHT_60S, BACKLIGHT_ON};
 
 struct sysParams {
+  uint8_t transmitterID;
+  
   uint8_t activeModel = 1; ///The current model
   
   bool rfOutputEnabled = false;
@@ -223,6 +225,9 @@ uint8_t audioToPlay = AUDIO_NONE;
 const uint8_t eeSysDataStartAddress = 1; 
 uint8_t eeModelDataStartAddress; //recalculated in setup()
 uint8_t numOfModels;  //recalculated in setup()
+
+//-----------
+bool bindActivated = false;
 
 //---etc------
 uint8_t returnedByte; //got from slave mcu
