@@ -17,6 +17,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - 2 timers; Throttle timer and free stopwatch
 - Sticks calibration
 - Audio tones
+- Bind, Frequency hopping
 
 ## License:
 MIT license
@@ -48,6 +49,9 @@ Three buttons are used for navigation; Up, Select, Down. Long press Select to go
 <p align="center">
 <img src="img2.png" width="816" height="864"/>
 </p>
+
+### Binding
+To bind the receiver and transmitter, we use the bind option in the system settings. Select bind option in transmitter and immediately restart the receiver.
 
 ### The Mixer
 This controller implements a free mixer that offers flexiblity with what we want to control. Each mixer slot takes two inputs, adds or multiplies them, then sends the result to the specified output. Mixer slots are evaluated sequentially.
@@ -126,13 +130,12 @@ Note: This doesnt change the subtrim so we have to remove this mix later
 and adjust the subtrim when not in flight. 
 
 ## Testing:
-I have done several tests on this system and found it reliable. The achievable range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. The transmitter to receiver update rate is around 35 frames a second which is sufficient to control an RC model. There are no issues with the servo control either. 
+I have done several tests on this system and found it reliable enough. 
+The range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight. 
+I have also tested the frequency hopping feature and it is stable enough. 
+The transmitter to receiver update rate averages at around 40 frames a second which is sufficient to control an RC model. 
+There are no issues experienced with the servo control either. 
 
 ## Limitations:
 1. No basic telemetry support. 
 2. No dedicated trim buttons. However we can access trim from the home screen by holding the select key.
-3. No addressing and no binding between transmitter and receiver. No more than one active receiver can be used at a time.
-4. RF transmission occurs at a fixed base frequency which may not comply with some local regulations. 
-
-## To do:
-1. Implement frequency hopping
