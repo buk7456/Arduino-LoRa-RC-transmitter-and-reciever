@@ -12,13 +12,8 @@
 
 #include <SPI.h>
 #include "LoRa.h"
-// NOTE: This library exposes the LoRa radio directly, and allows you to send data to 
-//       any radios in range with same radio parameters. 
-//       All data is broadcasted and there is no addressing. 
-//       Any LoRa radio that are configured with the same radio parameters and in range 
-//       can see the packets you send.
-  
-#include "crc16.h"
+#include "crc8.h"
+#include <EEPROM.h>
 
 //----------------------------------------------
 //Pins
@@ -61,16 +56,53 @@ bool failsafeReceived = false;
 long validPacketCount = 0; //debug
 int rssi = 0; //debug
 
+uint8_t transmitterID = 0xFF; //settable during bind
+
+//----------------- Frequency hopping ---------------------------------------
+enum {BIND_MODE = 0, FLY_MODE};
+uint8_t workingMode = FLY_MODE; 
+
+//define the frequency to use for binding
+const uint32_t bindFreq = 433000000;
+
+//Frequency list to pick from. The separation here is 250kHz. All must be within the specific ISM band
+uint32_t freqList[] = {433250000, 433500000, 433750000, 434000000, 434250000, 434500000, 434750000};
+
+uint8_t fhss_schema[3] = {0, 1, 2}; /* Index in freqList. Frequencies to use for hopping. 
+These are changed when we receive a bind. This schema also gets stored 
+to eeprom so we don't have to rebind each time we switch on the receiver. */
+
+uint8_t ptr_fhss_schema = 0; 
+
+//-------------- EEprom stuff --------------------
+#define EE_INITFLAG         0xBA 
+#define EE_ADR_INIT_FLAG    0
+#define EE_ADR_TX_ID        1
+#define EE_ADR_FHSS_SCHEMA  2
+
 //==================================================================================================
 void setup()
 { 
+  // EEPROM init
+  if (EEPROM.read(EE_ADR_INIT_FLAG) != EE_INITFLAG)
+  {
+    EEPROM.write(EE_ADR_TX_ID, transmitterID);
+    EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
+    EEPROM.write(EE_ADR_INIT_FLAG, EE_INITFLAG);
+  }
+  
+  // Read from EEPROM
+  transmitterID = EEPROM.read(EE_ADR_TX_ID);
+  EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
+  
+  // setup pins
   pinMode(GREEN_LED_PIN, OUTPUT);
   digitalWrite(GREEN_LED_PIN, HIGH);
-  
   pinMode(ORANGE_LED_PIN, OUTPUT);
   pinMode(CH9PIN, OUTPUT);
   pinMode(CH10PIN, OUTPUT);
   
+  //calc servo ranges
   lowerLimMicroSec = SERVOPULSERANGE/2;
   lowerLimMicroSec *= SERVO_MAX_ANGLE;
   lowerLimMicroSec /= 90;
@@ -87,11 +119,9 @@ void setup()
 
   delay(500);
   
-  /////////////////////////////////////////////////////////
-  /// Override the default CS, reset, and IRQ pins (optional)
-  LoRa.setPins(10, 8, 2); //pin 2 actually not used unless we have a callback 
-
-  if (LoRa.begin(433E6))
+  //setup lora module
+  LoRa.setPins(10, 8);
+  if (LoRa.begin(bindFreq))
   {
     LoRa.setSpreadingFactor(7); //default is 7
   
@@ -117,11 +147,14 @@ void setup()
     }
   }
   
+  //listen for bind
+  readBindPacket(); //blocking
+  
   //Wait for failsafe transimission before proceeding
   while(failsafeReceived == false)
   {
-    readAndDecodePacket();
-    delay(1);
+    readFlyModePacket();
+    delay(2);
   }
 
   //Attach servos
@@ -140,11 +173,11 @@ void setup()
 void loop()
 {
   ///-------- READ AND DECODE PACKET ----------------
-  readAndDecodePacket();
+  readFlyModePacket();
   
   /// ------- CHECK TIME SINCE LAST VALID PACKET ----
   uint32_t elapsed_ms_LastValidPkt = millis() - lastValidPacketMillis;
-  if(elapsed_ms_LastValidPkt > 80) //turn off orange LED
+  if(elapsed_ms_LastValidPkt > 50) //turn off orange LED
     digitalWrite(ORANGE_LED_PIN, LOW); 
   if(elapsed_ms_LastValidPkt > 1500) //trigger fail safes
   {
@@ -167,33 +200,120 @@ void loop()
 }
 
 //==================================================================================================
-void readAndDecodePacket()
+void readBindPacket()
 {
-  /** 
-  Air protocol format
+  //Bind protocol Format
+  //byte0: transmitter ID, byte1toN: hop channels, last_byte: crc8
   
-  byte  b0       b1      b2        b3       b4       
-      11111111 11222222 22223333 33333344 44444444 
-         b5       b6      b7        b8       b9
-      55555555 55666666 66667777 77777788 88888888
-         b10      b11
-      abpfCCCC   CCCCCCCC
-      
-  Chs 1 to 8 encoded as 10 bits      
-  a is digital ch9 bit
-  b is digital Ch10 bit 
-  p is PWM mode bit for ch3
-  f is failsafe flag
-  CCCC CCCCCCCC is the 12 bit CRC (calculated as CRC16)  
-  */
+  //set to bind freq
+  LoRa.sleep();
+  LoRa.setFrequency(bindFreq);
+  LoRa.idle();
+  
+  //listen for 1 second
+  bool receivedBind = false;
+  uint32_t stopTime = millis() + 1000;
+  while(millis() < stopTime)
+  {
+    int packetSize = LoRa.parsePacket();
+    if (packetSize > 0) //received a packet
+    {
+      /// read packet
+      uint16_t cntr = 0;
+      bool msgBuffFull = false;
+      while (LoRa.available() > 0) 
+      {
+        if(msgBuffFull == false) //read into msgBuff
+        {
+          msgBuff[cntr] = LoRa.read();
+          cntr++;
+          if (cntr >= (sizeof(msgBuff)/sizeof(msgBuff[0]))) //prevent array out of bounds
+            msgBuffFull = true; 
+        }
+        else // discard any extra data
+          LoRa.read(); 
+      }
+      /// Check if the received data is valid based on crc
+      uint8_t crcQQ = msgBuff[12];
+      uint8_t computedCRC = crc8Maxim(msgBuff, 12);
+      if(crcQQ == computedCRC)
+      {
+        receivedBind = true;
+        break; //exit loop
+      }
+    }
+    delay(2);
+  }
+  
+  if(receivedBind == false)
+  {
+    hop();  //set to operating frequencies
+    return; //bail out
+  }
 
+  //get transmitterID
+  transmitterID = msgBuff[0];
+  
+  //get hop channels
+  for(uint8_t k = 0; k < (sizeof(fhss_schema)/sizeof(fhss_schema[0])); k++)
+  {
+    if(msgBuff[1 + k] < (sizeof(freqList)/sizeof(freqList[0]))) //prevents invalid references
+      fhss_schema[k] = msgBuff[1 + k];
+  }
+  
+  //save to eeprom
+  EEPROM.write(EE_ADR_TX_ID, transmitterID);
+  EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
+  
+  //set to fly mode freq
+  hop();
+}
+
+//==================================================================================================
+
+void hop()
+{
+  ptr_fhss_schema++;
+  if(ptr_fhss_schema >= sizeof(fhss_schema)/sizeof(fhss_schema[0]))
+    ptr_fhss_schema = 0;
+  
+  uint8_t idx_freq = fhss_schema[ptr_fhss_schema];
+  if(idx_freq < sizeof(freqList)/sizeof(freqList[0])) //prevents invalid references
+  {
+    LoRa.sleep();
+    LoRa.setFrequency(freqList[idx_freq]);
+    LoRa.idle();
+  }
+}
+
+//==================================================================================================
+void readFlyModePacket()
+{
+  /* Air protocol format
+    b0 
+    Transmitter ID
+    b1        b2        b3        b4        b5       
+    11111111  11222222  22223333  33333344  44444444 
+    b6        b7        b8        b9       b10
+    55555555  55666666  66667777  77777788  88888888
+    b11       b12
+    abpf0000  CCCCCCCC
+    
+    Servo Chs 1 to 8 encoded as 10 bits      
+    a is digital chA bit
+    b is digital ChB bit 
+    p is PWM mode bit for ch3
+    f is failsafe flag
+    C is the CRC
+  */
+  
   bool hasValidPacket = false;
   
   int packetSize = LoRa.parsePacket();
   if (packetSize > 0) //received a packet
   {
     rssi = LoRa.packetRssi();
-
+    
     /// read packet
     uint16_t cntr = 0;
     bool msgBuffFull = false;
@@ -210,19 +330,19 @@ void readAndDecodePacket()
         LoRa.read(); 
     }
     
-    /// Check if the received data is valid based on crc
-    uint16_t crcQQ = msgBuff[10] & 0x0F; //extract first 4 crc bits
-    crcQQ = crcQQ << 8;
-    crcQQ |= msgBuff[11]; //add next 8 crc bits
-    msgBuff[10] &= 0xF0; //remove crc bits from received data
-    uint16_t computedCRC = crc16(msgBuff, 11) & 0x0FFF;
-    if(crcQQ == computedCRC)
+    /// Check if the received data is valid based on crc and transmitterID
+    uint8_t crcQQ = msgBuff[12];
+    uint8_t computedCRC = crc8Maxim(msgBuff, 12);
+    if(crcQQ == computedCRC && msgBuff[0] == transmitterID)
     {
       hasValidPacket = true;
       validPacketCount++;
       lastValidPacketMillis = millis();
       digitalWrite(ORANGE_LED_PIN, HIGH);
     }
+    
+    /// hop
+    hop();
   }
   
   //decode payload
@@ -230,21 +350,21 @@ void readAndDecodePacket()
   {
     //Proportional channels
     long _ch1to8Tmp[8];
-    _ch1to8Tmp[0] = ((uint16_t)msgBuff[0] << 2 & 0x3fc) | ((uint16_t)msgBuff[1] >> 6 & 0x03); //ch1
-    _ch1to8Tmp[1] = ((uint16_t)msgBuff[1] << 4 & 0x3f0) | ((uint16_t)msgBuff[2] >> 4 & 0x0f); //ch2
-    _ch1to8Tmp[2] = ((uint16_t)msgBuff[2] << 6 & 0x3c0) | ((uint16_t)msgBuff[3] >> 2 & 0x3f); //ch3
-    _ch1to8Tmp[3] = ((uint16_t)msgBuff[3] << 8 & 0x300) | ((uint16_t)msgBuff[4]      & 0xff); //ch4
-    _ch1to8Tmp[4] = ((uint16_t)msgBuff[5] << 2 & 0x3fc) | ((uint16_t)msgBuff[6] >> 6 & 0x03); //ch5
-    _ch1to8Tmp[5] = ((uint16_t)msgBuff[6] << 4 & 0x3f0) | ((uint16_t)msgBuff[7] >> 4 & 0x0f); //ch6
-    _ch1to8Tmp[6] = ((uint16_t)msgBuff[7] << 6 & 0x3c0) | ((uint16_t)msgBuff[8] >> 2 & 0x3f); //ch7
-    _ch1to8Tmp[7] = ((uint16_t)msgBuff[8] << 8 & 0x300) | ((uint16_t)msgBuff[9]      & 0xff); //ch8
+    _ch1to8Tmp[0] = ((uint16_t)msgBuff[1] << 2 & 0x3fc) | ((uint16_t)msgBuff[2] >> 6 & 0x03); //ch1
+    _ch1to8Tmp[1] = ((uint16_t)msgBuff[2] << 4 & 0x3f0) | ((uint16_t)msgBuff[3] >> 4 & 0x0f); //ch2
+    _ch1to8Tmp[2] = ((uint16_t)msgBuff[3] << 6 & 0x3c0) | ((uint16_t)msgBuff[4] >> 2 & 0x3f); //ch3
+    _ch1to8Tmp[3] = ((uint16_t)msgBuff[4] << 8 & 0x300) | ((uint16_t)msgBuff[5]      & 0xff); //ch4
+    _ch1to8Tmp[4] = ((uint16_t)msgBuff[6] << 2 & 0x3fc) | ((uint16_t)msgBuff[7] >> 6 & 0x03); //ch5
+    _ch1to8Tmp[5] = ((uint16_t)msgBuff[7] << 4 & 0x3f0) | ((uint16_t)msgBuff[8] >> 4 & 0x0f); //ch6
+    _ch1to8Tmp[6] = ((uint16_t)msgBuff[8] << 6 & 0x3c0) | ((uint16_t)msgBuff[9] >> 2 & 0x3f); //ch7
+    _ch1to8Tmp[7] = ((uint16_t)msgBuff[9] << 8 & 0x300) | ((uint16_t)msgBuff[10]     & 0xff); //ch8
     
     //digital channels
-    digitalChVal[0] = (msgBuff[10] & 0x80) >> 7;
-    digitalChVal[1] = (msgBuff[10] & 0x40) >> 6;
+    digitalChVal[0] = (msgBuff[11] & 0x80) >> 7;
+    digitalChVal[1] = (msgBuff[11] & 0x40) >> 6;
     
     //Check if failsafe data. If so, dont modify outputs
-    if((msgBuff[10] & 0x10) == 0x10) //failsafe values
+    if((msgBuff[11] & 0x10) == 0x10) //failsafe values
     {
       failsafeReceived = true;
       for(int i=0; i<8; i++)
@@ -260,7 +380,7 @@ void readAndDecodePacket()
     static bool _pwmModeInitialised = false;
     if(_pwmModeInitialised == false)
     {
-      PWM_Mode_Ch3 = (msgBuff[10] & 0x20) >> 5;
+      PWM_Mode_Ch3 = (msgBuff[11] & 0x20) >> 5;
       _pwmModeInitialised = true;
     }
   }
@@ -334,3 +454,4 @@ void printDebugData()
     Serial.println();
   }
 }
+
