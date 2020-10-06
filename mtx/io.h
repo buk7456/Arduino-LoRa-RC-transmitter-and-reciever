@@ -326,7 +326,7 @@ void computeChannelOutputs()
     ChOut[i] += 5 * (Model.Subtrim[i] - 50); 
     
     //---Check Cut. If specified and switch engaged, overide
-    if(SwAEngaged == true && Model.CutValue[i] > 0)
+    if(!SwAEngaged && Model.CutValue[i] > 0)
       ChOut[i] = 5 * (Model.CutValue[i] - 101);
     
     //---Endpoints
