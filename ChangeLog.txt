@@ -1,3 +1,8 @@
+1.5.0
+-----
+06Oct2020
+ - Implemented binding and frequency hopping
+
 1.4.0
 -----
  04Oct2020
