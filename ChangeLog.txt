@@ -1,1 +1,87 @@
+1.4.0
+-----
+ 04Oct2020
+  - Fixed minor bug introduced in cut switch behaviour. 
+
+ 26Sep2020
+  - Corrected minor flaw in pre mixer where adding trim resulted in out of range values
+
+ 25Sep2020
+  - Model data now saved when trim has been adjusted. This was a forgotten feature. 
+  - SwA can now be used in the mixer.
+  - Throttle warning can now only be passed when the throttle stick is moved to minimum.
+
+ 23Sep2020
+  - Using structs now to ease model data and system data management with eeprom. The structures are 
+    now copied effortlessly between ram and eeprom. This also saved us lots of flash. 
+  - Added hidden boot menu. 
+  - Added trims for Ail, Ele, Thr, Rud, accesible on the home screen.
+  - Removed battery calibration, it was unnecessary in code and rarely used. It is a set once thing. 
+  - Removed popup menu in system settings screen.
+  - Stick calibration moved to hidden boot screen. 
+  - Code clean up.
+
+1.3.0
+-----
+ 06Sep2020
+  - Removed the reading and averaging several stick samples in code. This was rather unneccesary as 
+    there are already capacitors for smoothing. This saved about 2ms of main loop.
+ 
+ 01Sep2020
+  - Removed hardcoded timings dependent on loop counter.
+ 
+ 30Aug2020
+  - Minor fixes in secondary mcu code
+ 
+ 29Aug2020
+  - cleaned up receiver mcu code
+ 
+ 23Aug2020
+  - Minor code improvements and cleanup
+ 
+ 18Aug2020
+  - Removed unused stuff like text size and text background color from GFX lib to speed up character
+    draw operations.
+  - Speeded up SPI clock in LCD driver library.
+ 
+ 16Aug2020
+  - Improved button events in UI. Now have pressed, clicked, held button events.
+  - Fixed button handling in extended channels mode
+ 
+ 15Aug2020
+  - Minor UI changes; context menu trigger moved to icon in top right of screen. Long pressing down 
+    or up fast scrolls through the entries / fields.
+ 
+ 04Aug2020
+  - Minor UI improvements. 
+ 
+ 02Aug2020
+  - Replaced triangle waveform with stepped sine waveform
+ 
+ 28July2020
+  - Slimmed down GFX library to save flash space and some ram. Unused stuff like Bresenham's line 
+    algorithm, etc have been removed, and some functions have been rewritten for speed.
+  - Skipped checking screen rotation (unused) in lcd driver library to speed up draw operations.
+ 
+ 18July2020
+  - Backlight time now configurable
+ 
+ 12July2020
+  - Slight improvements in battery warning handling, now self dismissing after 3 seconds. 
+  - Slight improvements in battery gauge
+ 
+ 08July2020
+  - added battery factor, battery min and battery max to advanced setup screen. Also moved stick 
+    calibration to this screen
+ 
+ 26June2020 
+  - Can configure pwm mode for ch3 (throttle) to either servo pulse or ordinary pwm. This is useful 
+    for controlling brushed dc motors directly by the receiver without signal conversion circuits.
+  - Improved master to slave serial communication. 
+  - Code cleanup
+
+1.2.0
+------
+ 10June2020
+  - Replaced all floating point maths with equivalent integer implementation
 
