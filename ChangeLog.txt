@@ -1,5 +1,9 @@
 1.5.0
 -----
+10Oct2020
+ - Updated frequency list
+ - Added bind flag in transmitted packets
+ 
 06Oct2020
  - Implemented binding and frequency hopping
 
