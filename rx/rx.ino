@@ -58,19 +58,22 @@ int rssi = 0; //debug
 
 uint8_t transmitterID = 0xFF; //settable during bind
 
-//----------------- Frequency hopping ---------------------------------------
-enum {BIND_MODE = 0, FLY_MODE};
-uint8_t workingMode = FLY_MODE; 
+//--------------- Freq allocation --------------------
 
-//define the frequency to use for binding
-const uint32_t bindFreq = 433000000;
+/* LPD433 Band ITU region 1
+The frequencies in this UHF band lie between 433.05Mhz and 434.790Mhz with 25kHz separation for a
+total of 69 freq channels. Channel_1 is 433.075 Mhz and Channel_69 is 434.775Mhz. 
+All our communications have to occur on any of these 69 channels. 
+*/
 
-//Frequency list to pick from. The separation here is 250kHz. All must be within the specific ISM band
-uint32_t freqList[] = {433250000, 433500000, 433750000, 434000000, 434250000, 434500000, 434750000};
+/* Frequency list to pick from. The separation here is 300kHz (250kHz total lora bw + 
+25kHz headroom on each sides.*/
+uint32_t freqList[] = {433175000, 433475000, 433775000, 434075000, 434375000, 434675000};
+//bind is also transmitted on freqList[0]
 
 uint8_t fhss_schema[3] = {0, 1, 2}; /* Index in freqList. Frequencies to use for hopping. 
-These are changed when we receive a bind. This schema also gets stored 
-to eeprom so we don't have to rebind each time we switch on the receiver. */
+These are changed when we receive a bind command from the master mcu. This schema also gets stored 
+to eeprom so we don't have to rebind each time we switch on the transmitter. */
 
 uint8_t ptr_fhss_schema = 0; 
 
@@ -121,20 +124,15 @@ void setup()
   
   //setup lora module
   LoRa.setPins(10, 8);
-  if (LoRa.begin(bindFreq))
+  if (LoRa.begin(freqList[0]))
   {
-    LoRa.setSpreadingFactor(7); //default is 7
-  
-    LoRa.setSignalBandwidth(250E3);
-    // signalBandwidth - signal bandwidth in Hz, defaults to 125E3.
-    // Supported values are 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3, 41.7E3, 62.5E3, 125E3, and 250E3.
+    LoRa.setSpreadingFactor(7);
     
     LoRa.setCodingRate4(5);
-    /*codingRateDenominator - denominator of the coding rate, defaults to 5
-    Supported values are between 5 and 8, these correspond to coding rates of 4/5 and 4/8. 
-    The coding rate numerator is fixed at 4. */
+  
+    LoRa.setSignalBandwidth(250E3);
   }
-  else //failed to init. Perhaps module isn't available
+  else //failed to init. Perhaps module isn't plugged in
   {
     //flash both LEDs
     bool ledState = HIGH;
@@ -148,7 +146,7 @@ void setup()
   }
   
   //listen for bind
-  readBindPacket(); 
+  readBindPacket(); //blocking
   
   //Wait for failsafe transimission before proceeding
   while(failsafeReceived == false)
@@ -172,14 +170,10 @@ void setup()
 //====================================== MAIN LOOP =================================================
 void loop()
 {
-  ///-------- READ AND DECODE PACKET ----------------
   readFlyModePacket();
   
-  /// ------- CHECK TIME SINCE LAST VALID PACKET ----
-  uint32_t elapsed_ms_LastValidPkt = millis() - lastValidPacketMillis;
-  if(elapsed_ms_LastValidPkt > 50) //turn off orange LED
-    digitalWrite(ORANGE_LED_PIN, LOW); 
-  if(elapsed_ms_LastValidPkt > 1500) //trigger fail safes
+  //Handle failsafe 
+  if(millis() - lastValidPacketMillis > 1500)
   {
     rssi = 0;
     for(int i= 0; i < 8; i++)
@@ -187,13 +181,11 @@ void loop()
       if(ch1to8Failsafes[i] != 523) //ignore channels that have failsafe turned off.
         ch1to8Vals[i] = ch1to8Failsafes[i]; 
     }
-    digitalChVal[0] = 0; //turn off momentary toggle channel A (ch9)
+    digitalChVal[0] = 0; //turn off chA
   }
   
-  /// ---------- WRITE OUTPUTS ----------------------
   writeOutputs();
 
-  ///----------- DEBUG PRINT ------------------------
 #if defined (DEBUG)
   printDebugData();
 #endif
@@ -202,12 +194,14 @@ void loop()
 //==================================================================================================
 void readBindPacket()
 {
-  //Bind protocol Format
-  //byte0: transmitter ID, byte1toN: hop channels, last_byte: crc8
+  /*Air protocol Format  
+    Byte0 - bit 7 to 1 transmitterID, bit 0 packet type 0 for bind, 
+    Byte1toByteN<12 - hop channels, 
+    Byte12 - crc8
+  */
   
-  //set to bind freq
   LoRa.sleep();
-  LoRa.setFrequency(bindFreq);
+  LoRa.setFrequency(freqList[0]);
   LoRa.idle();
   
   //listen for 1 second
@@ -233,10 +227,10 @@ void readBindPacket()
         else // discard any extra data
           LoRa.read(); 
       }
-      /// Check if the received data is valid based on crc
+      /// Check packet
       uint8_t crcQQ = msgBuff[12];
       uint8_t computedCRC = crc8Maxim(msgBuff, 12);
-      if(crcQQ == computedCRC)
+      if(crcQQ == computedCRC && (msgBuff[0] & 0x01) == 0)
       {
         receivedBind = true;
         break; //exit loop
@@ -252,7 +246,7 @@ void readBindPacket()
   }
 
   //get transmitterID
-  transmitterID = msgBuff[0];
+  transmitterID = (msgBuff[0] >> 1) & 0xFF;
   
   //get hop channels
   for(uint8_t k = 0; k < (sizeof(fhss_schema)/sizeof(fhss_schema[0])); k++)
@@ -265,6 +259,7 @@ void readBindPacket()
   EEPROM.write(EE_ADR_TX_ID, transmitterID);
   EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
+
   //set to fly mode freq
   hop();
 }
@@ -330,24 +325,26 @@ void readFlyModePacket()
         LoRa.read(); 
     }
     
+    /// hop
+    hop();
+    
     /// Check if the received data is valid based on crc and transmitterID
     uint8_t crcQQ = msgBuff[12];
     uint8_t computedCRC = crc8Maxim(msgBuff, 12);
-    if(crcQQ == computedCRC && msgBuff[0] == transmitterID)
+    uint8_t receivedID = (msgBuff[0] >> 1) & 0xFF;
+    if(crcQQ == computedCRC && receivedID == transmitterID && (msgBuff[0] & 0x01) == 1)
     {
       hasValidPacket = true;
       validPacketCount++;
       lastValidPacketMillis = millis();
-      digitalWrite(ORANGE_LED_PIN, HIGH);
     }
-    
-    /// hop
-    hop();
   }
   
-  //decode payload
-  if(hasValidPacket == true)
+  if(hasValidPacket)
   {
+    digitalWrite(ORANGE_LED_PIN, HIGH);
+    
+    //-------- Decode ----------
     //Proportional channels
     long _ch1to8Tmp[8];
     _ch1to8Tmp[0] = ((uint16_t)msgBuff[1] << 2 & 0x3fc) | ((uint16_t)msgBuff[2] >> 6 & 0x03); //ch1
@@ -376,13 +373,19 @@ void readFlyModePacket()
         ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
     }
     
-    //get pwm mode for Ch3. Only set once. If changed in transmitter, receiver should to be restarted
+    //get pwm mode for Ch3. Only set once. If changed in transmitter, receiver should be restarted
     static bool _pwmModeInitialised = false;
     if(_pwmModeInitialised == false)
     {
       PWM_Mode_Ch3 = (msgBuff[11] & 0x20) >> 5;
       _pwmModeInitialised = true;
     }
+  }
+  else
+  {
+    //control orange LED
+    if(millis() - lastValidPacketMillis > 50) 
+      digitalWrite(ORANGE_LED_PIN, LOW);
   }
 }
 
