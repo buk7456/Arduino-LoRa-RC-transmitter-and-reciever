@@ -28,13 +28,17 @@ uint8_t transmitterID; //got from master mcu
 bool radioInitialised = false;
 unsigned long radioTotalPackets = 0;
 
-//--------------- binding ---------------------
-//define the frequency to use for binding
-const uint32_t bindFreq = 433000000;
+//--------------- Freq allocation --------------------
 
-//--------------- frequency hopping -----------
-//Frequency list to pick from. The separation here is 250kHz. All must be within the specific ISM band
-uint32_t freqList[] = {433250000, 433500000, 433750000, 434000000, 434250000, 434500000, 434750000};
+/* LPD433 Band ITU region 1
+The frequencies in this UHF band lie between 433.05Mhz and 434.790Mhz with 25kHz separation for a
+total of 69 freq channels. Channel_1 is 433.075 Mhz and Channel_69 is 434.775Mhz. 
+All our communications have to occur on any of these 69 channels. 
+*/
+
+/* Frequency list to pick from. The separation here is 300kHz (250kHz total lora bw + 
+25kHz headroom on each sides.*/
+uint32_t freqList[] = {433175000, 433475000, 433775000, 434075000, 434375000, 434675000};
 
 uint8_t fhss_schema[3] = {0, 1, 2}; /* Index in freqList. Frequencies to use for hopping. 
 These are changed when we receive a bind command from the master mcu. This schema also gets stored 
@@ -48,7 +52,7 @@ uint8_t ptr_fhss_schema = 0;
 #define EE_ADR_FHSS_SCHEMA  2
 
 //-------------- Audio --------------------------
-enum{  
+enum {  
   AUDIO_NONE = 0, 
   AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED,
   AUDIO_SWITCHMOVED, AUDIO_TRIMSELECTED,
@@ -97,24 +101,18 @@ void setup()
   
   //setup lora module
   LoRa.setPins(10, 8); 
-  if (LoRa.begin(bindFreq))
+  if (LoRa.begin(freqList[0]))
   {
-    LoRa.setSpreadingFactor(7); //default is 7
-  
-    LoRa.setSignalBandwidth(250E3);
-    // signalBandwidth - signal bandwidth in Hz, defaults to 125E3.
-    // Supported values are 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3, 41.7E3, 62.5E3, 125E3, and 250E3.
+    LoRa.setSpreadingFactor(7); 
     
     LoRa.setCodingRate4(5);
-    /*codingRateDenominator - denominator of the coding rate, defaults to 5
-    Supported values are between 5 and 8, these correspond to coding rates of 4/5 and 4/8. 
-    The coding rate numerator is fixed at 4. */
   
+    LoRa.setSignalBandwidth(250E3);
+
     radioInitialised = true;
   }
   else
     radioInitialised = false;
-  
 }
 
 //========================================= MAIN ==================================================
@@ -207,17 +205,17 @@ void getSerialData()
       receivedData[i] = tmpBuff[i];
     
     //calc packets per second
-    uint8_t pktsPerSecond = 0;
-    static unsigned long lastPktsPerSecond = 0;
+    static uint8_t pktsPerSecond = 0;
+    static unsigned long lastTotalPackets = 0;
     static unsigned long pktsPrevCalcMillis = 0;
     unsigned long ttElapsed = millis() - pktsPrevCalcMillis;
     if (ttElapsed >= 1000)
     {
       pktsPrevCalcMillis = millis();
-      unsigned long _radioPktsPS = (radioTotalPackets - lastPktsPerSecond) * 1000;
+      unsigned long _radioPktsPS = (radioTotalPackets - lastTotalPackets) * 1000;
       _radioPktsPS /= ttElapsed;
-      pktsPerSecond = _radioPktsPS & 0xff;
-      lastPktsPerSecond = radioTotalPackets;
+      pktsPerSecond = _radioPktsPS & 0xFF;
+      lastTotalPackets = radioTotalPackets;
     }
     
     // read the 3 position switch. upperPos is 2, midPos is 0, lowerPos is 1
@@ -297,26 +295,33 @@ void bind()
   EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
   //-------- transmit on bind frequency ----------
-  //Air protocol Format  byte0 - transmitterID, byte1tobyteN<12 - hop channels, byte12 - crc8
+  /*Air protocol Format  
+    Byte0 - bit 7 to 1 transmitterID, bit0 is 0 for bind, 
+    Byte1toByteN<12 - hop channels, 
+    Byte12 - crc8
+  */
   
-  //set to bind freq
+
   LoRa.sleep();
-  LoRa.setFrequency(bindFreq);
+  LoRa.setFrequency(freqList[0]);
   LoRa.idle();
   
   //prepare data
   uint8_t dataToTransmit[13]; 
   memset(dataToTransmit, 0, sizeof(dataToTransmit));
-  dataToTransmit[0] = transmitterID;
+  
+  dataToTransmit[0] = transmitterID << 1 | 0x00; //bit 0 tells receiver this is a bind packet
+  
   for(uint8_t i = 0; i < sizeof(fhss_schema)/sizeof(fhss_schema[0]); i++)
     dataToTransmit[1 + i] = fhss_schema[i];
+  
   dataToTransmit[12] = crc8Maxim(dataToTransmit, 12);
   
   //start transmission
   uint32_t stopTime = millis() + 2000;
   while(millis() < stopTime)
   {
-    if (LoRa.beginPacket())
+    if (LoRa.beginPacket()) 
     {
       LoRa.write(dataToTransmit, 13);
       LoRa.endPacket(); //blocking until done transmitting
@@ -361,14 +366,21 @@ void transmitServoData()
     return;
   
   /* Air protocol format
-    b0 
-    Transmitter ID
-    b1        b2        b3        b4        b5       
+  
+    ------------------------------------------------
+    Byte0  
+    bits 7 to 1 is TransmiterID, 
+    bit0 is 1 for servo data
+    ------------------------------------------------
+    Byte1     Byte2     Byte3     Byte4     Byte5       
     11111111  11222222  22223333  33333344  44444444 
-    b6        b7        b8        b9       b10
+    ------------------------------------------------
+    Byte6     Byte7     Byte8     Byte9     Byte10
     55555555  55666666  66667777  77777788  88888888
-    b11       b12
+    ------------------------------------------------
+    Byte11    Byte12
     abpf0000  CCCCCCCC
+    ------------------------------------------------
     
     Servo Chs 1 to 8 encoded as 10 bits      
     a is digital chA bit
@@ -386,7 +398,7 @@ void transmitServoData()
   
   uint8_t dataToTransmit[13]; 
   
-  dataToTransmit[0] = transmitterID;
+  dataToTransmit[0] = transmitterID << 1 | 0x01; 
   
   dataToTransmit[1] = (ch1to8[0] >> 2) & 0xFF;
   dataToTransmit[2] = (ch1to8[0] << 6 | ch1to8[1] >> 4) & 0xFF;
@@ -408,10 +420,10 @@ void transmitServoData()
   
   //------------ transmit -----------------
   
-  if (LoRa.beginPacket()) //Returns 1 if radio is ready to transmit, 0 if busy or on failure.
+  if (LoRa.beginPacket()) 
   {
     LoRa.write(dataToTransmit, 13);
-    LoRa.endPacket(); //pass true for async, else block until done transmitting
+    LoRa.endPacket(); //block until done transmitting
     radioTotalPackets++;
     // hop to next frequency
     hop();
