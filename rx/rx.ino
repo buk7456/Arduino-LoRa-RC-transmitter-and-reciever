@@ -285,14 +285,21 @@ void hop()
 void readFlyModePacket()
 {
   /* Air protocol format
-    b0 
-    Transmitter ID
-    b1        b2        b3        b4        b5       
+  
+    ------------------------------------------------
+    Byte0  
+    bits 7 to 1 is TransmiterID, 
+    bit0 is 1 for servo data
+    ------------------------------------------------
+    Byte1     Byte2     Byte3     Byte4     Byte5       
     11111111  11222222  22223333  33333344  44444444 
-    b6        b7        b8        b9       b10
+    ------------------------------------------------
+    Byte6     Byte7     Byte8     Byte9     Byte10
     55555555  55666666  66667777  77777788  88888888
-    b11       b12
+    ------------------------------------------------
+    Byte11    Byte12
     abpf0000  CCCCCCCC
+    ------------------------------------------------
     
     Servo Chs 1 to 8 encoded as 10 bits      
     a is digital chA bit
