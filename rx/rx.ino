@@ -72,8 +72,8 @@ uint32_t freqList[] = {433175000, 433475000, 433775000, 434075000, 434375000, 43
 //bind is also transmitted on freqList[0]
 
 uint8_t fhss_schema[3] = {0, 1, 2}; /* Index in freqList. Frequencies to use for hopping. 
-These are changed when we receive a bind command from the master mcu. This schema also gets stored 
-to eeprom so we don't have to rebind each time we switch on the transmitter. */
+These are changed when we receive a bind command from the transmitter. This schema also gets stored 
+to eeprom so we don't have to rebind each time we power on. */
 
 uint8_t ptr_fhss_schema = 0; 
 
