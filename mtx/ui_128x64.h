@@ -25,6 +25,9 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
 enum {WRAP = true, NOWRAP = false};
 enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
 
+void loadMix( uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
+uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, uint8_t _operator, uint8_t _out);
+
 ///================================================================================================
 
 //-- Boot popup menu strings. Max 15 characters per string
@@ -72,6 +75,7 @@ enum
   POPUP_MIXER_MENU,
   POPUP_MOVE_MIX,
   POPUP_COPY_MIX,
+  POPUP_TEMPLATES_MENU,
   MODE_CALIB,
 };
 
@@ -90,16 +94,27 @@ const char *const timerMenuB[] PROGMEM = { //table to refer to the strings
 };
 
 //-- Mixer popup menu strings. Max 15 characters per string
-#define NUM_ITEMS_MIXER_POPUP 5
+#define NUM_ITEMS_MIXER_POPUP 6
 char const mxrStr0[] PROGMEM = "View mixes"; 
 char const mxrStr1[] PROGMEM = "Reset mix"; 
 char const mxrStr2[] PROGMEM = "Move mix to";
 char const mxrStr3[] PROGMEM = "Copy mix to";
 char const mxrStr4[] PROGMEM = "Reset all mixes";
+char const mxrStr5[] PROGMEM = "Templates";
 const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
-  mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4
+  mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4, mxrStr5
 };
-  
+
+#define NUM_ITEMS_TEMPLATES 5
+char const tmpltStr0[] PROGMEM = "Elevon"; 
+char const tmpltStr1[] PROGMEM = "Vtail"; 
+char const tmpltStr2[] PROGMEM = "Flaperon";
+char const tmpltStr3[] PROGMEM = "Crow braking";
+char const tmpltStr4[] PROGMEM = "Diffr thrust";
+const char *const templatesMenu[] PROGMEM = { //table to refer to the strings
+  tmpltStr0, tmpltStr1, tmpltStr2, tmpltStr3, tmpltStr4
+};
+
 //-- mixer sources name strings. 5 characters max
 char const srcName0[]  PROGMEM = "roll"; 
 char const srcName1[]  PROGMEM = "ptch";
@@ -1114,9 +1129,7 @@ void HandleMainUI()
     case POPUP_MIXER_MENU:
       {
         changeFocusOnUPDOWN(NUM_ITEMS_MIXER_POPUP);
-        
         drawPopupMenu(mixerMenu, NUM_ITEMS_MIXER_POPUP);
-        
         uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
         
         if(_selection == 1) //view outputs
@@ -1146,6 +1159,10 @@ void HandleMainUI()
           thisMixNum = 0;
           destMixNum = 0;
           changeToScreen(MODE_MIXER);
+        }
+        else if(_selection == 6) 
+        {
+          changeToScreen(POPUP_TEMPLATES_MENU);
         }
         else if(heldButton == SELECT_KEY) //exit
           changeToScreen(MODE_MIXER);
@@ -1320,6 +1337,73 @@ void HandleMainUI()
       }
       break;
       
+    case POPUP_TEMPLATES_MENU:
+      {
+        changeFocusOnUPDOWN(NUM_ITEMS_TEMPLATES);
+        drawPopupMenu(templatesMenu, NUM_ITEMS_TEMPLATES);
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
+        
+        if(_selection == 1)
+        {
+          //elevon 
+          // Ch1 = -50%Ail + -50%Ele, 
+          // Ch2 = 50%Ail + -50%Ele
+          loadMix(thisMixNum,     IDX_AIL, 50,  100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL, 150, 100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH2);
+
+          changeToScreen(MODE_MIXER);
+        }
+        else if(_selection == 2)
+        {
+          //vtail  
+          // Ch2 = 50%Rud + -50%Ele, 
+          // Ch4 = -50%Rud + -50%Ele
+          loadMix(thisMixNum,     IDX_RUD, 150, 100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH2);
+          loadMix(thisMixNum + 1, IDX_RUD, 50,  100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH4);
+
+          changeToScreen(MODE_MIXER);
+        }
+        else if(_selection == 3)
+        {
+          //flaperon
+          // Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
+          // Ch8 = 100%Ail{25%Diff} + -50%SwC{-50offset}
+          loadMix(thisMixNum,     IDX_AIL, 0,   75, 100, IDX_SWC, 50, 100, 50, 0, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC, 50, 100, 50, 0, IDX_CH8);
+
+          changeToScreen(MODE_MIXER);
+        }  
+        else if(_selection == 4)
+        {
+          //crow 
+          // Ch1 = -100%Ail{-25%Diff} + 50%SwC{100%Diff}
+          // Ch8 = 100%Ail{ 25%Diff} + 50%SwC{100%Diff}
+          // Ch5 = -50%SwC{-50offset}
+          // Ch6 = 100%Ch5
+          loadMix(thisMixNum,     IDX_AIL, 0,   75,  100, IDX_SWC,  150, 200, 100, 0, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC,  150, 200, 100, 0, IDX_CH8);
+          loadMix(thisMixNum + 2, IDX_SWC, 50,  100,  50, IDX_NONE, 100, 100, 100, 0, IDX_CH5);
+          loadMix(thisMixNum + 3, IDX_CH5, 200, 100, 100, IDX_NONE, 100, 100, 100, 0, IDX_CH6);
+
+          changeToScreen(MODE_MIXER);
+        }
+        else if(_selection == 5) //twin motor
+        {
+          //twin
+          // Virt1 = 40%Rud * 100%SwD{100%Diff}
+          // Ch3 = 100%Thrt + 100%Virt1
+          // Ch7 = 100%Thrt + -100%Virt1
+          loadMix(thisMixNum,     IDX_RUD,        140, 100, 100, IDX_SWD,  200, 200, 100, 1, IDX_VRT1);
+          loadMix(thisMixNum + 1, IDX_THRTL_CURV, 200, 100, 100, IDX_VRT1, 200, 100, 100, 0, IDX_CH3);
+          loadMix(thisMixNum + 2, IDX_THRTL_CURV, 200, 100, 100, IDX_VRT1, 0,   100, 100, 0, IDX_CH7);
+
+          changeToScreen(MODE_MIXER);
+        }
+        else if(heldButton == SELECT_KEY) //exit
+          changeToScreen(MODE_MIXER);
+      }
+      break;
+      
     case MODE_OUTPUTS:
       {
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_OUTPUTS])));
@@ -1411,8 +1495,8 @@ void HandleMainUI()
         display.print(F("RFoutput:"));
         drawCheckbox(79, 10, Sys.rfOutputEnabled);
         
-        display.setCursor(25, 19);
-        display.print(F("Sounds:  "));
+        display.setCursor(13, 19);
+        display.print(F("Sounds  :  "));
         strcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])));
         display.print(txtBuff);
         
@@ -1428,8 +1512,8 @@ void HandleMainUI()
         else  
           display.print(F("PWM"));
         
-        display.setCursor(79, 46);
-        display.print(F("Bind"));
+        display.setCursor(13, 46);
+        display.print(F("Receiver:  [Bind]"));
         
         changeFocusOnUPDOWN(5);
         toggleEditModeOnSelectClicked();
@@ -2007,4 +2091,29 @@ void showTrimData(const __FlashStringHelper* text, uint8_t _trimVal)
   if(_trimVal > 100)
     display.print(F("+"));
   display.print(_trimVal - 100);
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void loadMix( uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
+uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, uint8_t _operator, uint8_t _out)
+{
+  if(_mixNo >= NUM_MIXSLOTS)
+  {
+    makeToast(F("Out of slots!"), 2000);
+    return;
+  }
+  
+  Model.MixIn1[_mixNo]        = _in1; 
+  Model.MixIn1Weight[_mixNo]  = _weight1;
+  Model.MixIn1Diff[_mixNo]    = _diff1;
+  Model.MixIn1Offset[_mixNo]  = _offset1;
+  
+  Model.MixIn2[_mixNo]        = _in2;
+  Model.MixIn2Weight[_mixNo]  = _weight2;
+  Model.MixIn2Diff[_mixNo]    = _diff2;
+  Model.MixIn2Offset[_mixNo]  = _offset2;
+  
+  Model.MixOperator[_mixNo]   = _operator; 
+  Model.MixOut[_mixNo]        = _out;
 }
