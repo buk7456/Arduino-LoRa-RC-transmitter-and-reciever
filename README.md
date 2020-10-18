@@ -14,6 +14,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - Throttle curve with 5 points
 - Safety (cut) switch
 - 10 free mixer slots per model
+- Mixer templates; Elevon, Vtail, Flaperon, Crow braking, Differential thrust
 - 2 timers; Throttle timer and free stopwatch
 - Sticks calibration
 - Audio tones
@@ -47,14 +48,17 @@ Three buttons are used for navigation; Up, Select, Down. Long press Select to go
 <br>Hold the Select key while powering on to access the hidden boot menu.
 
 <p align="center">
-<img src="img2.png" width="816" height="864"/>
+<img src="img2.png" width="816" height="1152"/>
 </p>
 
 ### Binding
-To bind the receiver and transmitter, we use the bind option in the system settings. Select bind option in transmitter and immediately restart the receiver.
+To bind the receiver and transmitter, we use the bind option in the system settings. 
+Select bind option in transmitter and immediately restart the receiver.
 
 ### The Mixer
-This controller implements a free mixer that offers flexiblity with what we want to control. Each mixer slot takes two inputs, adds or multiplies them, then sends the result to the specified output. Mixer slots are evaluated sequentially.
+This controller implements a free mixer that offers flexiblity with what we want to control. 
+Each mixer slot takes two inputs, adds or multiplies them, then sends the result to the specified output. 
+Mixer slots are evaluated sequentially.
 
 ##### Mix sources:
 - Raw stick inputs (roll, pitch, throttle, yaw, knob)
@@ -86,7 +90,7 @@ Left aileron in Ch1, right aileron in Ch8
 1. Ch1 = -100%Ail{-25%Diff}
 2. Ch8 =  100%Ail{ 25%Diff}
 
-##### Crow mix
+##### Crow braking
 We would like to setup crow braking on our plane. 
 Left ail servo in Ch1, Right Ail servo in Ch8,
 left flap servo in Ch5, right flap servo in Ch6.
@@ -101,9 +105,11 @@ thus providing crow braking feature.
 4. Ch6 =  100%Ch5
 
 ##### Flaperon
-Left aileron in Ch1, right aileron in Ch8. Let's use SwC to activate the flaperons. When SwC is in upper position, flaperons are off. In middle position we deploy half flaperons, and in lower position we deploy full flaperons.
-1. Ch1 = -100%Ail + -50%SwC{-50offset}
-2. Ch8 =  100%Ail + -50%SwC{-50offset}
+Left aileron in Ch1, right aileron in Ch8. Let's use SwC to activate the flaperons. 
+When SwC is in upper position, flaperons are off. In middle position we deploy half flaperons, 
+and in lower position we deploy full flaperons.
+1. Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
+2. Ch8 =  100%Ail{25%Diff} + -50%SwC{-50offset}
 
 ##### Differential thrust (twin motor)
 Left motor in Ch3, right motor in Ch7. 
