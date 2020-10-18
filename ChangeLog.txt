@@ -1,5 +1,8 @@
 1.5.0
 -----
+18Oct2020
+ - Added mixer templates for elevon, vtail, flaperon, crow braking, and differential thrust
+ 
 10Oct2020
  - Updated frequency list
  - Added bind flag in transmitted packets
