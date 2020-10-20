@@ -11,7 +11,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - 2 digital toggle channels
 - 5 model memory
 - Dualrate & expo for Ail, Ele, Rud
-- Throttle curve with 5 points
+- Throttle curve and Custom curve with 5 points
 - Safety (cut) switch
 - 10 free mixer slots per model
 - Mixer templates; Elevon, Vtail, Flaperon, Crow braking, Differential thrust
@@ -48,7 +48,7 @@ Three buttons are used for navigation; Up, Select, Down. Long press Select to go
 <br>Hold the Select key while powering on to access the hidden boot menu.
 
 <p align="center">
-<img src="img2.png" width="816" height="1152"/>
+<img src="img2.png" width="816" height="864"/>
 </p>
 
 ### Binding
