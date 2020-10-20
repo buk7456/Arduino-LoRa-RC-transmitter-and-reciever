@@ -94,7 +94,9 @@ void setup()
     EEPROM.write(0, EE_INITFLAG);
     delay(1000);
     changeToScreen(MODE_CALIB); //Set to sticks calib screen
-    buttonCode = 0;    
+    buttonCode = 0; 
+    
+    skipThrottleCheck = true;
   }
 
   ///--------- Load data from eeprom -----------
@@ -116,21 +118,24 @@ void setup()
   buttonCode = 0;
   
   ///---------- Warn throttle if throttle position is more than 5% above minimum ---
-  readSwitchesAndButtons();
-  readSticks();
-  bool _rfState = Sys.rfOutputEnabled;
-  while (throttleIn > -450)
+  if(!skipThrottleCheck)
   {
-    DisplayFullScreenMsg(F("Check throttle"));
     readSwitchesAndButtons();
     readSticks();
-    //play warning sound
-    audioToPlay = AUDIO_THROTTLEWARN;
-    Sys.rfOutputEnabled = false; //overide
-    serialSendData();
-    delay(30);
+    bool _rfState = Sys.rfOutputEnabled;
+    while (throttleIn > -450)
+    {
+      DisplayFullScreenMsg(F("Check throttle"));
+      readSwitchesAndButtons();
+      readSticks();
+      //play warning sound
+      audioToPlay = AUDIO_THROTTLEWARN;
+      Sys.rfOutputEnabled = false; //overide
+      serialSendData();
+      delay(30);
+    }
+    Sys.rfOutputEnabled = _rfState; //restore
   }
-  Sys.rfOutputEnabled = _rfState; //restore
 
   //------------------- Init throttle timer -------------------------
   throttleTimerLastPaused = millis(); 

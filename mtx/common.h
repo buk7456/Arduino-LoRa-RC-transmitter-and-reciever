@@ -35,12 +35,13 @@ enum {
   //Same order as the name order in the UI
   IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
   IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
+  IDX_CRV1,
   IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
   IDX_NONE, 
   IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8,
   IDX_VRT1, IDX_VRT2
 };
-#define NUM_MIXSOURCES 24 //should match the above, else segfaults
+#define NUM_MIXSOURCES 25 //should match the above, else segfaults
 
 #define NUM_PRP_CHANNLES 8  //Number of proportional channels ## Leave this
 
@@ -66,8 +67,12 @@ struct modelParams {
   
   bool DualRateEnabled[3]; //ail, ele, rud. 
   
-  uint8_t ThrottlePts[5];  //for interpolation of throttle
+  uint8_t ThrottlePts[5];  //for interpolation of throttle. Range 0 to 200, center is 100
+  
   uint8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Are percentages. Values 75 to 125, centered at 100.
+  
+  uint8_t Curve1Src;       //User defined curve
+  uint8_t Curve1Pts[5];    //User defined interpolation points. Range 0 to 200, center is 100
   
   uint8_t throttleTimerType;
   uint8_t throttleTimerCntDnInitMinutes; 
@@ -142,11 +147,18 @@ void setDefaultModelBasicParams()
   Model.ThrottlePts[3] = 150;
   Model.ThrottlePts[4] = 200;
   
+  //user defined curves
+  Model.Curve1Src = IDX_KNOB;
+  Model.Curve1Pts[0] = 0;
+  Model.Curve1Pts[1] = 50;
+  Model.Curve1Pts[2] = 100;
+  Model.Curve1Pts[3] = 150;
+  Model.Curve1Pts[4] = 200;
+  
   //throttle timer
   Model.throttleTimerType = TIMERCOUNTUP;
   Model.throttleTimerCntDnInitMinutes = 5; 
   Model.throttleTimerMinThrottle = 25; 
-  
 }
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
@@ -177,9 +189,13 @@ uint8_t DigChA = 0, DigChB = 0; /*Digital channels. ChA is momentary, ChB is tog
 
 int8_t mixerChOutGraphVals[NUM_PRP_CHANNLES];  //for graphing raw mixer output for channels. range -100 to 100
 
+int curve1SrcVal = 0;
+
 //---Sticks---
-int rollIn, pitchIn, throttleIn, yawIn, aux2In; //Scaled stick values, range -500 to 500
+int rollIn, pitchIn, throttleIn, yawIn, knobIn; //Scaled stick values, range -500 to 500
 bool isCalibratingSticks = false;
+
+bool skipThrottleCheck = false;
 
 //---Switches---
 //2 position

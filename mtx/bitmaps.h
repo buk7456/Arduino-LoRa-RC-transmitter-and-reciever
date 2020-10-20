@@ -81,4 +81,14 @@ static const unsigned char chB_icon1 [] PROGMEM = {
 	0xff, 0x80
 };
 
+static const unsigned char downArrow [] PROGMEM = {
+  //5x7px
+	0x20, 0x20, 0x20, 0x20, 0xa8, 0x70, 0x20
+};
+
+static const unsigned char upArrow [] PROGMEM = {
+  //5x7px
+	0x20, 0x70, 0xa8, 0x20, 0x20, 0x20, 0x20
+};
+
 #endif
