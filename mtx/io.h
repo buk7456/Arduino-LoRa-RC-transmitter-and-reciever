@@ -137,7 +137,7 @@ void readSticks()
   pitchIn = analogRead(PIN_PITCH);
   throttleIn = analogRead(PIN_THROTTLE);
   yawIn  = analogRead(PIN_YAW);
-  aux2In = analogRead(PIN_KNOB);
+  knobIn = analogRead(PIN_KNOB);
 
   //add deadzone to roll, pitch, yaw sticks centers. 
   rollIn  = deadzoneAndMap(rollIn, Sys.rollMin, Sys.rollCenterVal, Sys.rollMax, Sys.deadZonePerc, -500, 500);
@@ -145,26 +145,25 @@ void readSticks()
   yawIn   = deadzoneAndMap(yawIn, Sys.yawMin, Sys.yawCenterVal, Sys.yawMax, Sys.deadZonePerc, -500, 500);
   
   //add deadband at extremes of knob for stability
-  aux2In = map(aux2In, 20, 1003, -500, 500); 
-  aux2In = constrain(aux2In, -500, 500);
+  knobIn = map(knobIn, 20, 1003, -500, 500); 
+  knobIn = constrain(knobIn, -500, 500);
 
   throttleIn = map(throttleIn, Sys.thrtlMin, Sys.thrtlMax, -500, 500);
   throttleIn = constrain(throttleIn, -500, 500);
  
   //play audio whenever knob crosses center 
   enum {_POS_SIDE = 0, _CENTER = 1, _NEG_SIDE = 2};
-  static uint8_t _aux2Region = _CENTER;
-  int _aux2Cntr = 0;
+  static uint8_t _knobRegion = _CENTER;
   int _posSideStart =  25;  //has deadband
   int _negSideStart =  -25; //has deadband
-  if((aux2In >= _aux2Cntr && _aux2Region == _NEG_SIDE) 
-    || (aux2In < _aux2Cntr && _aux2Region == _POS_SIDE)) //crossed center
+  if((knobIn >= 0 && _knobRegion == _NEG_SIDE) 
+    || (knobIn < 0 && _knobRegion == _POS_SIDE)) //crossed center
   {
     audioToPlay = AUDIO_SWITCHMOVED;
-    _aux2Region = _CENTER;
+    _knobRegion = _CENTER;
   }
-  else if(aux2In > _posSideStart) _aux2Region = _POS_SIDE;
-  else if(aux2In < _negSideStart) _aux2Region = _NEG_SIDE;
+  else if(knobIn > _posSideStart) _knobRegion = _POS_SIDE;
+  else if(knobIn < _negSideStart) _knobRegion = _NEG_SIDE;
 }
 
 //==================================================================================================
@@ -186,7 +185,7 @@ void computeChannelOutputs()
   MixSources[IDX_PITCH] = pitchIn;
   MixSources[IDX_THRTL_RAW] = throttleIn;
   MixSources[IDX_YAW] = yawIn;
-  MixSources[IDX_KNOB] = aux2In;
+  MixSources[IDX_KNOB] = knobIn;
   
   ///--Mix source Switches
   
@@ -234,7 +233,7 @@ void computeChannelOutputs()
   _SwDVal = constrain(_SwDVal, -500, 500);
   MixSources[IDX_SWD] = _SwDVal;
   
-  ///--Mix source Ail, Ele, Thr, Rud
+  ///--Mix source Ail, Ele, Thr, Rud, Custom curves
   
   //Ail
   if(SwBEngaged == false || Model.DualRateEnabled[AILRTE] == false)
@@ -252,6 +251,14 @@ void computeChannelOutputs()
   MixSources[IDX_ELE] += 5 * (Model.Trim[1] - 100);
   MixSources[IDX_ELE] = constrain(MixSources[IDX_ELE], -500, 500);
   
+  //Rud
+  if(SwBEngaged == false || Model.DualRateEnabled[RUDRTE] == false)
+    MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateNormal[RUDRTE], Model.ExpoNormal[RUDRTE]);
+  else
+    MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
+  MixSources[IDX_RUD] += 5 * (Model.Trim[3] - 100);
+  MixSources[IDX_RUD] = constrain(MixSources[IDX_RUD], -500, 500);
+  
   //Thr
   int xpoints[5] = {-500, -250, 0, 250, 500};
   int ypoints[5];
@@ -261,13 +268,11 @@ void computeChannelOutputs()
   MixSources[IDX_THRTL_CURV] += 5 * (Model.Trim[2] - 100);
   MixSources[IDX_THRTL_CURV] = constrain(MixSources[IDX_THRTL_CURV], -500, 500);
   
-  //Rud
-  if(SwBEngaged == false || Model.DualRateEnabled[RUDRTE] == false)
-    MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateNormal[RUDRTE], Model.ExpoNormal[RUDRTE]);
-  else
-    MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
-  MixSources[IDX_RUD] += 5 * (Model.Trim[3] - 100);
-  MixSources[IDX_RUD] = constrain(MixSources[IDX_RUD], -500, 500);
+  //custom curve 1
+  for(int i = 0; i < 5; i++)
+    ypoints[i] = 5 * (Model.Curve1Pts[i] - 100);
+  MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, MixSources[Model.Curve1Src]);
+  curve1SrcVal = MixSources[Model.Curve1Src]; //exported to show on curves graph
 
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
@@ -281,18 +286,18 @@ void computeChannelOutputs()
   for(int _mixNum = 0; _mixNum < NUM_MIXSLOTS; _mixNum++)
   {
     if(Model.MixOut[_mixNum] == IDX_NONE) //skip to next iteration
-      continue;  
+      continue;
     
     //---Input1---
     long _operand1 = 0;
-    if(Model.MixIn1[_mixNum] != IDX_NONE) //only calculate if input is other than "None"
+    if(Model.MixIn1[_mixNum] != IDX_NONE) 
     {
       _operand1 = weightAndOffset(MixSources[Model.MixIn1[_mixNum]], Model.MixIn1Weight[_mixNum], 
                                   Model.MixIn1Diff[_mixNum], Model.MixIn1Offset[_mixNum]);
     }
     //---Input2---
     long _operand2 = 0;
-    if(Model.MixIn2[_mixNum] != IDX_NONE) //only calculate if input is other than "None"
+    if(Model.MixIn2[_mixNum] != IDX_NONE) 
     {
       _operand2 = weightAndOffset( MixSources[Model.MixIn2[_mixNum]], Model.MixIn2Weight[_mixNum], 
                                    Model.MixIn2Diff[_mixNum], Model.MixIn2Offset[_mixNum]);
