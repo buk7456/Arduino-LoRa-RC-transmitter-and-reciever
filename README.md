@@ -63,7 +63,7 @@ Mixer slots are evaluated sequentially.
 ##### Mix sources:
 - Raw stick inputs (roll, pitch, throttle, yaw, knob)
 - Switches (SwA, SwB, SwC, SwD)
-- Curves (Aileron, Elevator, Throttle, Rudder)
+- Curves (Aileron, Elevator, Throttle, Rudder, Custom)
 - Channels (Ch1 to Ch8)
 - Temporary variables (Virt1, Virt2)
 
