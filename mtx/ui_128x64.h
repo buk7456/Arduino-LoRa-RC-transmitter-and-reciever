@@ -44,7 +44,7 @@ const char *const bootMenu[] PROGMEM = { //table to refer to the strings
 #define NUM_ITEMS_MAIN_MENU 7
 char const main0[] PROGMEM = "Main menu"; //heading
 char const main1[] PROGMEM = "Model";
-char const main2[] PROGMEM = "Curves";
+char const main2[] PROGMEM = "Inputs";
 char const main3[] PROGMEM = "Mixer";
 char const main4[] PROGMEM = "Outputs";
 char const main5[] PROGMEM = "System";
@@ -59,7 +59,7 @@ enum
   //Same order as in the main menu 
   MAIN_MENU = 0,
   MODE_MODEL,
-  MODE_CURVES,
+  MODE_INPUTS,
   MODE_MIXER,
   MODE_OUTPUTS,
   MODE_SYSTEM,
@@ -125,27 +125,28 @@ char const srcName5[]  PROGMEM = "SwA";
 char const srcName6[]  PROGMEM = "SwB"; 
 char const srcName7[]  PROGMEM = "SwC"; 
 char const srcName8[]  PROGMEM = "SwD"; 
-char const srcName9[]  PROGMEM = "Ail";
-char const srcName10[] PROGMEM = "Ele";
-char const srcName11[] PROGMEM = "Thrt";
-char const srcName12[] PROGMEM = "Rud";
-char const srcName13[] PROGMEM = "None";
-char const srcName14[] PROGMEM = "Ch1";
-char const srcName15[] PROGMEM = "Ch2";
-char const srcName16[] PROGMEM = "Ch3";
-char const srcName17[] PROGMEM = "Ch4";
-char const srcName18[] PROGMEM = "Ch5";
-char const srcName19[] PROGMEM = "Ch6";
-char const srcName20[] PROGMEM = "Ch7";
-char const srcName21[] PROGMEM = "Ch8";
-char const srcName22[] PROGMEM = "Virt1";
-char const srcName23[] PROGMEM = "Virt2";
+char const srcName9[]  PROGMEM = "Cv1";
+char const srcName10[] PROGMEM = "Ail";
+char const srcName11[] PROGMEM = "Ele";
+char const srcName12[] PROGMEM = "Thrt";
+char const srcName13[] PROGMEM = "Rud";
+char const srcName14[] PROGMEM = "None";
+char const srcName15[] PROGMEM = "Ch1";
+char const srcName16[] PROGMEM = "Ch2";
+char const srcName17[] PROGMEM = "Ch3";
+char const srcName18[] PROGMEM = "Ch4";
+char const srcName19[] PROGMEM = "Ch5";
+char const srcName20[] PROGMEM = "Ch6";
+char const srcName21[] PROGMEM = "Ch7";
+char const srcName22[] PROGMEM = "Ch8";
+char const srcName23[] PROGMEM = "Virt1";
+char const srcName24[] PROGMEM = "Virt2";
 
 const char *const srcNames[] PROGMEM = { //table to refer to the strings
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
-  srcName22, srcName23
+  srcName22, srcName23, srcName24
 };
 
 // --- Other strings ----
@@ -257,6 +258,7 @@ void HandleBootUI()
     
     if(_selection == 1) 
     {
+      skipThrottleCheck = true;
       changeToScreen(MODE_CALIB);
       return; //exit
     }
@@ -808,42 +810,42 @@ void HandleMainUI()
       }
       break;
 
-    case MODE_CURVES:
+    case MODE_INPUTS:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_CURVES])));
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_INPUTS])));
         drawHeader();
 
-        enum{AIL_CURVE = 0, ELE_CURVE, RUD_CURVE, THR_CURVE};
-        static uint8_t displayedCurve = AIL_CURVE;
+        enum{AIL_CURVE = 0, ELE_CURVE, RUD_CURVE, THR_CURVE, CURVE1, RAW_INPUTS};
+        static uint8_t displayedInput = AIL_CURVE;
         
-        if (focusedItem == 1) //switch to another curve
-          displayedCurve = incrDecrU8tOnUPDOWN(displayedCurve, 0, 3, WRAP, SLOW_CHANGE);
+        if (focusedItem == 1)
+          displayedInput = incrDecrU8tOnUPDOWN(displayedInput, 0, 5, WRAP, SLOW_CHANGE);
           
-        uint8_t _maxFocusableItems = 1;
-        
-        /////////////////RATES AND EXPO////////////////////////////////////////
-        if(displayedCurve < THR_CURVE)  
+        ///////////////// RATES AND EXPO ////////////////////////////////////////
+        if(displayedInput == AIL_CURVE || displayedInput == ELE_CURVE || displayedInput == RUD_CURVE)  
         {  
-          _maxFocusableItems = 4;
+          changeFocusOnUPDOWN(4);
+          toggleEditModeOnSelectClicked();
+          drawCursor(34, (focusedItem * 9) + 2);
           
           uint8_t _rate[2] = {0, 0};
           uint8_t _expo[2] = {0, 0};
           //-----Pass parameters to the arrays for rates and expo-----
-          if (displayedCurve == AIL_CURVE)
+          if (displayedInput == AIL_CURVE)
           {
             _rate[0] = Model.RateNormal[AILRTE];
             _rate[1] = Model.RateSport[AILRTE];
             _expo[0] = Model.ExpoNormal[AILRTE];
             _expo[1] = Model.ExpoSport[AILRTE];
           }
-          else if (displayedCurve == ELE_CURVE)
+          else if (displayedInput == ELE_CURVE)
           {
             _rate[0] = Model.RateNormal[ELERTE];
             _rate[1] = Model.RateSport[ELERTE];
             _expo[0] = Model.ExpoNormal[ELERTE];
             _expo[1] = Model.ExpoSport[ELERTE];
           }
-          else if (displayedCurve == RUD_CURVE)
+          else if (displayedInput == RUD_CURVE)
           {
             _rate[0] = Model.RateNormal[RUDRTE];
             _rate[1] = Model.RateSport[RUDRTE];
@@ -854,38 +856,38 @@ void HandleMainUI()
           //-----Adjudt values on key presses----
           if (focusedItem == 2) //adjust rate
           {
-            if(SwBEngaged == false || Model.DualRateEnabled[displayedCurve] == false)
+            if(SwBEngaged == false || Model.DualRateEnabled[displayedInput] == false)
               _rate[0] = incrDecrU8tOnUPDOWN(_rate[0], 0, 100, NOWRAP, PRESSED_OR_HELD); 
             else
               _rate[1] = incrDecrU8tOnUPDOWN(_rate[1], 0, 100, NOWRAP, PRESSED_OR_HELD); 
           }
           else if (focusedItem == 3) //adjust expo
           {
-            if(SwBEngaged == false || Model.DualRateEnabled[displayedCurve] == false)
+            if(SwBEngaged == false || Model.DualRateEnabled[displayedInput] == false)
               _expo[0] = incrDecrU8tOnUPDOWN(_expo[0], 0, 200, NOWRAP, PRESSED_OR_HELD);
             else 
               _expo[1] = incrDecrU8tOnUPDOWN(_expo[1], 0, 200, NOWRAP, PRESSED_OR_HELD);
           }
           else if (focusedItem == 4) //toggle dualrate
-            Model.DualRateEnabled[displayedCurve] = incrDecrU8tOnUPDOWN(Model.DualRateEnabled[displayedCurve],0,1,WRAP,PRESSED_ONLY);
+            Model.DualRateEnabled[displayedInput] = incrDecrU8tOnUPDOWN(Model.DualRateEnabled[displayedInput],0,1,WRAP,PRESSED_ONLY);
         
           
           //------ Write the values ------
-          if (displayedCurve == AIL_CURVE)
+          if (displayedInput == AIL_CURVE)
           {
             Model.RateNormal[AILRTE] = _rate[0];
             Model.RateSport[AILRTE]  = _rate[1];
             Model.ExpoNormal[AILRTE] = _expo[0];
             Model.ExpoSport[AILRTE]  = _expo[1];
           }
-          else if (displayedCurve == ELE_CURVE)
+          else if (displayedInput == ELE_CURVE)
           {
             Model.RateNormal[ELERTE] = _rate[0];
             Model.RateSport[ELERTE]  = _rate[1];
             Model.ExpoNormal[ELERTE] = _expo[0];
             Model.ExpoSport[ELERTE]  = _expo[1];
           }
-          else if (displayedCurve == RUD_CURVE)
+          else if (displayedInput == RUD_CURVE)
           {
             Model.RateNormal[RUDRTE] = _rate[0];
             Model.RateSport[RUDRTE]  = _rate[1];
@@ -897,25 +899,26 @@ void HandleMainUI()
           
           int _stickInpt = 0; //for showing input line marker on dual rate expo graph
           display.setCursor(0,11);
-          display.print(F("Curv:  "));
-          if (displayedCurve == AIL_CURVE)
+          display.print(F("Inpt:  "));
+          if (displayedInput == AIL_CURVE)
           {
-            display.print(F("Ail"));
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL])));
             _stickInpt = rollIn;
           }
-          else if (displayedCurve == ELE_CURVE)
+          else if (displayedInput == ELE_CURVE)
           {
-            display.print(F("Ele"));
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ELE])));
             _stickInpt = pitchIn;
           }
-          else if (displayedCurve == RUD_CURVE) 
+          else if (displayedInput == RUD_CURVE) 
           {
-            display.print(F("Rud"));
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_RUD])));
             _stickInpt = yawIn;
           }
+          display.print(txtBuff);
           
           uint8_t _datIDX = 1; 
-          if(SwBEngaged == false || Model.DualRateEnabled[displayedCurve] == false)
+          if(SwBEngaged == false || Model.DualRateEnabled[displayedInput] == false)
             _datIDX = 0; 
           
           display.setCursor(0, 20);
@@ -929,12 +932,12 @@ void HandleMainUI()
           
           display.setCursor(0, 38);
           display.print(F("D/R :  "));
-          drawCheckbox(42, 38, Model.DualRateEnabled[displayedCurve]);
+          drawCheckbox(42, 38, Model.DualRateEnabled[displayedInput]);
 
           if( SwBEngaged == true 
-              && ((displayedCurve == AIL_CURVE && Model.DualRateEnabled[AILRTE] == true)
-                   || (displayedCurve == ELE_CURVE && Model.DualRateEnabled[ELERTE] == true)
-                   || (displayedCurve == RUD_CURVE && Model.DualRateEnabled[RUDRTE] == true)))
+              && ((displayedInput == AIL_CURVE && Model.DualRateEnabled[AILRTE] == true)
+                   || (displayedInput == ELE_CURVE && Model.DualRateEnabled[ELERTE] == true)
+                   || (displayedInput == RUD_CURVE && Model.DualRateEnabled[RUDRTE] == true)))
           { 
             display.drawRect(0,47,33,11,BLACK);
             display.setCursor(2,49);
@@ -948,34 +951,59 @@ void HandleMainUI()
           display.fillRect(99 + _stickInpt/20, 35 - qq, 3, 3, BLACK);
         }
     
-        ////////////////THROTTLE CURVE////////////////////////////////////////
-        if(displayedCurve == THR_CURVE)
+        //////////////// 5-POINT CURVES ////////////////////////////////////////
+        if(displayedInput == THR_CURVE || displayedInput == CURVE1)
         {
-          _maxFocusableItems = 6;
-          
-          display.setCursor(0,11);
-          display.print(F("Curv:  "));
-          display.print(F("Thrt"));
-          //adjust values
-          if (focusedItem >= 2)
+          uint8_t _maxFocusableItems = 3;
+          uint8_t _curveNameIdx = IDX_THRTL_CURV;
+          uint8_t *ptr_CurvePts = Model.ThrottlePts;
+          int _inptSrc = throttleIn;
+          if(displayedInput == CURVE1)
           {
-            int _idx = 6 - focusedItem;
-            Model.ThrottlePts[_idx] = incrDecrU8tOnUPDOWN(Model.ThrottlePts[_idx], 0, 200, NOWRAP, PRESSED_OR_HELD);
-          }
-   
-          display.setCursor(0,20);
-          display.print(F("Pt"));
-          for (int i = 0; i < 5; i++)
-          {
-            display.setCursor(18, 20 + i * 9);
-            display.write(101 - i); //e,d,c,b,a
-            display.print(F(":  "));
-            display.print(Model.ThrottlePts[4 - i] - 100);
+            _maxFocusableItems = 4;
+            _curveNameIdx = IDX_CRV1;
+            ptr_CurvePts = Model.Curve1Pts;
+            _inptSrc = curve1SrcVal;
           }
           
-          //----Show graph
+          changeFocusOnUPDOWN(_maxFocusableItems);
+          toggleEditModeOnSelectClicked();
+          drawCursor(34, (focusedItem * 9) + 2);
           
-          //draw the axes
+          static uint8_t _thisPt = 0;
+          
+          //adjust 
+          if(focusedItem == 2)
+            _thisPt = incrDecrU8tOnUPDOWN(_thisPt, 0, 4, WRAP, SLOW_CHANGE);
+          else if(focusedItem == 3)
+            *(ptr_CurvePts + _thisPt) = incrDecrU8tOnUPDOWN(*(ptr_CurvePts + _thisPt), 0, 200, NOWRAP, PRESSED_OR_HELD);
+          else if(focusedItem == 4)
+            Model.Curve1Src = incrDecrU8tOnUPDOWN(Model.Curve1Src, 0, IDX_SWD, NOWRAP, SLOW_CHANGE);
+          
+          //-----draw text
+          display.setCursor(0, 11);
+          display.print(F("Inpt:  "));
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_curveNameIdx])));
+          display.print(txtBuff);
+          
+          display.setCursor(6, 20);
+          display.print(F("Pt :  "));
+          display.write(97 + _thisPt); //a,b,c,d,e
+        
+          display.setCursor(6, 29);
+          display.print(F("Val:  "));
+          display.print(*(ptr_CurvePts + _thisPt) - 100);
+          
+          if(displayedInput == CURVE1)
+          {
+            display.setCursor(6, 38);
+            display.print(F("Src:  "));
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Curve1Src])));
+            display.print(txtBuff);
+          }
+          
+          //-----draw graph
+          //axes
           display.drawVLine(100, 11, 51, BLACK);
           display.drawHLine(74, 36, 52, BLACK);
           
@@ -984,32 +1012,92 @@ void HandleMainUI()
           int xpts[5] = {0, 250, 500, 750, 1000};
           int ypts[5];
           for(int i = 0; i < 5; i++)
-            ypts[i] = (int)Model.ThrottlePts[i] * 5;
-                            
+            ypts[i] = *(ptr_CurvePts + i) * 5;
+          
           for (int xval = 0; xval <= 50; xval++) //plot
           {
             int yval = linearInterpolate(xpts, ypts, 5, xval * 20) / 20;
             display.drawPixel(75 + xval, 61 - yval, BLACK); //plot points
           }
           
-          //draw throttle stick input indication and point selected
-          int _thrOut = linearInterpolate(xpts, ypts, 5, throttleIn + 500) / 20;
-          display.fillRect(74 + ((throttleIn + 500) / 20), 60 - _thrOut ,3, 3, BLACK);
+          //trace source
+          int yy = linearInterpolate(xpts, ypts, 5, _inptSrc + 500) / 20;
+          display.fillRect(74 + ((_inptSrc + 500) / 20), 60 - yy ,3, 3, BLACK);
           
           //show point we are adjusting
-          if(focusedItem >= 2)
+          if(focusedItem == 2 || focusedItem == 3)
           {
-            int _pt = 6 - focusedItem;
-            int _qq = linearInterpolate(xpts, ypts, 5, _pt * 250) / 20;
-            display.fillRect(74 + xpts[_pt]/20, 60 - _qq ,3, 3, WHITE);
-            display.drawRect(74 + xpts[_pt]/20, 60 - _qq ,3, 3, BLACK);
+            int _qq = linearInterpolate(xpts, ypts, 5, _thisPt * 250) / 20;
+            display.fillRect(74 + xpts[_thisPt]/20, 60 - _qq ,3, 3, WHITE);
+            display.drawRect(74 + xpts[_thisPt]/20, 60 - _qq ,3, 3, BLACK);
           }
         }
         
-        ////// Move cursor
-        changeFocusOnUPDOWN(_maxFocusableItems);
-        toggleEditModeOnSelectClicked();
-        drawCursor(34, (focusedItem * 9) + 2);
+        ////////////////// RAW /////////////////////////////
+        if(displayedInput == RAW_INPUTS)
+        {
+          changeFocusOnUPDOWN(1);
+          toggleEditModeOnSelectClicked();
+          drawCursor(34, 11);
+          
+          display.setCursor(0, 11);
+          display.print(F("Inpt:  Raw"));
+          
+          display.setCursor(14, 21);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ROLL])));
+          display.print(txtBuff);
+          display.setCursor(42, 21);
+          display.print(rollIn/5);
+          
+          display.setCursor(14, 30);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_PITCH])));
+          display.print(txtBuff);
+          display.setCursor(42, 30);
+          display.print(pitchIn/5);
+          
+          display.setCursor(14, 39);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_THRTL_RAW])));
+          display.print(txtBuff);
+          display.setCursor(42, 39);
+          display.print(throttleIn/5);
+          
+          display.setCursor(14, 48);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_YAW])));
+          display.print(txtBuff);
+          display.setCursor(42, 48);
+          display.print(yawIn/5);
+          
+          display.setCursor(14, 57);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_KNOB])));
+          display.print(txtBuff);
+          display.setCursor(42, 57);
+          display.print(knobIn/5);
+          
+          display.setCursor(83, 21);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA])));
+          display.print(txtBuff);
+          if(SwAEngaged) display.drawBitmap(105, 21, downArrow, 5, 7, BLACK);
+          else display.drawBitmap(105, 21, upArrow, 5, 7, BLACK);
+          
+          display.setCursor(83, 30);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWB])));
+          display.print(txtBuff);
+          if(SwBEngaged) display.drawBitmap(105, 30, downArrow, 5, 7, BLACK);
+          else display.drawBitmap(105, 30, upArrow, 5, 7, BLACK);
+          
+          display.setCursor(83, 39);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWC])));
+          display.print(txtBuff);
+          if(SwCState == SWUPPERPOS) display.drawBitmap(105, 39, upArrow, 5, 7, BLACK);
+          else if(SwCState == SWMIDPOS) { display.setCursor(105, 39); display.print(F("-")); }
+          else display.drawBitmap(105, 39, downArrow, 5, 7, BLACK);
+          
+          display.setCursor(83, 48);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWD])));
+          display.print(txtBuff);
+          if(SwDEngaged) display.drawBitmap(105, 48, downArrow, 5, 7, BLACK);
+          else display.drawBitmap(105, 48, upArrow, 5, 7, BLACK);
+        }
 
         ////// Exit
         if (heldButton == SELECT_KEY)
