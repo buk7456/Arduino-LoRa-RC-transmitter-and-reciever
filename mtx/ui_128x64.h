@@ -7,7 +7,6 @@ void DisplayFullScreenMsg(const __FlashStringHelper* text);
 void toggleEditModeOnSelectClicked();
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
 void changeToScreen(int8_t _theScrn);
-void plotRateExpo(uint8_t _rate, uint8_t _expo);
 void resetThrottleTimer();
 void drawHeader();
 void printVolts(int _milliVolts);
@@ -20,7 +19,6 @@ void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
 bool isDefaultModelName(char* _nameBuff, uint8_t _len);
 uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val);
-void showTrimData(const __FlashStringHelper* text, uint8_t _trimVal);
 uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state);
 enum {WRAP = true, NOWRAP = false};
 enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
@@ -105,7 +103,7 @@ const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
   mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4, mxrStr5
 };
 
-#define NUM_ITEMS_TEMPLATES 5
+#define NUM_ITEMS_TEMPLATES_POPUP 5
 char const tmpltStr0[] PROGMEM = "Elevon"; 
 char const tmpltStr1[] PROGMEM = "Vtail"; 
 char const tmpltStr2[] PROGMEM = "Flaperon";
@@ -300,8 +298,8 @@ void HandleMainUI()
   ///------------ THROTTLE TIMER -----------------
   //controlled by throttle stick value. If throttle is above threshold, run, else pause.
   
-  int thStpwtch = -500 + (10 * int(Model.throttleTimerMinThrottle));
-  unsigned long timerCountDownInitVal = Model.throttleTimerCntDnInitMinutes * 60000UL;
+  int thStpwtch = -500 + (10 * int(Model.throttleTimerThreshold));
+  unsigned long timerCountDownInitVal = Model.throttleTimerInitMins * 60000UL;
   if(throttleIn <= thStpwtch || cutIsActivated()) //pause
   {
     throttleTimerLastElapsedTime = throttleTimerElapsedTime;
@@ -417,7 +415,7 @@ void HandleMainUI()
           printHHMMSS(throttleTimerElapsedTime, 20, 32);
         else if(Model.throttleTimerType == TIMERCOUNTDOWN)
         {
-          unsigned long timerCountDownInitVal = Model.throttleTimerCntDnInitMinutes * 60000UL;
+          unsigned long timerCountDownInitVal = Model.throttleTimerInitMins * 60000UL;
           if(throttleTimerElapsedTime < timerCountDownInitVal)
           {
             unsigned long ttqq = timerCountDownInitVal - throttleTimerElapsedTime;
@@ -476,17 +474,21 @@ void HandleMainUI()
           if(Model.Trim[selectedTrim] != oldTrimVal)
             trimIsPendingSave = true;
           
-          //show values
-          if(selectedTrim == 0)      showTrimData(F("Ail"), Model.Trim[0]);
-          else if(selectedTrim == 1) showTrimData(F("Ele"), Model.Trim[1]);
-          else if(selectedTrim == 2) showTrimData(F("Thr"), Model.Trim[2]);
-          else if(selectedTrim == 3) showTrimData(F("Rud"), Model.Trim[3]);
-          
+          //show names and values
+          display.setCursor(86, 32);
+          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + selectedTrim])));
+          display.print(txtBuff);
+          display.setCursor(86, 44);
+          if(Model.Trim[selectedTrim] > 100)
+           display.print(F("+"));
+          display.print(Model.Trim[selectedTrim] - 100);
+
+          //draw sliders
           display.drawHLine(68, 62, 51, BLACK);
           display.drawVLine(126, 12, 51, BLACK);
           display.drawVLine(1, 12, 51, BLACK);
           display.drawHLine(9, 62, 51, BLACK);
-          //draw slider icons
+          //draw thumbs
           display.drawRect(Model.Trim[0] - 8, 61, 3, 3, BLACK);
           display.drawRect(125, 136 - Model.Trim[1], 3, 3, BLACK);
           display.drawRect(0, 136 - Model.Trim[2], 3, 3, BLACK);
@@ -506,7 +508,6 @@ void HandleMainUI()
           eeSaveModelData(Sys.activeModel);
           trimIsPendingSave = false;
         }
-        
         
         if (homeScreenMode == NORMALMODE && clickedButton == SELECT_KEY)
           changeToScreen(MAIN_MENU);
@@ -572,7 +573,7 @@ void HandleMainUI()
       
         display.setCursor(1, 10);
         display.print(F("Throttle >=  "));
-        display.print(Model.throttleTimerMinThrottle);
+        display.print(Model.throttleTimerThreshold);
         display.print(F("%"));
         
         display.setCursor(1, 19);
@@ -589,7 +590,7 @@ void HandleMainUI()
           _maxFocusableItems = 3;
           display.setCursor(31, 28);
           display.print(F("Start:  "));
-          display.print(Model.throttleTimerCntDnInitMinutes);
+          display.print(Model.throttleTimerInitMins);
           display.print(F(" min"));
         }
       
@@ -598,11 +599,11 @@ void HandleMainUI()
         drawCursor(71, (focusedItem * 9) + 1);
         
         if (focusedItem == 1)
-          Model.throttleTimerMinThrottle = incrDecrU8tOnUPDOWN(Model.throttleTimerMinThrottle, 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.throttleTimerThreshold = incrDecrU8tOnUPDOWN(Model.throttleTimerThreshold, 0, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 2)
           Model.throttleTimerType = incrDecrU8tOnUPDOWN(Model.throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
         else if(focusedItem == 3)
-          Model.throttleTimerCntDnInitMinutes = incrDecrU8tOnUPDOWN(Model.throttleTimerCntDnInitMinutes, 1, 240, NOWRAP, PRESSED_OR_HELD);
+          Model.throttleTimerInitMins = incrDecrU8tOnUPDOWN(Model.throttleTimerInitMins, 1, 240, NOWRAP, PRESSED_OR_HELD);
       
         if (heldButton == SELECT_KEY)
         {
@@ -815,150 +816,93 @@ void HandleMainUI()
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_INPUTS])));
         drawHeader();
 
-        enum{AIL_CURVE = 0, ELE_CURVE, RUD_CURVE, THR_CURVE, CURVE1, RAW_INPUTS};
-        static uint8_t displayedInput = AIL_CURVE;
+        enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE, CURVE1, RAW_INPUTS};
+        static uint8_t _page = AIL_CURVE;
         
         if (focusedItem == 1)
-          displayedInput = incrDecrU8tOnUPDOWN(displayedInput, 0, 5, WRAP, SLOW_CHANGE);
+          _page = incrDecrU8tOnUPDOWN(_page, 0, 5, WRAP, SLOW_CHANGE);
           
         ///////////////// RATES AND EXPO ////////////////////////////////////////
-        if(displayedInput == AIL_CURVE || displayedInput == ELE_CURVE || displayedInput == RUD_CURVE)  
+        if(_page == AIL_CURVE || _page == ELE_CURVE || _page == RUD_CURVE)  
         {  
           changeFocusOnUPDOWN(4);
           toggleEditModeOnSelectClicked();
           drawCursor(34, (focusedItem * 9) + 2);
           
-          uint8_t _rate[2] = {0, 0};
-          uint8_t _expo[2] = {0, 0};
-          //-----Pass parameters to the arrays for rates and expo-----
-          if (displayedInput == AIL_CURVE)
+          uint8_t *_rate;
+          uint8_t *_expo;
+          if(SwBEngaged == true && Model.DualRateEnabled[_page] == true) //sport
           {
-            _rate[0] = Model.RateNormal[AILRTE];
-            _rate[1] = Model.RateSport[AILRTE];
-            _expo[0] = Model.ExpoNormal[AILRTE];
-            _expo[1] = Model.ExpoSport[AILRTE];
+            _rate = &Model.RateSport[_page];
+            _expo = &Model.ExpoSport[_page];
+            
+            display.drawRect(0, 47, 33, 11, BLACK);
+            display.setCursor(2, 49);
+            display.print(F("Sport"));
           }
-          else if (displayedInput == ELE_CURVE)
+          else //normal
           {
-            _rate[0] = Model.RateNormal[ELERTE];
-            _rate[1] = Model.RateSport[ELERTE];
-            _expo[0] = Model.ExpoNormal[ELERTE];
-            _expo[1] = Model.ExpoSport[ELERTE];
-          }
-          else if (displayedInput == RUD_CURVE)
-          {
-            _rate[0] = Model.RateNormal[RUDRTE];
-            _rate[1] = Model.RateSport[RUDRTE];
-            _expo[0] = Model.ExpoNormal[RUDRTE];
-            _expo[1] = Model.ExpoSport[RUDRTE];
+            _rate = &Model.RateNormal[_page];
+            _expo = &Model.ExpoNormal[_page];
           }
           
-          //-----Adjudt values on key presses----
-          if (focusedItem == 2) //adjust rate
-          {
-            if(SwBEngaged == false || Model.DualRateEnabled[displayedInput] == false)
-              _rate[0] = incrDecrU8tOnUPDOWN(_rate[0], 0, 100, NOWRAP, PRESSED_OR_HELD); 
-            else
-              _rate[1] = incrDecrU8tOnUPDOWN(_rate[1], 0, 100, NOWRAP, PRESSED_OR_HELD); 
-          }
-          else if (focusedItem == 3) //adjust expo
-          {
-            if(SwBEngaged == false || Model.DualRateEnabled[displayedInput] == false)
-              _expo[0] = incrDecrU8tOnUPDOWN(_expo[0], 0, 200, NOWRAP, PRESSED_OR_HELD);
-            else 
-              _expo[1] = incrDecrU8tOnUPDOWN(_expo[1], 0, 200, NOWRAP, PRESSED_OR_HELD);
-          }
-          else if (focusedItem == 4) //toggle dualrate
-            Model.DualRateEnabled[displayedInput] = incrDecrU8tOnUPDOWN(Model.DualRateEnabled[displayedInput],0,1,WRAP,PRESSED_ONLY);
+          //Adjust values
+          
+          if (focusedItem == 2)
+            *_rate = incrDecrU8tOnUPDOWN(*_rate, 0, 100, NOWRAP, PRESSED_OR_HELD); 
+          else if (focusedItem == 3)
+            *_expo = incrDecrU8tOnUPDOWN(*_expo, 0, 200, NOWRAP, PRESSED_OR_HELD);
+          else if (focusedItem == 4)
+            Model.DualRateEnabled[_page] = incrDecrU8tOnUPDOWN(Model.DualRateEnabled[_page], 0, 1, WRAP, PRESSED_ONLY);
         
+          //Show text
           
-          //------ Write the values ------
-          if (displayedInput == AIL_CURVE)
-          {
-            Model.RateNormal[AILRTE] = _rate[0];
-            Model.RateSport[AILRTE]  = _rate[1];
-            Model.ExpoNormal[AILRTE] = _expo[0];
-            Model.ExpoSport[AILRTE]  = _expo[1];
-          }
-          else if (displayedInput == ELE_CURVE)
-          {
-            Model.RateNormal[ELERTE] = _rate[0];
-            Model.RateSport[ELERTE]  = _rate[1];
-            Model.ExpoNormal[ELERTE] = _expo[0];
-            Model.ExpoSport[ELERTE]  = _expo[1];
-          }
-          else if (displayedInput == RUD_CURVE)
-          {
-            Model.RateNormal[RUDRTE] = _rate[0];
-            Model.RateSport[RUDRTE]  = _rate[1];
-            Model.ExpoNormal[RUDRTE] = _expo[0];
-            Model.ExpoSport[RUDRTE]  = _expo[1];
-          }
-          
-          //----Show on screen----
-          
-          int _stickInpt = 0; //for showing input line marker on dual rate expo graph
           display.setCursor(0,11);
           display.print(F("Inpt:  "));
-          if (displayedInput == AIL_CURVE)
-          {
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL])));
-            _stickInpt = rollIn;
-          }
-          else if (displayedInput == ELE_CURVE)
-          {
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ELE])));
-            _stickInpt = pitchIn;
-          }
-          else if (displayedInput == RUD_CURVE) 
-          {
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_RUD])));
-            _stickInpt = yawIn;
-          }
+          if(_page == RUD_CURVE) 
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_RUD]))); 
+          else 
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + _page])));
           display.print(txtBuff);
-          
-          uint8_t _datIDX = 1; 
-          if(SwBEngaged == false || Model.DualRateEnabled[displayedInput] == false)
-            _datIDX = 0; 
           
           display.setCursor(0, 20);
           display.print(F("Rate:  "));
-          display.print(_rate[_datIDX]);
+          display.print(*_rate);
           display.print(F("%"));
+          
           display.setCursor(0, 29);
           display.print(F("Expo:  "));
-          display.print(_expo[_datIDX] - 100);
+          display.print(*_expo - 100);
           display.print(F("%"));
           
           display.setCursor(0, 38);
           display.print(F("D/R :  "));
-          drawCheckbox(42, 38, Model.DualRateEnabled[displayedInput]);
-
-          if( SwBEngaged == true 
-              && ((displayedInput == AIL_CURVE && Model.DualRateEnabled[AILRTE] == true)
-                   || (displayedInput == ELE_CURVE && Model.DualRateEnabled[ELERTE] == true)
-                   || (displayedInput == RUD_CURVE && Model.DualRateEnabled[RUDRTE] == true)))
-          { 
-            display.drawRect(0,47,33,11,BLACK);
-            display.setCursor(2,49);
-            display.print(F("Sport"));
-          }
-
+          drawCheckbox(42, 38, Model.DualRateEnabled[_page]);
+        
           //draw graph 
-          plotRateExpo(_rate[_datIDX], _expo[_datIDX]);
+          display.drawVLine(100, 11, 51, BLACK);
+          display.drawHLine(74, 36, 52, BLACK);
+          for(int i = 0; i <= 25; i++)
+          {
+            int _output = calcRateExpo(i * 20, *_rate, *_expo) / 20;
+            display.drawPixel(100 + i, 36 - _output, BLACK);
+            display.drawPixel(100 - i, 36 + _output, BLACK);
+          }
+          
           //draw stick input marker
-          int qq = calcRateExpo(_stickInpt, _rate[_datIDX], _expo[_datIDX]) / 20;
-          display.fillRect(99 + _stickInpt/20, 35 - qq, 3, 3, BLACK);
+          int _stickInpt[3] = {rollIn, pitchIn, yawIn};
+          int _output = calcRateExpo(_stickInpt[_page], *_rate, *_expo) / 20;
+          display.fillRect(99 + _stickInpt[_page]/20, 35 - _output, 3, 3, BLACK);
         }
     
         //////////////// 5-POINT CURVES ////////////////////////////////////////
-        if(displayedInput == THR_CURVE || displayedInput == CURVE1)
+        if(_page == THR_CURVE || _page == CURVE1)
         {
           uint8_t _maxFocusableItems = 3;
           uint8_t _curveNameIdx = IDX_THRTL_CURV;
           uint8_t *ptr_CurvePts = Model.ThrottlePts;
           int _inptSrc = throttleIn;
-          if(displayedInput == CURVE1)
+          if(_page == CURVE1)
           {
             _maxFocusableItems = 4;
             _curveNameIdx = IDX_CRV1;
@@ -994,7 +938,7 @@ void HandleMainUI()
           display.print(F("Val:  "));
           display.print(*(ptr_CurvePts + _thisPt) - 100);
           
-          if(displayedInput == CURVE1)
+          if(_page == CURVE1)
           {
             display.setCursor(6, 38);
             display.print(F("Src:  "));
@@ -1034,69 +978,42 @@ void HandleMainUI()
         }
         
         ////////////////// RAW /////////////////////////////
-        if(displayedInput == RAW_INPUTS)
+        if(_page == RAW_INPUTS)
         {
-          changeFocusOnUPDOWN(1);
           toggleEditModeOnSelectClicked();
           drawCursor(34, 11);
           
           display.setCursor(0, 11);
           display.print(F("Inpt:  Raw"));
           
-          display.setCursor(14, 21);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ROLL])));
-          display.print(txtBuff);
-          display.setCursor(42, 21);
-          display.print(rollIn/5);
-          
-          display.setCursor(14, 30);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_PITCH])));
-          display.print(txtBuff);
-          display.setCursor(42, 30);
-          display.print(pitchIn/5);
-          
-          display.setCursor(14, 39);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_THRTL_RAW])));
-          display.print(txtBuff);
-          display.setCursor(42, 39);
-          display.print(throttleIn/5);
-          
-          display.setCursor(14, 48);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_YAW])));
-          display.print(txtBuff);
-          display.setCursor(42, 48);
-          display.print(yawIn/5);
-          
-          display.setCursor(14, 57);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_KNOB])));
-          display.print(txtBuff);
-          display.setCursor(42, 57);
-          display.print(knobIn/5);
-          
-          display.setCursor(83, 21);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA])));
-          display.print(txtBuff);
-          if(SwAEngaged) display.drawBitmap(105, 21, downArrow, 5, 7, BLACK);
-          else display.drawBitmap(105, 21, upArrow, 5, 7, BLACK);
-          
-          display.setCursor(83, 30);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWB])));
-          display.print(txtBuff);
-          if(SwBEngaged) display.drawBitmap(105, 30, downArrow, 5, 7, BLACK);
-          else display.drawBitmap(105, 30, upArrow, 5, 7, BLACK);
-          
-          display.setCursor(83, 39);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWC])));
-          display.print(txtBuff);
-          if(SwCState == SWUPPERPOS) display.drawBitmap(105, 39, upArrow, 5, 7, BLACK);
-          else if(SwCState == SWMIDPOS) { display.setCursor(105, 39); display.print(F("-")); }
-          else display.drawBitmap(105, 39, downArrow, 5, 7, BLACK);
-          
-          display.setCursor(83, 48);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWD])));
-          display.print(txtBuff);
-          if(SwDEngaged) display.drawBitmap(105, 48, downArrow, 5, 7, BLACK);
-          else display.drawBitmap(105, 48, upArrow, 5, 7, BLACK);
+          //show sticks and knob
+          int _stickVal[5] = {rollIn, pitchIn, throttleIn, yawIn, knobIn}; //order as in source names
+          for(int i = 0; i < 5; i++)
+          {
+            display.setCursor(14, 21 + i*9);
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ROLL + i])));
+            display.print(txtBuff);
+            display.setCursor(42, 21 + i*9);
+            display.print(_stickVal[i]/5);
+          }
+          //show switches
+          uint8_t _swState[4] = {SwAEngaged, SwBEngaged, SwCState, SwDEngaged}; //order as in source names
+          for(int i = 0; i < 4; i++)
+          {
+            int16_t _ycord = 21 + i*9;
+            display.setCursor(83, _ycord);
+            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA + i])));
+            display.print(txtBuff);
+            if(_swState[i] == 0) 
+              display.drawBitmap(105, _ycord, upArrow, 5, 7, BLACK);
+            else if(_swState[i] == 1) 
+              display.drawBitmap(105, _ycord, downArrow, 5, 7, BLACK);
+            else 
+            {
+              display.setCursor(105, _ycord); 
+              display.print(F("-")); 
+            }
+          }
         }
 
         ////// Exit
@@ -1427,8 +1344,8 @@ void HandleMainUI()
       
     case POPUP_TEMPLATES_MENU:
       {
-        changeFocusOnUPDOWN(NUM_ITEMS_TEMPLATES);
-        drawPopupMenu(templatesMenu, NUM_ITEMS_TEMPLATES);
+        changeFocusOnUPDOWN(NUM_ITEMS_TEMPLATES_POPUP);
+        drawPopupMenu(templatesMenu, NUM_ITEMS_TEMPLATES_POPUP);
         uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
         
         if(_selection == 1)
@@ -1966,20 +1883,6 @@ void drawCursor(int16_t _xpos, int16_t _ypos)
 
 //--------------------------------------------------------------------------------------------------
 
-void plotRateExpo(uint8_t _rate, uint8_t _expo)
-{
-  display.drawVLine(100, 11, 51, BLACK);
-  display.drawHLine(74, 36, 52, BLACK);
-  for(int i = 0; i <= 25; i++)
-  {
-    int _output = calcRateExpo(i * 20, _rate, _expo) / 20;
-    display.drawPixel(100 + i, 36 - _output, BLACK);
-    display.drawPixel(100 - i, 36 + _output, BLACK);
-  }
-}
-
-//--------------------------------------------------------------------------------------------------
-
 void drawHeader()
 {
   int _txtWidthPix = strlen(txtBuff) * 6;
@@ -2167,18 +2070,6 @@ uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
     audioToPlay = AUDIO_SWITCHMOVED;
   }
   return _val;
-}
-
-//--------------------------------------------------------------------------------------------------
-
-void showTrimData(const __FlashStringHelper* text, uint8_t _trimVal)
-{
-  display.setCursor(86, 32);
-  display.print(text);
-  display.setCursor(86, 44);
-  if(_trimVal > 100)
-    display.print(F("+"));
-  display.print(_trimVal - 100);
 }
 
 //--------------------------------------------------------------------------------------------------
