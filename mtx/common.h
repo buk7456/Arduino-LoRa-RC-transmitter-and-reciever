@@ -74,9 +74,9 @@ struct modelParams {
   uint8_t Curve1Src;       //User defined curve
   uint8_t Curve1Pts[5];    //User defined interpolation points. Range 0 to 200, center is 100
   
-  uint8_t throttleTimerType;
-  uint8_t throttleTimerCntDnInitMinutes; 
-  uint8_t throttleTimerMinThrottle; // in percentage of throttle stick input: 0 to 100
+  uint8_t throttleTimerType;      
+  uint8_t throttleTimerInitMins; 
+  uint8_t throttleTimerThreshold; // in percentage of throttle stick input: 0 to 100
   
   //-- mixer params ---------
   
@@ -157,8 +157,8 @@ void setDefaultModelBasicParams()
   
   //throttle timer
   Model.throttleTimerType = TIMERCOUNTUP;
-  Model.throttleTimerCntDnInitMinutes = 5; 
-  Model.throttleTimerMinThrottle = 25; 
+  Model.throttleTimerInitMins = 5; 
+  Model.throttleTimerThreshold = 25; 
 }
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
@@ -203,9 +203,9 @@ bool SwAEngaged = false;
 bool SwBEngaged = false;
 bool SwDEngaged = false;
 //3 position
-enum {SWUPPERPOS = 2, SWMIDPOS = 0, SWLOWERPOS = 1};
+enum {SWUPPERPOS = 0, SWLOWERPOS = 1, SWMIDPOS = 2};
 uint8_t SwCState = SWUPPERPOS; 
-  
+
 //---buttons---
 uint8_t buttonCode = 0; 
 enum {
