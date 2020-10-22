@@ -217,9 +217,11 @@ void getSerialData()
       pktsPerSecond = _radioPktsPS & 0xFF;
       lastTotalPackets = radioTotalPackets;
     }
-    
-    // read the 3 position switch. upperPos is 2, midPos is 0, lowerPos is 1
-    uint8_t SwCState = ((!digitalRead(SwCUpperPosPin) << 1) | !digitalRead(SwCLowerPosPin)) & 0x03;
+ 
+    // read the 3 position switch. upperPos is 0, lowerPos is 1, midPos is 2
+    uint8_t SwCState = 2;
+    if(!digitalRead(SwCUpperPosPin)) SwCState = 0;
+    else if(!digitalRead(SwCLowerPosPin)) SwCState = 1;
 
     //send back packets per sec and 3pos switch state
     uint8_t returnByte = (pktsPerSecond & 0x3F) | ((SwCState << 6) & 0xC0);
