@@ -154,16 +154,14 @@ void readSticks()
   //play audio whenever knob crosses center 
   enum {_POS_SIDE = 0, _CENTER = 1, _NEG_SIDE = 2};
   static uint8_t _knobRegion = _CENTER;
-  int _posSideStart =  25;  //has deadband
-  int _negSideStart =  -25; //has deadband
   if((knobIn >= 0 && _knobRegion == _NEG_SIDE) 
     || (knobIn < 0 && _knobRegion == _POS_SIDE)) //crossed center
   {
     audioToPlay = AUDIO_SWITCHMOVED;
     _knobRegion = _CENTER;
   }
-  else if(knobIn > _posSideStart) _knobRegion = _POS_SIDE;
-  else if(knobIn < _negSideStart) _knobRegion = _NEG_SIDE;
+  else if(knobIn > 25) _knobRegion = _POS_SIDE;
+  else if(knobIn < -25) _knobRegion = _NEG_SIDE;
 }
 
 //==================================================================================================
