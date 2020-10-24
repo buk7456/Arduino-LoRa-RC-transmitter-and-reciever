@@ -1,5 +1,10 @@
 1.5.0
 -----
+24Oct2020
+ - Added control switch in mixer. This can be used to easily turn on of off the mix.
+ - Added Replace option in mixer multiplex. This works best when combined with a switch.
+ - Various code improvements
+ 
 20Oct2020
  - Added a custom 5 point curve
  - Renamed menu entry 'Curves' to 'Inputs'
