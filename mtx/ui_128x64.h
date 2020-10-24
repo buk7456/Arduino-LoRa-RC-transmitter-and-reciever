@@ -23,8 +23,9 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
 enum {WRAP = true, NOWRAP = false};
 enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
 
-void loadMix( uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
-uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, uint8_t _operator, uint8_t _out);
+void loadMix(uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
+             uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, 
+             uint8_t _operator, uint8_t _sw, uint8_t _out);
 
 ///================================================================================================
 
@@ -34,7 +35,7 @@ char const bootStr0[] PROGMEM = "Calibrte sticks";
 char const bootStr1[] PROGMEM = "Show Pkts/sec"; 
 char const bootStr2[] PROGMEM = "Format EEPROM"; 
 char const bootStr3[] PROGMEM = "Cancel";
-const char *const bootMenu[] PROGMEM = { //table to refer to the strings
+const char* const bootMenu[] PROGMEM = { //table to refer to the strings
   bootStr0, bootStr1, bootStr2, bootStr3
 };
 
@@ -47,7 +48,7 @@ char const main3[] PROGMEM = "Mixer";
 char const main4[] PROGMEM = "Outputs";
 char const main5[] PROGMEM = "System";
 char const main6[] PROGMEM = "About";
-const char *const mainMenu[] PROGMEM = { //table to refer to the strings
+const char* const mainMenu[] PROGMEM = { //table to refer to the strings
   main0, main1, main2, main3, main4, main5, main6 
 };
 
@@ -62,10 +63,8 @@ enum
   MODE_OUTPUTS,
   MODE_SYSTEM,
   MODE_ABOUT,
-  
   //others
-  HOME_SCREEN = 50,
-  
+  HOME_SCREEN,
   POPUP_TIMER_MENU,
   MODE_TIMER_SETUP,
   POPUP_RENAME_MODEL,
@@ -84,10 +83,10 @@ char const tmrStr2[] PROGMEM = "Reset timer 2";
 char const tmrStr3[] PROGMEM = "Reset timer 1";
 char const tmrStr4[] PROGMEM = "Setup timer 1";
 #define NUM_ITEMS_TIMER_POPUP 4
-const char *const timerMenuA[] PROGMEM = { //table to refer to the strings
+const char* const timerMenuA[] PROGMEM = { //table to refer to the strings
   tmrStr0, tmrStr2, tmrStr3, tmrStr4
 };
-const char *const timerMenuB[] PROGMEM = { //table to refer to the strings
+const char* const timerMenuB[] PROGMEM = { //table to refer to the strings
   tmrStr1, tmrStr2, tmrStr3, tmrStr4
 };
 
@@ -99,7 +98,7 @@ char const mxrStr2[] PROGMEM = "Move mix to";
 char const mxrStr3[] PROGMEM = "Copy mix to";
 char const mxrStr4[] PROGMEM = "Reset all mixes";
 char const mxrStr5[] PROGMEM = "Templates";
-const char *const mixerMenu[] PROGMEM = { //table to refer to the strings
+const char* const mixerMenu[] PROGMEM = { //table to refer to the strings
   mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4, mxrStr5
 };
 
@@ -109,7 +108,7 @@ char const tmpltStr1[] PROGMEM = "Vtail";
 char const tmpltStr2[] PROGMEM = "Flaperon";
 char const tmpltStr3[] PROGMEM = "Crow braking";
 char const tmpltStr4[] PROGMEM = "Diffr thrust";
-const char *const templatesMenu[] PROGMEM = { //table to refer to the strings
+const char* const templatesMenu[] PROGMEM = { //table to refer to the strings
   tmpltStr0, tmpltStr1, tmpltStr2, tmpltStr3, tmpltStr4
 };
 
@@ -140,21 +139,38 @@ char const srcName22[] PROGMEM = "Ch8";
 char const srcName23[] PROGMEM = "Virt1";
 char const srcName24[] PROGMEM = "Virt2";
 
-const char *const srcNames[] PROGMEM = { //table to refer to the strings
+const char* const srcNames[] PROGMEM = { //table to refer to the strings
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
   srcName22, srcName23, srcName24
 };
 
-// --- Other strings ----
+//-- MixSwitch string. Last character ^ means upper postn, ~ means mid postn, _ means lower postn 
+char const mxSwStr0[]  PROGMEM = "-- ";
+char const mxSwStr1[]  PROGMEM = "SwA^";
+char const mxSwStr2[]  PROGMEM = "SwA_";
+char const mxSwStr3[]  PROGMEM = "SwB^";
+char const mxSwStr4[]  PROGMEM = "SwB_";
+char const mxSwStr5[]  PROGMEM = "SwC^";
+char const mxSwStr6[]  PROGMEM = "SwC~";
+char const mxSwStr7[]  PROGMEM = "SwC_";
+char const mxSwStr8[]  PROGMEM = "!SwC^";
+char const mxSwStr9[]  PROGMEM = "!SwC~";
+char const mxSwStr10[]  PROGMEM = "!SwC_";
+char const mxSwStr11[] PROGMEM = "SwD^";
+char const mxSwStr12[] PROGMEM = "SwD_";
+const char* const mixSwitchStr[] PROGMEM = { //table to refer to the strings
+  mxSwStr0, mxSwStr1, mxSwStr2, mxSwStr3, mxSwStr4, mxSwStr5, 
+  mxSwStr6, mxSwStr7, mxSwStr8, mxSwStr9, mxSwStr10, mxSwStr11, mxSwStr12
+};
 
 //sound mode strings. Max 5 characters
 char const soundModeStr0[] PROGMEM = "Off"; 
 char const soundModeStr1[] PROGMEM = "Alarm"; 
 char const soundModeStr2[] PROGMEM = "NoKey"; 
 char const soundModeStr3[] PROGMEM = "All";
-const char *const soundModeStr[] PROGMEM = { //table to refer to the strings
+const char* const soundModeStr[] PROGMEM = { //table to refer to the strings
   soundModeStr0, soundModeStr1, soundModeStr2, soundModeStr3
 };
   
@@ -164,7 +180,7 @@ char const modelActionStr1[] PROGMEM = "Copy from";
 char const modelActionStr2[] PROGMEM = "Rename";
 char const modelActionStr3[] PROGMEM = "Reset";
 char const modelActionStr4[] PROGMEM = "Delete";
-const char *const modelActionStr[] PROGMEM = { //table to refer to the strings
+const char* const modelActionStr[] PROGMEM = { //table to refer to the strings
   modelActionStr0, modelActionStr1, modelActionStr2, modelActionStr3, modelActionStr4
 };
 
@@ -173,7 +189,7 @@ char const backlightModeStr1[] PROGMEM = "5s";
 char const backlightModeStr2[] PROGMEM = "15s"; 
 char const backlightModeStr3[] PROGMEM = "60s";
 char const backlightModeStr4[] PROGMEM = "On";
-const char *const backlightModeStr[] PROGMEM = { //table to refer to the strings
+const char* const backlightModeStr[] PROGMEM = { //table to refer to the strings
   backlightModeStr0, backlightModeStr1, backlightModeStr2, backlightModeStr3, backlightModeStr4
 };
 
@@ -1005,14 +1021,11 @@ void HandleMainUI()
             strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA + i])));
             display.print(txtBuff);
             if(_swState[i] == 0) 
-              display.drawBitmap(105, _ycord, upArrow, 5, 7, BLACK);
+              display.drawBitmap(105, _ycord, switchUp_icon, 5, 7, BLACK);
             else if(_swState[i] == 1) 
-              display.drawBitmap(105, _ycord, downArrow, 5, 7, BLACK);
+              display.drawBitmap(105, _ycord, switchDown_icon, 5, 7, BLACK);
             else 
-            {
-              display.setCursor(105, _ycord); 
-              display.print(F("-")); 
-            }
+              display.drawBitmap(105, _ycord, switchMid_icon, 5, 7, BLACK);
           }
         }
 
@@ -1030,28 +1043,28 @@ void HandleMainUI()
         strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MIXER])));
         drawHeader();
         
-        display.setCursor(24, 8);
+        display.setCursor(18, 8);
         display.print(F("Mix:  #"));
         display.print(thisMixNum + 1);
         
-        display.setCursor(6, 16);
+        display.setCursor(0, 16);
         display.print(F("Output:  "));
-        int _outNameIndex = Model.MixOut[thisMixNum];
+        uint8_t _outNameIndex = Model.MixOut[thisMixNum];
         strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_outNameIndex])));
         display.print(txtBuff);
         
-        display.setCursor(12, 24);
+        display.setCursor(6, 24);
         display.print(F("Input:  "));
-        int _In1NameIndex = Model.MixIn1[thisMixNum];
+        uint8_t _In1NameIndex = Model.MixIn1[thisMixNum];
         strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])));
         display.print(txtBuff);
         
         display.setCursor(97, 24);
-        int _In2NameIndex = Model.MixIn2[thisMixNum];
+        uint8_t _In2NameIndex = Model.MixIn2[thisMixNum];
         strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])));
         display.print(txtBuff);
         
-        display.setCursor(6, 32);
+        display.setCursor(0, 32);
         display.print(F("Weight:  "));
         display.print(Model.MixIn1Weight[thisMixNum] - 100);
         display.print(F("%"));
@@ -1059,7 +1072,7 @@ void HandleMainUI()
         display.print(Model.MixIn2Weight[thisMixNum] - 100);
         display.print(F("%"));
         
-        display.setCursor(18, 40);
+        display.setCursor(12, 40);
         display.print(F("Diff:  "));
         display.print(Model.MixIn1Diff[thisMixNum] - 100);
         display.print(F("%"));
@@ -1067,40 +1080,58 @@ void HandleMainUI()
         display.print(Model.MixIn2Diff[thisMixNum] - 100);
         display.print(F("%"));
         
-        display.setCursor(6, 48);
+        display.setCursor(0, 48);
         display.print(F("Offset:  "));
         display.print(Model.MixIn1Offset[thisMixNum] - 100);
         display.setCursor(97, 48);
         display.print(Model.MixIn2Offset[thisMixNum] - 100);
         
-        display.setCursor(24, 56);
+        display.setCursor(18, 56);
         display.print(F("Mux:  "));
-        if(Model.MixOperator[thisMixNum] == 0)
+        if(Model.MixOperator[thisMixNum] == OPERATOR_ADD) 
           display.print(F("Add"));
-        else 
-          display.print(F("Multiply"));
+        else if(Model.MixOperator[thisMixNum] == OPERATOR_MULTIPLY) 
+          display.print(F("Mltply"));
+        else if(Model.MixOperator[thisMixNum] == OPERATOR_REPLACE) 
+          display.print(F("Replc"));
+        
+        //show mixer switch
+        display.setCursor(97, 56);
+        uint8_t _swNameIndex = Model.MixSwitch[thisMixNum];
+        strcpy_P(txtBuff, (char *)pgm_read_word(&(mixSwitchStr[_swNameIndex])));
+        char _lastChar = txtBuff[strlen(txtBuff) - 1];
+        txtBuff[strlen(txtBuff) - 1] = '\0'; //deletes the last char
+        display.print(txtBuff);
+        int16_t _xcord = 97 + strlen(txtBuff)*6;
+        if(_lastChar == '^')
+          display.drawBitmap(_xcord, 56, switchUp_icon, 5, 7, BLACK);
+        else if(_lastChar == '~')
+          display.drawBitmap(_xcord, 56, switchMid_icon, 5, 7, BLACK);
+        else if(_lastChar == '_')
+          display.drawBitmap(_xcord, 56, switchDown_icon, 5, 7, BLACK);
 
-        changeFocusOnUPDOWN(12);
+
+        changeFocusOnUPDOWN(13);
         toggleEditModeOnSelectClicked();
         if(focusedItem < 8)
-          drawCursor(52, focusedItem * 8);
-        else if(focusedItem < 12)
+          drawCursor(46, focusedItem * 8);
+        else if(focusedItem < 13)
           drawCursor(89, (focusedItem * 8) - 40);
         
         //show menu icon
         display.fillRect(120, 0, 8, 7, WHITE);
-        if(focusedItem == 12)
+        if(focusedItem == 13)
           display.drawBitmap(120, 0, menu_icon_focused, 8, 7, 1);
         else
-            display.drawBitmap(120, 0, menu_icon, 8, 7, 1);
+          display.drawBitmap(120, 0, menu_icon, 8, 7, 1);
 
         //edit values
         if (focusedItem == 1)     //Change to another mixer slot
           thisMixNum = incrDecrU8tOnUPDOWN(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, SLOW_CHANGE);
         else if(focusedItem == 2) //change output
-          Model.MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOut[thisMixNum], IDX_NONE, IDX_VRT2, NOWRAP, SLOW_CHANGE);
+          Model.MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOut[thisMixNum], IDX_NONE, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 3) //change input 1
-          Model.MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1[thisMixNum], 0, IDX_VRT2, NOWRAP, SLOW_CHANGE);
+          Model.MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 4) //adjust weight 1
           Model.MixIn1Weight[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 5) //adjust differential 1
@@ -1108,18 +1139,20 @@ void HandleMainUI()
         else if(focusedItem == 6) //adjust offset 1
           Model.MixIn1Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 7) //change operator
-          Model.MixOperator[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOperator[thisMixNum], 0, 1, WRAP, PRESSED_ONLY);
+          Model.MixOperator[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOperator[thisMixNum], 0, NUM_MIXOPERATORS - 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 8) //change input 2
-          Model.MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2[thisMixNum], 0, IDX_VRT2, NOWRAP, SLOW_CHANGE);
+          Model.MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 9) //adjust weight 2
           Model.MixIn2Weight[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 10) //adjust differential 2
           Model.MixIn2Diff[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 11) //adjust offset 2
           Model.MixIn2Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+        else if(focusedItem == 12) //change switch
+          Model.MixSwitch[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixSwitch[thisMixNum], 0, NUM_MIXSWITCHERS - 1, NOWRAP, SLOW_CHANGE);
         
         //open context menu
-        if(focusedItem == 12 && clickedButton == SELECT_KEY)
+        if(focusedItem == 13 && clickedButton == SELECT_KEY)
           changeToScreen(POPUP_MIXER_MENU);
         
         //go back to main menu
@@ -1237,6 +1270,7 @@ void HandleMainUI()
           uint8_t _mix1offset1 =   Model.MixIn1Offset[oldPostn];
           uint8_t _mix1diff    =   Model.MixIn1Diff[oldPostn];
           uint8_t _mixOper     =   Model.MixOperator[oldPostn];
+          uint8_t _mixSw       =   Model.MixSwitch[oldPostn];
           uint8_t _mix2in      =   Model.MixIn2[oldPostn];
           uint8_t _mix2weight  =   Model.MixIn2Weight[oldPostn];
           uint8_t _mix2offset1 =   Model.MixIn2Offset[oldPostn];
@@ -1254,6 +1288,7 @@ void HandleMainUI()
               Model.MixIn1Offset[thisPostn] = Model.MixIn1Offset[thisPostn-1];
               Model.MixIn1Diff[thisPostn]   = Model.MixIn1Diff[thisPostn-1];
               Model.MixOperator[thisPostn]  = Model.MixOperator[thisPostn-1];
+              Model.MixSwitch[thisPostn]    = Model.MixSwitch[thisPostn-1];
               Model.MixIn2[thisPostn]       = Model.MixIn2[thisPostn-1];
               Model.MixIn2Weight[thisPostn] = Model.MixIn2Weight[thisPostn-1];
               Model.MixIn2Offset[thisPostn] = Model.MixIn2Offset[thisPostn-1];
@@ -1272,6 +1307,7 @@ void HandleMainUI()
               Model.MixIn1Offset[thisPostn] = Model.MixIn1Offset[thisPostn+1];
               Model.MixIn1Diff[thisPostn]   = Model.MixIn1Diff[thisPostn+1];
               Model.MixOperator[thisPostn]  = Model.MixOperator[thisPostn+1];
+              Model.MixSwitch[thisPostn]    = Model.MixSwitch[thisPostn+1];
               Model.MixIn2[thisPostn]       = Model.MixIn2[thisPostn+1];
               Model.MixIn2Weight[thisPostn] = Model.MixIn2Weight[thisPostn+1];
               Model.MixIn2Offset[thisPostn] = Model.MixIn2Offset[thisPostn+1];
@@ -1288,7 +1324,8 @@ void HandleMainUI()
           Model.MixIn1Offset[newPostn] = _mix1offset1;
           Model.MixIn1Diff[newPostn]   = _mix1diff;  
           Model.MixOperator[newPostn]  = _mixOper;   
-          Model.MixIn2[newPostn]       = _mix2in;    
+          Model.MixSwitch[newPostn]    = _mixSw;
+          Model.MixIn2[newPostn]       = _mix2in;
           Model.MixIn2Weight[newPostn] = _mix2weight; 
           Model.MixIn2Offset[newPostn] = _mix2offset1;
           Model.MixIn2Diff[newPostn]   = _mix2diff;  
@@ -1327,6 +1364,7 @@ void HandleMainUI()
           Model.MixIn1Offset[destMixNum] = Model.MixIn1Offset[thisMixNum];
           Model.MixIn1Diff[destMixNum]   = Model.MixIn1Diff[thisMixNum];
           Model.MixOperator[destMixNum]  = Model.MixOperator[thisMixNum];
+          Model.MixSwitch[destMixNum]    = Model.MixSwitch[thisMixNum];
           Model.MixIn2[destMixNum]       = Model.MixIn2[thisMixNum];
           Model.MixIn2Weight[destMixNum] = Model.MixIn2Weight[thisMixNum];
           Model.MixIn2Offset[destMixNum] = Model.MixIn2Offset[thisMixNum];
@@ -1353,8 +1391,8 @@ void HandleMainUI()
           //elevon 
           // Ch1 = -50%Ail + -50%Ele, 
           // Ch2 = 50%Ail + -50%Ele
-          loadMix(thisMixNum,     IDX_AIL, 50,  100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL, 150, 100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH2);
+          loadMix(thisMixNum,     IDX_AIL, 50,  100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL, 150, 100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH2);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1363,8 +1401,8 @@ void HandleMainUI()
           //vtail  
           // Ch2 = 50%Rud + -50%Ele, 
           // Ch4 = -50%Rud + -50%Ele
-          loadMix(thisMixNum,     IDX_RUD, 150, 100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH2);
-          loadMix(thisMixNum + 1, IDX_RUD, 50,  100, 100, IDX_ELE, 50, 100, 100, 0, IDX_CH4);
+          loadMix(thisMixNum,     IDX_RUD, 150, 100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH2);
+          loadMix(thisMixNum + 1, IDX_RUD, 50,  100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH4);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1373,8 +1411,8 @@ void HandleMainUI()
           //flaperon
           // Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
           // Ch8 = 100%Ail{25%Diff} + -50%SwC{-50offset}
-          loadMix(thisMixNum,     IDX_AIL, 0,   75, 100, IDX_SWC, 50, 100, 50, 0, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC, 50, 100, 50, 0, IDX_CH8);
+          loadMix(thisMixNum,     IDX_AIL, 0,   75, 100, IDX_SWC, 50, 100, 50,  OPERATOR_ADD, SW_NONE, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC, 50, 100, 50, OPERATOR_ADD, SW_NONE, IDX_CH8);
 
           changeToScreen(MODE_MIXER);
         }  
@@ -1385,22 +1423,20 @@ void HandleMainUI()
           // Ch8 = 100%Ail{ 25%Diff} + 50%SwC{100%Diff}
           // Ch5 = -50%SwC{-50offset}
           // Ch6 = 100%Ch5
-          loadMix(thisMixNum,     IDX_AIL, 0,   75,  100, IDX_SWC,  150, 200, 100, 0, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC,  150, 200, 100, 0, IDX_CH8);
-          loadMix(thisMixNum + 2, IDX_SWC, 50,  100,  50, IDX_NONE, 100, 100, 100, 0, IDX_CH5);
-          loadMix(thisMixNum + 3, IDX_CH5, 200, 100, 100, IDX_NONE, 100, 100, 100, 0, IDX_CH6);
+          loadMix(thisMixNum,     IDX_AIL, 0,   75,  100, IDX_SWC,  150, 200, 100, OPERATOR_ADD, SW_NONE, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC,  150, 200, 100, OPERATOR_ADD, SW_NONE, IDX_CH8);
+          loadMix(thisMixNum + 2, IDX_SWC, 50,  100,  50, IDX_NONE, 100, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH5);
+          loadMix(thisMixNum + 3, IDX_CH5, 200, 100, 100, IDX_NONE, 100, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH6);
 
           changeToScreen(MODE_MIXER);
         }
         else if(_selection == 5) //twin motor
         {
           //twin
-          // Virt1 = 40%Rud * 100%SwD{100%Diff}
-          // Ch3 = 100%Thrt + 100%Virt1
-          // Ch7 = 100%Thrt + -100%Virt1
-          loadMix(thisMixNum,     IDX_RUD,        140, 100, 100, IDX_SWD,  200, 200, 100, 1, IDX_VRT1);
-          loadMix(thisMixNum + 1, IDX_THRTL_CURV, 200, 100, 100, IDX_VRT1, 200, 100, 100, 0, IDX_CH3);
-          loadMix(thisMixNum + 2, IDX_THRTL_CURV, 200, 100, 100, IDX_VRT1, 0,   100, 100, 0, IDX_CH7);
+          // Ch3 = 100%Thrt +  40%Rud when SwD is down
+          // Ch7 = 100%Thrt + -40%Rud when SwD is down
+          loadMix(thisMixNum,     IDX_THRTL_CURV, 200, 100, 100, IDX_RUD, 140, 100, 100,  OPERATOR_ADD, SWD_DOWN, IDX_CH3);
+          loadMix(thisMixNum + 1, IDX_THRTL_CURV, 200, 100, 100, IDX_RUD, 60,   100, 100, OPERATOR_ADD, SWD_DOWN, IDX_CH7);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1528,9 +1564,9 @@ void HandleMainUI()
         if (focusedItem == 1)
           Sys.rfOutputEnabled = incrDecrU8tOnUPDOWN(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 2)
-          Sys.soundMode = incrDecrU8tOnUPDOWN(Sys.soundMode, 0, 3, WRAP, PRESSED_ONLY);
+          Sys.soundMode = incrDecrU8tOnUPDOWN(Sys.soundMode, 0, SOUND_LAST, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          Sys.backlightMode = incrDecrU8tOnUPDOWN(Sys.backlightMode, 0, 4, WRAP, PRESSED_ONLY);     
+          Sys.backlightMode = incrDecrU8tOnUPDOWN(Sys.backlightMode, 0, BACKLIGHT_LAST, WRAP, PRESSED_ONLY);     
         else if (focusedItem == 4)
         {
           Sys.PWM_Mode_Ch3 = incrDecrU8tOnUPDOWN(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
@@ -2075,7 +2111,8 @@ uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
 //--------------------------------------------------------------------------------------------------
 
 void loadMix( uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
-uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, uint8_t _operator, uint8_t _out)
+              uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, 
+              uint8_t _operator, uint8_t _sw, uint8_t _out)
 {
   if(_mixNo >= NUM_MIXSLOTS)
   {
@@ -2094,5 +2131,6 @@ uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, uint8_t _opera
   Model.MixIn2Offset[_mixNo]  = _offset2;
   
   Model.MixOperator[_mixNo]   = _operator; 
+  Model.MixSwitch[_mixNo]     = _sw;
   Model.MixOut[_mixNo]        = _out;
 }
