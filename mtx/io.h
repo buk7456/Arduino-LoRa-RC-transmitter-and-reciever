@@ -6,12 +6,11 @@ void readSticks();
 void computeChannelOutputs(); 
 
 //Helpers
-
 int deadzoneAndMap(int _input, int _minVal, int _centerVal, int _maxVal, int _deadzn, int _mapMin, int _mapMax);
 int calcRateExpo(int _input, int _rate, int _expo);
 int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX);
 long weightAndOffset(int _input, int _weight, int _diff, int _offset);
-
+bool mixSwitchIsActive(uint8_t _mixNum);
 bool cutIsActivated();
 
 //==================================================================================================
@@ -300,14 +299,34 @@ void computeChannelOutputs()
       _operand2 = weightAndOffset( MixSources[Model.MixIn2[_mixNum]], Model.MixIn2Weight[_mixNum], 
                                    Model.MixIn2Diff[_mixNum], Model.MixIn2Offset[_mixNum]);
     }
-    //---Mix the two inputs---
-    long _output;      
-    if(Model.MixOperator[_mixNum] == 0) //add
-      _output = _operand1 + _operand2; 
-    else //multiply
-      _output = (_operand1 * _operand2) / 500; 
-    //---Clamp-----
+    
+    long _output = 0;
+    
+    //--- Mix the inputs ---
+    if(mixSwitchIsActive(_mixNum))
+    {
+      switch(Model.MixOperator[_mixNum])
+      {
+        case OPERATOR_ADD:
+          _output = _operand1 + _operand2;
+          break;
+        case OPERATOR_MULTIPLY:
+          _output = (_operand1 * _operand2) / 500; 
+          break;
+        case OPERATOR_REPLACE:
+          _output = _operand2;
+          break; 
+      }
+    }
+    else
+    {
+      //the switch is inactive or no switch is specified. Simply ignore _operand2
+      _output = _operand1;
+    }
+    
+    //--- Clamp -----
     _output = constrain(_output, -500, 500);
+    
     //---Update sources array for next iteration--- 
     MixSources[Model.MixOut[_mixNum]] = int(_output);
   }
@@ -492,4 +511,32 @@ bool cutIsActivated()
     }
   }
   return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+bool mixSwitchIsActive(uint8_t _mixNum)
+{
+  bool rslt = false;
+  switch(Model.MixSwitch[_mixNum])
+  {
+    case SW_NONE: rslt = true; break; //SW_NONE is always active
+    
+    case SWA_UP:  rslt = !SwAEngaged; break;
+    case SWA_DOWN:  rslt =  SwAEngaged;  break;
+    
+    case SWB_UP:  rslt = !SwBEngaged; break;
+    case SWB_DOWN:  rslt =  SwBEngaged;  break;
+    
+    case SWC_UP:  rslt = SwCState == SWUPPERPOS? true : false; break;
+    case SWC_MID: rslt = SwCState == SWMIDPOS?   true : false; break; 
+    case SWC_DOWN:  rslt = SwCState == SWLOWERPOS? true : false; break;
+
+    case SWC_NOT_UP:  rslt = SwCState == SWUPPERPOS? false : true; break;
+    case SWC_NOT_MID: rslt = SwCState == SWMIDPOS?   false : true; break;
+    case SWC_NOT_DOWN:  rslt = SwCState == SWLOWERPOS? false : true; break;
+    
+    case SWD_UP:  rslt = !SwDEngaged; break;
+    case SWD_DOWN:  rslt =  SwDEngaged;  break;
+  }
+  return rslt;
 }
