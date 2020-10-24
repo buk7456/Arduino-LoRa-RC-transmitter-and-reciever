@@ -6,13 +6,27 @@ void setDefaultModelMixerParams(uint8_t _mixNo);
 
 //------------------- SYSTEM PARAMS ----------------------------------------------------------------
 
-enum {SOUND_OFF = 0, SOUND_ALARMS, SOUND_NOKEY, SOUND_ALL};
-enum {BACKLIGHT_OFF = 0, BACKLIGHT_5S, BACKLIGHT_15S, BACKLIGHT_60S, BACKLIGHT_ON};
+enum {
+  SOUND_OFF = 0, 
+  SOUND_ALARMS, 
+  SOUND_NOKEY, 
+  SOUND_ALL,
+  SOUND_LAST = SOUND_ALL
+};
+
+enum {
+  BACKLIGHT_OFF = 0, 
+  BACKLIGHT_5S, 
+  BACKLIGHT_15S, 
+  BACKLIGHT_60S, 
+  BACKLIGHT_ON,
+  BACKLIGHT_LAST = BACKLIGHT_ON
+};
 
 struct sysParams {
   uint8_t transmitterID;
   
-  uint8_t activeModel = 1; ///The current model
+  uint8_t activeModel = 1; //The current model
   
   bool rfOutputEnabled = false;
   uint8_t soundMode = SOUND_ALL; 
@@ -28,30 +42,15 @@ struct sysParams {
 
 //------------------- MODEL PARAMS -----------------------------------------------------------------
 
-enum {AILRTE = 0,ELERTE,RUDRTE};
-enum {TIMERCOUNTUP = 0, TIMERCOUNTDOWN = 1};
-enum { 
-  //Mixer sources. These are indexes in mix sources array. The last item shoud be virtual2
-  //Same order as the name order in the UI
-  IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
-  IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
-  IDX_CRV1,
-  IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
-  IDX_NONE, 
-  IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8,
-  IDX_VRT1, IDX_VRT2
-};
-#define NUM_MIXSOURCES 25 //should match the above, else segfaults
-
 #define NUM_PRP_CHANNLES 8  //Number of proportional channels ## Leave this
 
-#define NUM_MIXSLOTS 10   
+#define NUM_MIXSLOTS 10     //More slots results into less models and more ram usage 
 
 struct modelParams {
-  //-- first entity in the structure should be the modelName 
-  char modelName[9]; // 8 characters + Null character
+  //------- first entity is the modelName ----
+  char modelName[7]; //6chars + Null
   
-  //-- basic params --------
+  //------- basic params ---------
   
   bool Reverse[NUM_PRP_CHANNLES];
   uint8_t EndpointL[NUM_PRP_CHANNLES];   //left endpoint, 0 to 100
@@ -60,12 +59,12 @@ struct modelParams {
   uint8_t Failsafe[NUM_PRP_CHANNLES];    //0 to 201. 0 is off, 1 is -100, 101 is 0, 201 is 100
   uint8_t CutValue[NUM_PRP_CHANNLES];    //0 to 201. 0 is off, 1 is -100, 101 is 0, 201 is 100
   
+  // Ail, Ele, Rud.
   uint8_t RateNormal[3];   //0 to 100, 100 is 1:1 ie normal
   uint8_t RateSport[3];    //0 to 100, 100 is 1:1 ie normal
   uint8_t ExpoNormal[3];   //0 to 200, 100 is no expo
   uint8_t ExpoSport[3];    //0 to 200, 100 is no expo
-  
-  bool DualRateEnabled[3]; //ail, ele, rud. 
+  bool DualRateEnabled[3]; 
   
   uint8_t ThrottlePts[5];  //for interpolation of throttle. Range 0 to 200, center is 100
   
@@ -78,30 +77,73 @@ struct modelParams {
   uint8_t throttleTimerInitMins; 
   uint8_t throttleTimerThreshold; // in percentage of throttle stick input: 0 to 100
   
-  //-- mixer params ---------
+  //------- mixer params ---------
   
   uint8_t MixIn1[NUM_MIXSLOTS];       //index in mix sources array
   uint8_t MixIn1Offset[NUM_MIXSLOTS]; //0 to 200, centered at 100
   uint8_t MixIn1Weight[NUM_MIXSLOTS]; //0 to 200, centered at 100
   uint8_t MixIn1Diff[NUM_MIXSLOTS];   //0 to 200, centered at 100
+  
   uint8_t MixIn2[NUM_MIXSLOTS];       //index in mix sources array
   uint8_t MixIn2Offset[NUM_MIXSLOTS]; //0 to 200, centered at 100
   uint8_t MixIn2Weight[NUM_MIXSLOTS]; //0 to 200, centered at 100
   uint8_t MixIn2Diff[NUM_MIXSLOTS];   //0 to 200, centered at 100
-  uint8_t MixOperator[NUM_MIXSLOTS];  //0 or 1. 0 add, 1 multiply
+  
+  uint8_t MixOperator[NUM_MIXSLOTS];  
+  uint8_t MixSwitch[NUM_MIXSLOTS];    
   uint8_t MixOut[NUM_MIXSLOTS];       //index in mix sources array
   
 } Model; 
 
+enum {
+  AILRTE = 0, 
+  ELERTE, 
+  RUDRTE
+};
+
+enum {
+  TIMERCOUNTUP = 0, 
+  TIMERCOUNTDOWN
+};
+
+enum {
+  OPERATOR_ADD = 0,
+  OPERATOR_MULTIPLY,
+  OPERATOR_REPLACE,
+  NUM_MIXOPERATORS //should be last
+};
+
+enum { 
+  //Mixer sources. These are indexes in mix sources array
+  //Same order as the name order in the UI
+  IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
+  IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
+  IDX_CRV1,
+  IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
+  IDX_NONE, 
+  IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8,
+  IDX_VRT1, IDX_VRT2,
+ 
+  NUM_MIXSOURCES //should be last
+};
+
+enum { //possible values in MixSwitch array
+  SW_NONE = 0,
+  SWA_UP, SWA_DOWN,
+  SWB_UP, SWB_DOWN,
+  SWC_UP, SWC_MID, SWC_DOWN, SWC_NOT_UP, SWC_NOT_MID, SWC_NOT_DOWN,
+  SWD_UP, SWD_DOWN,
+  
+  NUM_MIXSWITCHERS //should be last
+};
 
 void setDefaultModelName()
 {
-  for(uint8_t i = 0; i < 8; i++) 
+  uint8_t len = sizeof(Model.modelName)/sizeof(Model.modelName[0]);
+  for(uint8_t i = 0; i < len - 1; i++) 
     Model.modelName[i] = ' ';
-  
-  Model.modelName[8] = '\0';
+  Model.modelName[len - 1] = '\0';
 }
-
 
 void setDefaultModelBasicParams()
 {
@@ -163,16 +205,17 @@ void setDefaultModelBasicParams()
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
 {
-    Model.MixIn1[_mixNo]        = IDX_NONE; 
-    Model.MixIn1Offset[_mixNo]  = 100;
-    Model.MixIn1Weight[_mixNo]  = 100;
-    Model.MixIn1Diff[_mixNo]    = 100;
-    Model.MixIn2[_mixNo]        = IDX_NONE;
-    Model.MixIn2Offset[_mixNo]  = 100;
-    Model.MixIn2Weight[_mixNo]  = 100;
-    Model.MixIn2Diff[_mixNo]    = 100;
-    Model.MixOperator[_mixNo]   = 0; 
-    Model.MixOut[_mixNo]        = IDX_NONE;
+  Model.MixIn1[_mixNo]        = IDX_NONE; 
+  Model.MixIn1Offset[_mixNo]  = 100;
+  Model.MixIn1Weight[_mixNo]  = 100;
+  Model.MixIn1Diff[_mixNo]    = 100;
+  Model.MixIn2[_mixNo]        = IDX_NONE;
+  Model.MixIn2Offset[_mixNo]  = 100;
+  Model.MixIn2Weight[_mixNo]  = 100;
+  Model.MixIn2Diff[_mixNo]    = 100;
+  Model.MixOperator[_mixNo]   = 0; 
+  Model.MixSwitch[_mixNo]     = SW_NONE;
+  Model.MixOut[_mixNo]        = IDX_NONE;
 }
 
 void setDefaultModelMixerParams()
@@ -245,7 +288,7 @@ uint8_t numOfModels;  //recalculated in setup()
 //-----------
 bool bindActivated = false;
 
-//---etc------
+//---etc-----
 uint8_t returnedByte; //got from slave mcu
 
 bool showPktsPerSec = false;
