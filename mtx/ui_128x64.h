@@ -78,7 +78,7 @@ enum
 
 //-- Timer popup menu strings. Max 15 characters per string
 char const tmrStr0[] PROGMEM = "Start timer 2"; //shown if timer2 is paused
-char const tmrStr1[] PROGMEM = "Stop timer 2";  //shown if timer2 is playing
+char const tmrStr1[] PROGMEM = "Stop timer 2";  //shown if timer2 is running
 char const tmrStr2[] PROGMEM = "Reset timer 2";
 char const tmrStr3[] PROGMEM = "Reset timer 1";
 char const tmrStr4[] PROGMEM = "Setup timer 1";
@@ -118,32 +118,33 @@ char const srcName1[]  PROGMEM = "ptch";
 char const srcName2[]  PROGMEM = "thrt";
 char const srcName3[]  PROGMEM = "yaw";
 char const srcName4[]  PROGMEM = "knob";
-char const srcName5[]  PROGMEM = "SwA"; 
-char const srcName6[]  PROGMEM = "SwB"; 
-char const srcName7[]  PROGMEM = "SwC"; 
-char const srcName8[]  PROGMEM = "SwD"; 
-char const srcName9[]  PROGMEM = "Cv1";
-char const srcName10[] PROGMEM = "Ail";
-char const srcName11[] PROGMEM = "Ele";
-char const srcName12[] PROGMEM = "Thrt";
-char const srcName13[] PROGMEM = "Rud";
-char const srcName14[] PROGMEM = "None";
-char const srcName15[] PROGMEM = "Ch1";
-char const srcName16[] PROGMEM = "Ch2";
-char const srcName17[] PROGMEM = "Ch3";
-char const srcName18[] PROGMEM = "Ch4";
-char const srcName19[] PROGMEM = "Ch5";
-char const srcName20[] PROGMEM = "Ch6";
-char const srcName21[] PROGMEM = "Ch7";
-char const srcName22[] PROGMEM = "Ch8";
-char const srcName23[] PROGMEM = "Virt1";
-char const srcName24[] PROGMEM = "Virt2";
+char const srcName5[]  PROGMEM = "max";
+char const srcName6[]  PROGMEM = "SwA"; 
+char const srcName7[]  PROGMEM = "SwB"; 
+char const srcName8[]  PROGMEM = "SwC"; 
+char const srcName9[]  PROGMEM = "SwD"; 
+char const srcName10[] PROGMEM = "Cv1";
+char const srcName11[] PROGMEM = "Ail";
+char const srcName12[] PROGMEM = "Ele";
+char const srcName13[] PROGMEM = "Thrt";
+char const srcName14[] PROGMEM = "Rud";
+char const srcName15[] PROGMEM = "None";
+char const srcName16[] PROGMEM = "Ch1";
+char const srcName17[] PROGMEM = "Ch2";
+char const srcName18[] PROGMEM = "Ch3";
+char const srcName19[] PROGMEM = "Ch4";
+char const srcName20[] PROGMEM = "Ch5";
+char const srcName21[] PROGMEM = "Ch6";
+char const srcName22[] PROGMEM = "Ch7";
+char const srcName23[] PROGMEM = "Ch8";
+char const srcName24[] PROGMEM = "Virt1";
+char const srcName25[] PROGMEM = "Virt2";
 
 const char* const srcNames[] PROGMEM = { //table to refer to the strings
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
-  srcName22, srcName23, srcName24
+  srcName22, srcName23, srcName24, srcName25
 };
 
 //-- MixSwitch string. Last character ^ means upper postn, ~ means mid postn, _ means lower postn 
@@ -938,7 +939,7 @@ void HandleMainUI()
           else if(focusedItem == 3)
             *(ptr_CurvePts + _thisPt) = incrDecrU8tOnUPDOWN(*(ptr_CurvePts + _thisPt), 0, 200, NOWRAP, PRESSED_OR_HELD);
           else if(focusedItem == 4)
-            Model.Curve1Src = incrDecrU8tOnUPDOWN(Model.Curve1Src, 0, IDX_SWD, NOWRAP, SLOW_CHANGE);
+            Model.Curve1Src = incrDecrU8tOnUPDOWN(Model.Curve1Src, 0, IDX_KNOB, NOWRAP, SLOW_CHANGE);
           
           //-----draw text
           display.setCursor(0, 11);
@@ -1149,7 +1150,7 @@ void HandleMainUI()
         else if(focusedItem == 11) //adjust offset 2
           Model.MixIn2Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 12) //change switch
-          Model.MixSwitch[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixSwitch[thisMixNum], 0, NUM_MIXSWITCHERS - 1, NOWRAP, SLOW_CHANGE);
+          Model.MixSwitch[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixSwitch[thisMixNum], 0, NUM_MIXSWITCHES - 1, NOWRAP, SLOW_CHANGE);
         
         //open context menu
         if(focusedItem == 13 && clickedButton == SELECT_KEY)
