@@ -230,6 +230,9 @@ void computeChannelOutputs()
   _SwDVal = constrain(_SwDVal, -500, 500);
   MixSources[IDX_SWD] = _SwDVal;
   
+  ///--Mix source 100Perc
+  MixSources[IDX_100PERC] = 500;
+  
   ///--Mix source Ail, Ele, Thr, Rud, Custom curves
   
   //Ail
@@ -279,7 +282,6 @@ void computeChannelOutputs()
   MixSources[IDX_CH4] = MixSources[IDX_RUD];  //Send Rud  to Ch4
   
   ///--FREE MIXER
-  //Takes two input sources, adds or multiplies them, then writes result to specified output
   for(int _mixNum = 0; _mixNum < NUM_MIXSLOTS; _mixNum++)
   {
     if(Model.MixOut[_mixNum] == IDX_NONE) //skip to next iteration
@@ -320,7 +322,7 @@ void computeChannelOutputs()
     }
     else
     {
-      //the switch is inactive or no switch is specified. Simply ignore _operand2
+      //the control switch is inactive. Simply ignore _operand2
       _output = _operand1;
     }
     
