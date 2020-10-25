@@ -117,6 +117,7 @@ enum {
   //Mixer sources. These are indexes in mix sources array
   //Same order as the name order in the UI
   IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
+  IDX_100PERC,
   IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
   IDX_CRV1,
   IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
@@ -134,7 +135,7 @@ enum { //possible values in MixSwitch array
   SWC_UP, SWC_MID, SWC_DOWN, SWC_NOT_UP, SWC_NOT_MID, SWC_NOT_DOWN,
   SWD_UP, SWD_DOWN,
   
-  NUM_MIXSWITCHERS //should be last
+  NUM_MIXSWITCHES //should be last
 };
 
 void setDefaultModelName()
