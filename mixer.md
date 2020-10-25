@@ -1,9 +1,7 @@
 ### Example mixes
 Note:
-1. Default mapping is Ail->Ch1, Ele->Ch2, Thrt->Ch3, Rud->Ch4, unless overridden in mixer.
-2. If the servos are moving in wrong direction after mix, negating the applied weights or reversing the servo direction in Outputs screen corrects this.
-
-Unless otherwise specified, offset is 0, differential is 0, control switch is none. 
+- If the servos are moving in wrong direction after mix, negating the applied weights or reversing the servo direction in Outputs screen corrects this.
+- Unless otherwise stated, offset is 0, differential is 0, control switch is none. 
 
 #### Vtail
 Left servo in ch2, right servo in ch4
