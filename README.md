@@ -45,10 +45,10 @@ The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The rec
 the rx folder. No external libraries are required to compile.
 
 ## User Interface
-Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
-<br>Hold the Down key on home screen to access the extra digital channels A & B).
-<br>Hold the Select key on home screen to access the trims.
-<br>Hold the Select key while powering on to access the hidden boot menu.
+- Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
+- Holding the Down key on home screen accesses the extra digital channels A and B.
+- Holding the Select key on home screen accesses the trims.
+- Holding the Select key while powering opens the hidden boot menu.
 
 <p align="center">
 <img src="img2.png" width="816" height="864"/>
@@ -61,16 +61,20 @@ Select bind option in transmitter and simultaneously restart the receiver.
 ## Mixing
 This controller implements a free mixer that offers flexiblity with what we want to control. 
 Each mixer slot takes two inputs, multiplexes them, and sends the result to the specified output. 
-Mixer slots are evaluated sequentially. 
 Available multiplex options are Add, Multiply, Replace. We can also assign a switch to turn the mix on or off.
-#### Mix sources
-- Raw stick inputs (roll, pitch, throttle, yaw, knob)
+Mixer slots are evaluated sequentially. 
+<br>
+<br> Mixer sources can be any of the following
+- Raw stick inputs (roll, pitch, thrt, yaw, knob)
+- Constants (max)
 - Switches (SwA, SwB, SwC, SwD)
-- Curves (Aileron, Elevator, Throttle, Rudder, Custom)
+- Curves (Ail, Ele, Thrt, Rud, Cv1)
 - Channels (Ch1 to Ch8)
 - Temporary variables (Virt1, Virt2)
- 
-#### [Example mixes](mixer.md)
+
+The default mapping is Ail->Ch1, Ele->Ch2, Thrt->Ch3, Rud->Ch4, unless overridden in the mixer.
+
+##### [More about mixer](mixer.md)
 
 ## Testing
 I have done several tests on this system and found it reliable enough. 
