@@ -1,5 +1,10 @@
 1.5.0
 -----
+26Oct2020
+ - Code refactor: using signed types where necessary
+ - Minor improvements in stick calibration screen
+ - Subtle tweaks to menu
+ 
 24Oct2020
  - Added control switch in mixer. This can be used to easily turn on of off the mix.
  - Added Replace option in mixer multiplex. This works best when combined with a switch.
