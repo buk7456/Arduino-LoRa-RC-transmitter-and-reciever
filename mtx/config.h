@@ -1,7 +1,5 @@
 //-------------------------------
 #define _SKETCHVERSION "1.5.0"
-//To update default values in EEPROM change the value below to anything between 0xAA and 0xAF.
-#define EE_INITFLAG 0xAE //WARNING: Changing this will overwrite all existing model data
 
 //-------- PINS -----------------
 
@@ -20,8 +18,8 @@
 
 #define PIN_KS_RS      8
 #define PIN_KS_EN      9
-#define PIN_KS_CS1     3
-#define PIN_KS_CS2     10
+#define PIN_KS_CS1     7
+#define PIN_KS_CS2     3
 
 #define PIN_THROTTLE   A0
 #define PIN_YAW        A1
@@ -45,4 +43,4 @@ const int battVfactor  = 487;  //scaling factor
 
 //-------------------------------
 #define UART_BAUD_RATE 115200
-// #define UART_BAUD_RATE 9600 //Testing
+// #define UART_BAUD_RATE 9600 //Testing 
