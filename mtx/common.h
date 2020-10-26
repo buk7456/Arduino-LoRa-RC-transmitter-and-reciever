@@ -53,25 +53,26 @@ struct modelParams {
   //------- basic params ---------
   
   bool Reverse[NUM_PRP_CHANNLES];
-  uint8_t EndpointL[NUM_PRP_CHANNLES];   //left endpoint, 0 to 100
-  uint8_t EndpointR[NUM_PRP_CHANNLES];   //right endpoint, 0 to 100
-  uint8_t Subtrim[NUM_PRP_CHANNLES];     //0 to 100, centered at 50
-  uint8_t Failsafe[NUM_PRP_CHANNLES];    //0 to 201. 0 is off, 1 is -100, 101 is 0, 201 is 100
-  uint8_t CutValue[NUM_PRP_CHANNLES];    //0 to 201. 0 is off, 1 is -100, 101 is 0, 201 is 100
+  int8_t EndpointL[NUM_PRP_CHANNLES];   //left endpoint, -100 to 0
+  int8_t EndpointR[NUM_PRP_CHANNLES];   //right endpoint, 0 to 100
+  int8_t Subtrim[NUM_PRP_CHANNLES];     //-25 to 25
+  int8_t Failsafe[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
+  int8_t CutValue[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
   
   // Ail, Ele, Rud.
-  uint8_t RateNormal[3];   //0 to 100, 100 is 1:1 ie normal
-  uint8_t RateSport[3];    //0 to 100, 100 is 1:1 ie normal
-  uint8_t ExpoNormal[3];   //0 to 200, 100 is no expo
-  uint8_t ExpoSport[3];    //0 to 200, 100 is no expo
   bool DualRateEnabled[3]; 
+  int8_t RateNormal[3];   //0 to 100
+  int8_t RateSport[3];    //0 to 100
+  int8_t ExpoNormal[3];   //-100 to 100
+  int8_t ExpoSport[3];    //-100 to 100
+
   
-  uint8_t ThrottlePts[5];  //for interpolation of throttle. Range 0 to 200, center is 100
+  int8_t ThrottlePts[5];  //for interpolation of throttle. Range -100 to 100
   
-  uint8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Are percentages. Values 75 to 125, centered at 100.
+  int8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Are percentages. Values -25 to 25
   
-  uint8_t Curve1Src;       //User defined curve
-  uint8_t Curve1Pts[5];    //User defined interpolation points. Range 0 to 200, center is 100
+  uint8_t Curve1Src;     
+  int8_t Curve1Pts[5];    //interpolation points. Range -100 to 100
   
   uint8_t throttleTimerType;      
   uint8_t throttleTimerInitMins; 
@@ -79,19 +80,19 @@ struct modelParams {
   
   //------- mixer params ---------
   
-  uint8_t MixIn1[NUM_MIXSLOTS];       //index in mix sources array
-  uint8_t MixIn1Offset[NUM_MIXSLOTS]; //0 to 200, centered at 100
-  uint8_t MixIn1Weight[NUM_MIXSLOTS]; //0 to 200, centered at 100
-  uint8_t MixIn1Diff[NUM_MIXSLOTS];   //0 to 200, centered at 100
+  uint8_t MixIn1[NUM_MIXSLOTS];  //index in mix sources array
+  int8_t MixIn1Offset[NUM_MIXSLOTS]; //-100 to 200
+  int8_t MixIn1Weight[NUM_MIXSLOTS]; //-100 to 200
+  int8_t MixIn1Diff[NUM_MIXSLOTS];   //-100 to 200
   
-  uint8_t MixIn2[NUM_MIXSLOTS];       //index in mix sources array
-  uint8_t MixIn2Offset[NUM_MIXSLOTS]; //0 to 200, centered at 100
-  uint8_t MixIn2Weight[NUM_MIXSLOTS]; //0 to 200, centered at 100
-  uint8_t MixIn2Diff[NUM_MIXSLOTS];   //0 to 200, centered at 100
+  uint8_t MixIn2[NUM_MIXSLOTS];  //index in mix sources array
+  int8_t MixIn2Offset[NUM_MIXSLOTS]; //-100 to 200
+  int8_t MixIn2Weight[NUM_MIXSLOTS]; //-100 to 200
+  int8_t MixIn2Diff[NUM_MIXSLOTS];   //-100 to 200
   
   uint8_t MixOperator[NUM_MIXSLOTS];  
   uint8_t MixSwitch[NUM_MIXSLOTS];    
-  uint8_t MixOut[NUM_MIXSLOTS];       //index in mix sources array
+  uint8_t MixOut[NUM_MIXSLOTS];  //index in mix sources array
   
 } Model; 
 
@@ -152,51 +153,51 @@ void setDefaultModelBasicParams()
   for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
   {
     Model.Reverse[i]   = false;
-    Model.EndpointL[i] = 100;
+    Model.EndpointL[i] = -100;
     Model.EndpointR[i] = 100;
-    Model.Subtrim[i]   = 50;
+    Model.Subtrim[i]   = 0;
     if(i == 2) //specify cut and failsafe on Channel 3
     {
-      Model.CutValue[i]  = 1; 
-      Model.Failsafe[i]  = 1;
+      Model.CutValue[i]  = -100; 
+      Model.Failsafe[i]  = -100;
     }
     else
     {
-      Model.CutValue[i]  = 0; 
-      Model.Failsafe[i]  = 0;
+      Model.CutValue[i]  = -101; 
+      Model.Failsafe[i]  = -101;
     }
   }
   
   //trim
-  Model.Trim[0] = 100;
-  Model.Trim[1] = 100;
-  Model.Trim[2] = 100;
-  Model.Trim[3] = 100;
+  Model.Trim[0] = 0;
+  Model.Trim[1] = 0;
+  Model.Trim[2] = 0;
+  Model.Trim[3] = 0;
   
   //rate and expo, dualrate enabled
   for(uint8_t i = 0; i < 3; i++)
   {
     Model.RateNormal[i] = 100;
     Model.RateSport[i]  = 100;
-    Model.ExpoNormal[i] = 100;
-    Model.ExpoSport[i]  = 100;
+    Model.ExpoNormal[i] = 0;
+    Model.ExpoSport[i]  = 0;
     Model.DualRateEnabled[i] = false;
   }
   
   //throttle curve
-  Model.ThrottlePts[0] = 0;
-  Model.ThrottlePts[1] = 50;
-  Model.ThrottlePts[2] = 100;
-  Model.ThrottlePts[3] = 150;
-  Model.ThrottlePts[4] = 200;
+  Model.ThrottlePts[0] = -100;
+  Model.ThrottlePts[1] = -50;
+  Model.ThrottlePts[2] = 0;
+  Model.ThrottlePts[3] = 50;
+  Model.ThrottlePts[4] = 100;
   
   //user defined curves
   Model.Curve1Src = IDX_KNOB;
-  Model.Curve1Pts[0] = 0;
-  Model.Curve1Pts[1] = 50;
-  Model.Curve1Pts[2] = 100;
-  Model.Curve1Pts[3] = 150;
-  Model.Curve1Pts[4] = 200;
+  Model.Curve1Pts[0] = -100;
+  Model.Curve1Pts[1] = -50;
+  Model.Curve1Pts[2] = 0;
+  Model.Curve1Pts[3] = 50;
+  Model.Curve1Pts[4] = 100;
   
   //throttle timer
   Model.throttleTimerType = TIMERCOUNTUP;
@@ -207,14 +208,14 @@ void setDefaultModelBasicParams()
 void setDefaultModelMixerParams(uint8_t _mixNo)
 {
   Model.MixIn1[_mixNo]        = IDX_NONE; 
-  Model.MixIn1Offset[_mixNo]  = 100;
-  Model.MixIn1Weight[_mixNo]  = 100;
-  Model.MixIn1Diff[_mixNo]    = 100;
+  Model.MixIn1Offset[_mixNo]  = 0;
+  Model.MixIn1Weight[_mixNo]  = 0;
+  Model.MixIn1Diff[_mixNo]    = 0;
   Model.MixIn2[_mixNo]        = IDX_NONE;
-  Model.MixIn2Offset[_mixNo]  = 100;
-  Model.MixIn2Weight[_mixNo]  = 100;
-  Model.MixIn2Diff[_mixNo]    = 100;
-  Model.MixOperator[_mixNo]   = 0; 
+  Model.MixIn2Offset[_mixNo]  = 0;
+  Model.MixIn2Weight[_mixNo]  = 0;
+  Model.MixIn2Diff[_mixNo]    = 0;
+  Model.MixOperator[_mixNo]   = OPERATOR_ADD; 
   Model.MixSwitch[_mixNo]     = SW_NONE;
   Model.MixOut[_mixNo]        = IDX_NONE;
 }

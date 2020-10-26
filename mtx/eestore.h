@@ -4,6 +4,7 @@
   EE_INITFLAG | System Data | 1st Model Data | 2nd Model Data | nth Model Data
   ------------------------------------------------------------------------------
 */
+#define EE_INITFLAG  0xAE 
 
 void eeReadSysConfig();
 void eeSaveSysConfig();

@@ -240,7 +240,7 @@ void computeChannelOutputs()
     MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateNormal[AILRTE], Model.ExpoNormal[AILRTE]);
   else
     MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateSport[AILRTE], Model.ExpoSport[AILRTE]);
-  MixSources[IDX_AIL] += 5 * (Model.Trim[0] - 100);
+  MixSources[IDX_AIL] += 5 * Model.Trim[0];
   MixSources[IDX_AIL] = constrain(MixSources[IDX_AIL], -500, 500);
   
   //Ele
@@ -248,7 +248,7 @@ void computeChannelOutputs()
     MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateNormal[ELERTE], Model.ExpoNormal[ELERTE]);
   else
     MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateSport[ELERTE], Model.ExpoSport[ELERTE]);
-  MixSources[IDX_ELE] += 5 * (Model.Trim[1] - 100);
+  MixSources[IDX_ELE] += 5 * Model.Trim[1];
   MixSources[IDX_ELE] = constrain(MixSources[IDX_ELE], -500, 500);
   
   //Rud
@@ -256,23 +256,23 @@ void computeChannelOutputs()
     MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateNormal[RUDRTE], Model.ExpoNormal[RUDRTE]);
   else
     MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
-  MixSources[IDX_RUD] += 5 * (Model.Trim[3] - 100);
+  MixSources[IDX_RUD] += 5 * Model.Trim[3];
   MixSources[IDX_RUD] = constrain(MixSources[IDX_RUD], -500, 500);
   
   //Thr
   int xpoints[5] = {-500, -250, 0, 250, 500};
   int ypoints[5];
   for(int i = 0; i < 5; i++)
-    ypoints[i] = 5 * (Model.ThrottlePts[i] - 100);
+    ypoints[i] = 5 * Model.ThrottlePts[i];
   MixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
-  MixSources[IDX_THRTL_CURV] += 5 * (Model.Trim[2] - 100);
+  MixSources[IDX_THRTL_CURV] += 5 * Model.Trim[2];
   MixSources[IDX_THRTL_CURV] = constrain(MixSources[IDX_THRTL_CURV], -500, 500);
   
   //custom curve 1
+  curve1SrcVal = MixSources[Model.Curve1Src];
   for(int i = 0; i < 5; i++)
-    ypoints[i] = 5 * (Model.Curve1Pts[i] - 100);
-  MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, MixSources[Model.Curve1Src]);
-  curve1SrcVal = MixSources[Model.Curve1Src]; //exported to show on curves graph
+    ypoints[i] = 5 * Model.Curve1Pts[i];
+  MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, curve1SrcVal);
 
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
@@ -347,14 +347,14 @@ void computeChannelOutputs()
       ChOut[i] = 0 - ChOut[i]; 
 
     //---Subtrim
-    ChOut[i] += 5 * (Model.Subtrim[i] - 50); 
+    ChOut[i] += 5 * Model.Subtrim[i]; 
     
     //---Check Cut. If specified and switch engaged, overide
-    if(!SwAEngaged && Model.CutValue[i] > 0)
-      ChOut[i] = 5 * (Model.CutValue[i] - 101);
+    if(!SwAEngaged && Model.CutValue[i] > -101)
+      ChOut[i] = 5 * Model.CutValue[i];
     
     //---Endpoints
-    ChOut[i] = constrain(ChOut[i], 5 * (0 - Model.EndpointL[i]), 5 * Model.EndpointR[i]); 
+    ChOut[i] = constrain(ChOut[i], 5 * Model.EndpointL[i], 5 * Model.EndpointR[i]); 
   }
 }
 
@@ -387,7 +387,7 @@ int calcRateExpo(int _input, int _rate, int _expo)
      Ranges: 
      _input  -500 to 500, 
      _rate   0 to 100
-     _expo   0 to 200. 100 is linear, < 100 is negative expo, > 100 is positive expo 
+     _expo   -100 to 100. 0 is linear
   */
  
   /**
@@ -409,12 +409,11 @@ int calcRateExpo(int _input, int _rate, int _expo)
     We also work with only positive x
   */
   
-  _input = constrain(_input, -500, 500); //limit input 
-  
   long x = _input;
   if(_input < 0) 
     x = -x;
   
+  _expo += 100;
   long k = _expo;
   if(_expo > 100)
   {
@@ -446,10 +445,6 @@ int calcRateExpo(int _input, int _rate, int _expo)
 
 long weightAndOffset(int _input, int _weight, int _diff, int _offset)
 {
-  //map passed values
-  _weight -= 100; 
-  _diff -= 100;
-  _offset = (_offset - 100) * 5;
   //calc left and right weights basing on differential
   int _wtR, _wtL; 
   if(_diff >= 0)
@@ -467,7 +462,7 @@ long weightAndOffset(int _input, int _weight, int _diff, int _offset)
   long _outVal = _input;
   _outVal *= _weight;
   _outVal /= 100;
-  _outVal += _offset;
+  _outVal += _offset * 5;
   return _outVal;
 }
 
@@ -507,7 +502,7 @@ bool cutIsActivated()
 {
   for(int i = 0; i < NUM_PRP_CHANNLES; i++)
   {
-    if(Model.CutValue[i] > 0 && SwAEngaged == false)
+    if(Model.CutValue[i] > -101  && SwAEngaged == false)
     {
       return true;
     }

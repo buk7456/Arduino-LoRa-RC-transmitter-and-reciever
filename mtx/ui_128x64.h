@@ -3,7 +3,8 @@ void HandleMainUI();
 void HandleBootUI(); 
 void DisplayFullScreenMsg(const __FlashStringHelper* text);
 
-//helpers
+//---helpers
+
 void toggleEditModeOnSelectClicked();
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
 void changeToScreen(int8_t _theScrn);
@@ -18,13 +19,15 @@ void drawToast();
 void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
 bool isDefaultModelName(char* _nameBuff, uint8_t _len);
-uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val);
-uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state);
+int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val);
+
 enum {WRAP = true, NOWRAP = false};
 enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
+int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap, uint8_t _state);
 
-void loadMix(uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
-             uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, 
+void loadMix(uint8_t _mixNo, 
+             uint8_t _in1, int8_t _weight1, int8_t _diff1, int8_t _offset1,
+             uint8_t _in2, int8_t _weight2, int8_t _diff2, int8_t _offset2, 
              uint8_t _operator, uint8_t _sw, uint8_t _out);
 
 ///================================================================================================
@@ -198,7 +201,7 @@ const char* const backlightModeStr[] PROGMEM = { //table to refer to the strings
 
 char txtBuff[22]; //generic buffer for working with strings
 
-int8_t theScreen = HOME_SCREEN;
+uint8_t theScreen = HOME_SCREEN;
 uint8_t focusedItem = 1; //The item that currently has focus in MODE Screens or popups
 bool isEditMode = false;
 
@@ -486,8 +489,8 @@ void HandleMainUI()
               selectedTrim = 0;
           }
           //adjust
-          uint8_t oldTrimVal = Model.Trim[selectedTrim];
-          Model.Trim[selectedTrim] = adjustTrim(DOWN_KEY, UP_KEY, Model.Trim[selectedTrim]);
+          int8_t oldTrimVal = Model.Trim[selectedTrim];
+          Model.Trim[selectedTrim] = adjustTrim(-25, 25, Model.Trim[selectedTrim]);
           if(Model.Trim[selectedTrim] != oldTrimVal)
             trimIsPendingSave = true;
           
@@ -496,9 +499,9 @@ void HandleMainUI()
           strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + selectedTrim])));
           display.print(txtBuff);
           display.setCursor(86, 44);
-          if(Model.Trim[selectedTrim] > 100)
+          if(Model.Trim[selectedTrim] > 0)
            display.print(F("+"));
-          display.print(Model.Trim[selectedTrim] - 100);
+          display.print(Model.Trim[selectedTrim]);
 
           //draw sliders
           display.drawHLine(68, 62, 51, BLACK);
@@ -506,10 +509,10 @@ void HandleMainUI()
           display.drawVLine(1, 12, 51, BLACK);
           display.drawHLine(9, 62, 51, BLACK);
           //draw thumbs
-          display.drawRect(Model.Trim[0] - 8, 61, 3, 3, BLACK);
-          display.drawRect(125, 136 - Model.Trim[1], 3, 3, BLACK);
-          display.drawRect(0, 136 - Model.Trim[2], 3, 3, BLACK);
-          display.drawRect(Model.Trim[3] - 67, 61, 3, 3, BLACK); 
+          display.drawRect(Model.Trim[0] + 92, 61, 3, 3, BLACK);
+          display.drawRect(125, 36 - Model.Trim[1], 3, 3, BLACK);
+          display.drawRect(0, 36 - Model.Trim[2], 3, 3, BLACK);
+          display.drawRect(Model.Trim[3] + 33, 61, 3, 3, BLACK); 
           //draw midpoints
           display.drawPixel(93, 62, WHITE);
           display.drawPixel(126, 37, WHITE);
@@ -616,11 +619,11 @@ void HandleMainUI()
         drawCursor(71, (focusedItem * 9) + 1);
         
         if (focusedItem == 1)
-          Model.throttleTimerThreshold = incrDecrU8tOnUPDOWN(Model.throttleTimerThreshold, 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.throttleTimerThreshold = incDecOnUpDown(Model.throttleTimerThreshold, 0, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 2)
-          Model.throttleTimerType = incrDecrU8tOnUPDOWN(Model.throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
+          Model.throttleTimerType = incDecOnUpDown(Model.throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
         else if(focusedItem == 3)
-          Model.throttleTimerInitMins = incrDecrU8tOnUPDOWN(Model.throttleTimerInitMins, 1, 240, NOWRAP, PRESSED_OR_HELD);
+          Model.throttleTimerInitMins = incDecOnUpDown(Model.throttleTimerInitMins, 1, 240, NOWRAP, PRESSED_OR_HELD);
       
         if (heldButton == SELECT_KEY)
         {
@@ -688,10 +691,10 @@ void HandleMainUI()
         drawCursor(41, (focusedItem * 10) + 2);
         
         if (focusedItem == 1) 
-          _action_ = incrDecrU8tOnUPDOWN(_action_, 0, 4, WRAP, SLOW_CHANGE);
+          _action_ = incDecOnUpDown(_action_, 0, 4, WRAP, SLOW_CHANGE);
         
         else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYFROMMODEL))
-          _thisMdl_ = incrDecrU8tOnUPDOWN(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
+          _thisMdl_ = incDecOnUpDown(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
         
         else if (focusedItem == 3 && isEditMode) //confirm action
         {
@@ -795,7 +798,7 @@ void HandleMainUI()
         else if(thisChar >= 65 && thisChar <= 90) thisChar -= 64; //map ascii 65..90 to 1..26
         else if(thisChar >= 45 && thisChar <= 57) thisChar -= 18; //map ascii 45..57 to 27..39
 
-        thisChar = incrDecrU8tOnUPDOWN(thisChar, 0, 39, NOWRAP, SLOW_CHANGE);
+        thisChar = incDecOnUpDown(thisChar, 0, 39, NOWRAP, SLOW_CHANGE);
 
         //map back
         if(thisChar == 0) thisChar = 32; //map 0 to ascii 32 (space)
@@ -837,7 +840,7 @@ void HandleMainUI()
         static uint8_t _page = AIL_CURVE;
         
         if (focusedItem == 1)
-          _page = incrDecrU8tOnUPDOWN(_page, 0, 5, WRAP, SLOW_CHANGE);
+          _page = incDecOnUpDown(_page, 0, 5, WRAP, SLOW_CHANGE);
           
         ///////////////// RATES AND EXPO ////////////////////////////////////////
         if(_page == AIL_CURVE || _page == ELE_CURVE || _page == RUD_CURVE)  
@@ -846,8 +849,8 @@ void HandleMainUI()
           toggleEditModeOnSelectClicked();
           drawCursor(34, (focusedItem * 9) + 2);
           
-          uint8_t *_rate;
-          uint8_t *_expo;
+          int8_t *_rate;
+          int8_t *_expo;
           if(SwBEngaged == true && Model.DualRateEnabled[_page] == true) //sport
           {
             _rate = &Model.RateSport[_page];
@@ -866,11 +869,11 @@ void HandleMainUI()
           //Adjust values
           
           if (focusedItem == 2)
-            *_rate = incrDecrU8tOnUPDOWN(*_rate, 0, 100, NOWRAP, PRESSED_OR_HELD); 
+            *_rate = incDecOnUpDown(*_rate, 0, 100, NOWRAP, PRESSED_OR_HELD); 
           else if (focusedItem == 3)
-            *_expo = incrDecrU8tOnUPDOWN(*_expo, 0, 200, NOWRAP, PRESSED_OR_HELD);
+            *_expo = incDecOnUpDown(*_expo, -100, 100, NOWRAP, PRESSED_OR_HELD);
           else if (focusedItem == 4)
-            Model.DualRateEnabled[_page] = incrDecrU8tOnUPDOWN(Model.DualRateEnabled[_page], 0, 1, WRAP, PRESSED_ONLY);
+            Model.DualRateEnabled[_page] = incDecOnUpDown(Model.DualRateEnabled[_page], 0, 1, WRAP, PRESSED_ONLY);
         
           //Show text
           
@@ -889,7 +892,7 @@ void HandleMainUI()
           
           display.setCursor(0, 29);
           display.print(F("Expo:  "));
-          display.print(*_expo - 100);
+          display.print(*_expo);
           display.print(F("%"));
           
           display.setCursor(0, 38);
@@ -917,7 +920,7 @@ void HandleMainUI()
         {
           uint8_t _maxFocusableItems = 3;
           uint8_t _curveNameIdx = IDX_THRTL_CURV;
-          uint8_t *ptr_CurvePts = Model.ThrottlePts;
+          int8_t *ptr_CurvePts = Model.ThrottlePts;
           int _inptSrc = throttleIn;
           if(_page == CURVE1)
           {
@@ -935,11 +938,11 @@ void HandleMainUI()
           
           //adjust 
           if(focusedItem == 2)
-            _thisPt = incrDecrU8tOnUPDOWN(_thisPt, 0, 4, WRAP, SLOW_CHANGE);
+            _thisPt = incDecOnUpDown(_thisPt, 0, 4, WRAP, SLOW_CHANGE);
           else if(focusedItem == 3)
-            *(ptr_CurvePts + _thisPt) = incrDecrU8tOnUPDOWN(*(ptr_CurvePts + _thisPt), 0, 200, NOWRAP, PRESSED_OR_HELD);
+            *(ptr_CurvePts + _thisPt) = incDecOnUpDown(*(ptr_CurvePts + _thisPt), -100, 100, NOWRAP, PRESSED_OR_HELD);
           else if(focusedItem == 4)
-            Model.Curve1Src = incrDecrU8tOnUPDOWN(Model.Curve1Src, 0, IDX_KNOB, NOWRAP, SLOW_CHANGE);
+            Model.Curve1Src = incDecOnUpDown(Model.Curve1Src, 0, IDX_KNOB, NOWRAP, SLOW_CHANGE);
           
           //-----draw text
           display.setCursor(0, 11);
@@ -953,7 +956,7 @@ void HandleMainUI()
         
           display.setCursor(6, 29);
           display.print(F("Val:  "));
-          display.print(*(ptr_CurvePts + _thisPt) - 100);
+          display.print(*(ptr_CurvePts + _thisPt));
           
           if(_page == CURVE1)
           {
@@ -970,27 +973,27 @@ void HandleMainUI()
           
           //Interpolate and draw points. We use x cordinate to estimate corresponding y cordinate
           //Actual plot area is 50x50.
-          int xpts[5] = {0, 250, 500, 750, 1000};
+          int xpts[5] = {-500, -250, 0, 250, 500};
           int ypts[5];
           for(int i = 0; i < 5; i++)
             ypts[i] = *(ptr_CurvePts + i) * 5;
           
-          for (int xval = 0; xval <= 50; xval++) //plot
+          for (int xval = -25; xval <= 25; xval++) //50x50 grid so first point is -25
           {
             int yval = linearInterpolate(xpts, ypts, 5, xval * 20) / 20;
-            display.drawPixel(75 + xval, 61 - yval, BLACK); //plot points
+            display.drawPixel(100 + xval, 36 - yval, BLACK); //plot points
           }
           
           //trace source
-          int yy = linearInterpolate(xpts, ypts, 5, _inptSrc + 500) / 20;
-          display.fillRect(74 + ((_inptSrc + 500) / 20), 60 - yy ,3, 3, BLACK);
-          
+          int yy = linearInterpolate(xpts, ypts, 5, _inptSrc) / 20;
+          display.fillRect(99 + (_inptSrc / 20), 35 - yy, 3, 3, BLACK);
+         
           //show point we are adjusting
           if(focusedItem == 2 || focusedItem == 3)
           {
-            int _qq = linearInterpolate(xpts, ypts, 5, _thisPt * 250) / 20;
-            display.fillRect(74 + xpts[_thisPt]/20, 60 - _qq ,3, 3, WHITE);
-            display.drawRect(74 + xpts[_thisPt]/20, 60 - _qq ,3, 3, BLACK);
+            int _qq = linearInterpolate(xpts, ypts, 5, (_thisPt * 250) - 500) / 20;
+            display.fillRect(99 + xpts[_thisPt]/20, 35 - _qq ,3, 3, WHITE);
+            display.drawRect(99 + xpts[_thisPt]/20, 35 - _qq ,3, 3, BLACK);
           }
         }
         
@@ -1067,25 +1070,25 @@ void HandleMainUI()
         
         display.setCursor(0, 32);
         display.print(F("Weight:  "));
-        display.print(Model.MixIn1Weight[thisMixNum] - 100);
+        display.print(Model.MixIn1Weight[thisMixNum]);
         display.print(F("%"));
         display.setCursor(97, 32);
-        display.print(Model.MixIn2Weight[thisMixNum] - 100);
+        display.print(Model.MixIn2Weight[thisMixNum]);
         display.print(F("%"));
         
         display.setCursor(12, 40);
         display.print(F("Diff:  "));
-        display.print(Model.MixIn1Diff[thisMixNum] - 100);
+        display.print(Model.MixIn1Diff[thisMixNum]);
         display.print(F("%"));
         display.setCursor(97, 40);
-        display.print(Model.MixIn2Diff[thisMixNum] - 100);
+        display.print(Model.MixIn2Diff[thisMixNum]);
         display.print(F("%"));
         
         display.setCursor(0, 48);
         display.print(F("Offset:  "));
-        display.print(Model.MixIn1Offset[thisMixNum] - 100);
+        display.print(Model.MixIn1Offset[thisMixNum]);
         display.setCursor(97, 48);
-        display.print(Model.MixIn2Offset[thisMixNum] - 100);
+        display.print(Model.MixIn2Offset[thisMixNum]);
         
         display.setCursor(18, 56);
         display.print(F("Mux:  "));
@@ -1128,29 +1131,29 @@ void HandleMainUI()
 
         //edit values
         if (focusedItem == 1)     //Change to another mixer slot
-          thisMixNum = incrDecrU8tOnUPDOWN(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, SLOW_CHANGE);
+          thisMixNum = incDecOnUpDown(thisMixNum, 0, NUM_MIXSLOTS - 1, WRAP, SLOW_CHANGE);
         else if(focusedItem == 2) //change output
-          Model.MixOut[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOut[thisMixNum], IDX_NONE, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
+          Model.MixOut[thisMixNum] = incDecOnUpDown(Model.MixOut[thisMixNum], IDX_NONE, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 3) //change input 1
-          Model.MixIn1[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
+          Model.MixIn1[thisMixNum] = incDecOnUpDown(Model.MixIn1[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 4) //adjust weight 1
-          Model.MixIn1Weight[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn1Weight[thisMixNum] = incDecOnUpDown(Model.MixIn1Weight[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 5) //adjust differential 1
-          Model.MixIn1Diff[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn1Diff[thisMixNum] = incDecOnUpDown(Model.MixIn1Diff[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 6) //adjust offset 1
-          Model.MixIn1Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn1Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn1Offset[thisMixNum] = incDecOnUpDown(Model.MixIn1Offset[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 7) //change operator
-          Model.MixOperator[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixOperator[thisMixNum], 0, NUM_MIXOPERATORS - 1, WRAP, PRESSED_ONLY);
+          Model.MixOperator[thisMixNum] = incDecOnUpDown(Model.MixOperator[thisMixNum], 0, NUM_MIXOPERATORS - 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 8) //change input 2
-          Model.MixIn2[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
+          Model.MixIn2[thisMixNum] = incDecOnUpDown(Model.MixIn2[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 9) //adjust weight 2
-          Model.MixIn2Weight[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Weight[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn2Weight[thisMixNum] = incDecOnUpDown(Model.MixIn2Weight[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 10) //adjust differential 2
-          Model.MixIn2Diff[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Diff[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn2Diff[thisMixNum] = incDecOnUpDown(Model.MixIn2Diff[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 11) //adjust offset 2
-          Model.MixIn2Offset[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixIn2Offset[thisMixNum], 0, 200, NOWRAP, PRESSED_OR_HELD);
+          Model.MixIn2Offset[thisMixNum] = incDecOnUpDown(Model.MixIn2Offset[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 12) //change switch
-          Model.MixSwitch[thisMixNum] = incrDecrU8tOnUPDOWN(Model.MixSwitch[thisMixNum], 0, NUM_MIXSWITCHES - 1, NOWRAP, SLOW_CHANGE);
+          Model.MixSwitch[thisMixNum] = incDecOnUpDown(Model.MixSwitch[thisMixNum], 0, NUM_MIXSWITCHES - 1, NOWRAP, SLOW_CHANGE);
         
         //open context menu
         if(focusedItem == 13 && clickedButton == SELECT_KEY)
@@ -1257,7 +1260,7 @@ void HandleMainUI()
         toggleEditModeOnSelectClicked();
         drawCursor(59, 23);
         
-        destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
+        destMixNum = incDecOnUpDown(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
         
         if(isEditMode == false)
         {
@@ -1265,17 +1268,19 @@ void HandleMainUI()
           uint8_t newPostn = destMixNum;
           
           //store temporarily the old position's data
-          uint8_t _mixout      =   Model.MixOut[oldPostn];
-          uint8_t _mix1in      =   Model.MixIn1[oldPostn];
-          uint8_t _mix1weight  =   Model.MixIn1Weight[oldPostn];
-          uint8_t _mix1offset1 =   Model.MixIn1Offset[oldPostn];
-          uint8_t _mix1diff    =   Model.MixIn1Diff[oldPostn];
-          uint8_t _mixOper     =   Model.MixOperator[oldPostn];
-          uint8_t _mixSw       =   Model.MixSwitch[oldPostn];
-          uint8_t _mix2in      =   Model.MixIn2[oldPostn];
-          uint8_t _mix2weight  =   Model.MixIn2Weight[oldPostn];
-          uint8_t _mix2offset1 =   Model.MixIn2Offset[oldPostn];
-          uint8_t _mix2diff    =   Model.MixIn2Diff[oldPostn];
+          uint8_t _mix1in     =   Model.MixIn1[oldPostn];
+          int8_t _mix1weight  =   Model.MixIn1Weight[oldPostn];
+          int8_t _mix1offset1 =   Model.MixIn1Offset[oldPostn];
+          int8_t _mix1diff    =   Model.MixIn1Diff[oldPostn];
+          
+          uint8_t _mix2in     =   Model.MixIn2[oldPostn];
+          int8_t _mix2weight  =   Model.MixIn2Weight[oldPostn];
+          int8_t _mix2offset1 =   Model.MixIn2Offset[oldPostn];
+          int8_t _mix2diff    =   Model.MixIn2Diff[oldPostn];
+          
+          uint8_t _mixOper    =   Model.MixOperator[oldPostn];
+          uint8_t _mixSw      =   Model.MixSwitch[oldPostn];
+          uint8_t _mixout     =   Model.MixOut[oldPostn];
           
           //shift elements of the arrays
           uint8_t thisPostn = oldPostn;
@@ -1355,7 +1360,7 @@ void HandleMainUI()
         toggleEditModeOnSelectClicked();
         drawCursor(59, 23);
         
-        destMixNum = incrDecrU8tOnUPDOWN(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
+        destMixNum = incDecOnUpDown(destMixNum, 0, NUM_MIXSLOTS - 1, NOWRAP, SLOW_CHANGE);
         
         if(isEditMode == false)
         {
@@ -1392,8 +1397,8 @@ void HandleMainUI()
           //elevon 
           // Ch1 = -50%Ail + -50%Ele, 
           // Ch2 = 50%Ail + -50%Ele
-          loadMix(thisMixNum,     IDX_AIL, 50,  100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL, 150, 100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH2);
+          loadMix(thisMixNum,     IDX_AIL, -50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL,  50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH2);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1402,8 +1407,8 @@ void HandleMainUI()
           //vtail  
           // Ch2 = 50%Rud + -50%Ele, 
           // Ch4 = -50%Rud + -50%Ele
-          loadMix(thisMixNum,     IDX_RUD, 150, 100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH2);
-          loadMix(thisMixNum + 1, IDX_RUD, 50,  100, 100, IDX_ELE, 50, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH4);
+          loadMix(thisMixNum,     IDX_RUD,  50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH2);
+          loadMix(thisMixNum + 1, IDX_RUD, -50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH4);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1412,8 +1417,8 @@ void HandleMainUI()
           //flaperon
           // Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
           // Ch8 = 100%Ail{25%Diff} + -50%SwC{-50offset}
-          loadMix(thisMixNum,     IDX_AIL, 0,   75, 100, IDX_SWC, 50, 100, 50,  OPERATOR_ADD, SW_NONE, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC, 50, 100, 50, OPERATOR_ADD, SW_NONE, IDX_CH8);
+          loadMix(thisMixNum,     IDX_AIL, -100, -25, 0, IDX_SWC, -50, 0, -50, OPERATOR_ADD, SW_NONE, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL,  100,  25, 0, IDX_SWC, -50, 0, -50, OPERATOR_ADD, SW_NONE, IDX_CH8);
 
           changeToScreen(MODE_MIXER);
         }  
@@ -1424,10 +1429,10 @@ void HandleMainUI()
           // Ch8 = 100%Ail{ 25%Diff} + 50%SwC{100%Diff}
           // Ch5 = -50%SwC{-50offset}
           // Ch6 = 100%Ch5
-          loadMix(thisMixNum,     IDX_AIL, 0,   75,  100, IDX_SWC,  150, 200, 100, OPERATOR_ADD, SW_NONE, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL, 200, 125, 100, IDX_SWC,  150, 200, 100, OPERATOR_ADD, SW_NONE, IDX_CH8);
-          loadMix(thisMixNum + 2, IDX_SWC, 50,  100,  50, IDX_NONE, 100, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH5);
-          loadMix(thisMixNum + 3, IDX_CH5, 200, 100, 100, IDX_NONE, 100, 100, 100, OPERATOR_ADD, SW_NONE, IDX_CH6);
+          loadMix(thisMixNum,     IDX_AIL, -100, -25,   0, IDX_SWC,  50, 100, 0, OPERATOR_ADD, SW_NONE, IDX_CH1);
+          loadMix(thisMixNum + 1, IDX_AIL,  100,  25,   0, IDX_SWC,  50, 100, 0, OPERATOR_ADD, SW_NONE, IDX_CH8);
+          loadMix(thisMixNum + 2, IDX_SWC,  -50,   0, -50, IDX_NONE, 0,    0, 0, OPERATOR_ADD, SW_NONE, IDX_CH5);
+          loadMix(thisMixNum + 3, IDX_CH5,  100,   0,   0, IDX_NONE, 0,    0, 0, OPERATOR_ADD, SW_NONE, IDX_CH6);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1436,8 +1441,8 @@ void HandleMainUI()
           //twin
           // Ch3 = 100%Thrt +  40%Rud when SwD is down
           // Ch7 = 100%Thrt + -40%Rud when SwD is down
-          loadMix(thisMixNum,     IDX_THRTL_CURV, 200, 100, 100, IDX_RUD, 140, 100, 100,  OPERATOR_ADD, SWD_DOWN, IDX_CH3);
-          loadMix(thisMixNum + 1, IDX_THRTL_CURV, 200, 100, 100, IDX_RUD, 60,   100, 100, OPERATOR_ADD, SWD_DOWN, IDX_CH7);
+          loadMix(thisMixNum,     IDX_THRTL_CURV, 100, 0, 0, IDX_RUD,  40, 0, 0,  OPERATOR_ADD, SWD_DOWN, IDX_CH3);
+          loadMix(thisMixNum + 1, IDX_THRTL_CURV, 100, 0, 0, IDX_RUD, -40, 0, 0, OPERATOR_ADD, SWD_DOWN, IDX_CH7);
 
           changeToScreen(MODE_MIXER);
         }
@@ -1458,19 +1463,19 @@ void HandleMainUI()
         static uint8_t _selectedChannel = 0; //0 is ch1, 1 is ch2, etc.
     
         if (focusedItem == 1)
-          _selectedChannel = incrDecrU8tOnUPDOWN(_selectedChannel, 0, NUM_PRP_CHANNLES - 1, WRAP, SLOW_CHANGE); 
+          _selectedChannel = incDecOnUpDown(_selectedChannel, 0, NUM_PRP_CHANNLES - 1, WRAP, SLOW_CHANGE); 
         else if (focusedItem == 2)
-          Model.Reverse[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.Reverse[_selectedChannel], 0, 1, WRAP, PRESSED_ONLY);
+          Model.Reverse[_selectedChannel] = incDecOnUpDown(Model.Reverse[_selectedChannel], 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          Model.Subtrim[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.Subtrim[_selectedChannel], 25, 75, NOWRAP, SLOW_CHANGE);
+          Model.Subtrim[_selectedChannel] = incDecOnUpDown(Model.Subtrim[_selectedChannel], -25, 25, NOWRAP, SLOW_CHANGE);
         else if (focusedItem == 4)
-          Model.CutValue[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.CutValue[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
+          Model.CutValue[_selectedChannel] = incDecOnUpDown(Model.CutValue[_selectedChannel], -101, 100, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 5)
-          Model.Failsafe[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.Failsafe[_selectedChannel], 0, 201, NOWRAP, PRESSED_OR_HELD);
+          Model.Failsafe[_selectedChannel] = incDecOnUpDown(Model.Failsafe[_selectedChannel], -101, 100, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 6)
-          Model.EndpointL[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.EndpointL[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.EndpointL[_selectedChannel] = incDecOnUpDown(Model.EndpointL[_selectedChannel], -100, 0, NOWRAP, PRESSED_OR_HELD);
         else if (focusedItem == 7)
-          Model.EndpointR[_selectedChannel] = incrDecrU8tOnUPDOWN(Model.EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
+          Model.EndpointR[_selectedChannel] = incDecOnUpDown(Model.EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
 
         //-------Show on lcd---------------
         display.setCursor(49, 8);
@@ -1483,26 +1488,25 @@ void HandleMainUI()
 
         display.setCursor(19, 24);
         display.print(F("Subtrim:  "));
-        int _trmQQ = int(Model.Subtrim[_selectedChannel]) - 50;
-        display.print(_trmQQ); //show as centered about 50
+        display.print(Model.Subtrim[_selectedChannel]); 
         
         display.setCursor(43, 32);
         display.print(F("Cut:  "));
-        if(Model.CutValue[_selectedChannel]== 0)
+        if(Model.CutValue[_selectedChannel]== -101)
           display.print(F("Off"));
         else
-          display.print(Model.CutValue[_selectedChannel] - 101);
+          display.print(Model.CutValue[_selectedChannel]);
         
         display.setCursor(19, 40);
         display.print(F("Failsaf:  "));
-        if(Model.Failsafe[_selectedChannel]== 0)
+        if(Model.Failsafe[_selectedChannel]== -101)
           display.print(F("Off"));
         else
-          display.print(Model.Failsafe[_selectedChannel] - 101);
+          display.print(Model.Failsafe[_selectedChannel]);
 
         display.setCursor(25, 48);
         display.print(F("Travel:  "));
-        display.print(0 - Model.EndpointL[_selectedChannel]);
+        display.print(Model.EndpointL[_selectedChannel]);
         
         display.setCursor(49, 56);
         display.print(F("to:  "));
@@ -1563,14 +1567,14 @@ void HandleMainUI()
         
         //edit values
         if (focusedItem == 1)
-          Sys.rfOutputEnabled = incrDecrU8tOnUPDOWN(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
+          Sys.rfOutputEnabled = incDecOnUpDown(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if (focusedItem == 2)
-          Sys.soundMode = incrDecrU8tOnUPDOWN(Sys.soundMode, 0, SOUND_LAST, WRAP, PRESSED_ONLY);
+          Sys.soundMode = incDecOnUpDown(Sys.soundMode, 0, SOUND_LAST, WRAP, PRESSED_ONLY);
         else if (focusedItem == 3)
-          Sys.backlightMode = incrDecrU8tOnUPDOWN(Sys.backlightMode, 0, BACKLIGHT_LAST, WRAP, PRESSED_ONLY);     
+          Sys.backlightMode = incDecOnUpDown(Sys.backlightMode, 0, BACKLIGHT_LAST, WRAP, PRESSED_ONLY);     
         else if (focusedItem == 4)
         {
-          Sys.PWM_Mode_Ch3 = incrDecrU8tOnUPDOWN(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
+          Sys.PWM_Mode_Ch3 = incDecOnUpDown(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
           if(isEditMode && (pressedButton == UP_KEY || pressedButton == DOWN_KEY))
             makeToast(F("Restart receiver"), 2000);
         }
@@ -1599,7 +1603,7 @@ void HandleMainUI()
 
         isCalibratingSticks = true;
         
-        enum {STICKS_MOVE = 0, STICKS_CENTER, STICKS_DEADZONE};
+        enum {STICKS_MOVE = 0, STICKS_DEADZONE};
         static uint8_t calibStage = STICKS_MOVE;
         static bool calibInitialised = false;
         
@@ -1614,42 +1618,44 @@ void HandleMainUI()
           calibInitialised = true;
         }
 
-        display.setCursor(24, 16);
-        display.print(F("[OK] when done"));
-
         if (calibStage == STICKS_MOVE) 
         {
-          display.setCursor(13, 8);
-          display.print(F("Move sticks fully"));
+          display.setCursor(14, 18);
+          display.print(F("Move sticks fully,"));
+          display.setCursor(14, 26);
+          display.print(F("then center."));
+          display.setCursor(23, 42);
+          display.print(F("[OK] when done"));
 
-          //get min and max
+          //---- get min, max, center
+          //roll
           int _reading = analogRead(PIN_ROLL);
-          if (_reading < Sys.rollMin)       Sys.rollMin = _reading;
-          else if (_reading > Sys.rollMax)  Sys.rollMax = _reading;
+          Sys.rollCenterVal  = _reading;
+          if (_reading < Sys.rollMin)
+            Sys.rollMin = _reading;
+          else if (_reading > Sys.rollMax)
+            Sys.rollMax = _reading;
+          //yaw
           _reading = analogRead(PIN_YAW);
-          if (_reading < Sys.yawMin)        Sys.yawMin = _reading;
-          else if (_reading > Sys.yawMax)   Sys.yawMax = _reading;
-          _reading = analogRead(PIN_PITCH);
-          if (_reading < Sys.pitchMin)      Sys.pitchMin = _reading;
-          else if (_reading > Sys.pitchMax) Sys.pitchMax = _reading;
+          Sys.yawCenterVal = _reading;
+          if (_reading < Sys.yawMin)
+            Sys.yawMin = _reading;
+          else if (_reading > Sys.yawMax)
+            Sys.yawMax = _reading;
+          //pitch
+          _reading  = analogRead(PIN_PITCH);
+          Sys.pitchCenterVal = _reading;
+          if (_reading < Sys.pitchMin)
+            Sys.pitchMin = _reading;
+          else if (_reading > Sys.pitchMax)
+            Sys.pitchMax = _reading;
+          //throttle
           _reading = analogRead(PIN_THROTTLE);
-          if (_reading < Sys.thrtlMin)      Sys.thrtlMin = _reading;
-          else if (_reading > Sys.thrtlMax) Sys.thrtlMax = _reading;
-
-          if (clickedButton == SELECT_KEY)
-            calibStage = STICKS_CENTER;
-        }
-        
-        else if (calibStage == STICKS_CENTER)
-        {
-          display.setCursor(25, 8);
-          display.print(F("Center sticks"));
-
-          //get stick centers
-          Sys.rollCenterVal  = analogRead(PIN_ROLL);
-          Sys.yawCenterVal   = analogRead(PIN_YAW);
-          Sys.pitchCenterVal = analogRead(PIN_PITCH);
-
+          if (_reading < Sys.thrtlMin)
+            Sys.thrtlMin = _reading;
+          else if (_reading > Sys.thrtlMax)
+            Sys.thrtlMax = _reading;
+          
           if (clickedButton == SELECT_KEY)
           {
             //Add slight deadband(about 1.5%) at each stick ends to stabilise readings at ends
@@ -1671,18 +1677,17 @@ void HandleMainUI()
             Sys.yawMin += ddznQQ;
             
             calibStage = STICKS_DEADZONE;
+            isEditMode = true;
           }
         }
-        
+
         else if (calibStage == STICKS_DEADZONE)
         {
-          display.setCursor(20, 8);
+          display.setCursor(21, 21);
           display.print(F("Adjust deadzone"));
           
-          isEditMode = true;
-          Sys.deadZonePerc = incrDecrU8tOnUPDOWN(Sys.deadZonePerc, 0, 15, NOWRAP, PRESSED_OR_HELD);
-          drawCursor(52, 34);
-          isEditMode = false;
+          drawCursor(51, 34);
+          Sys.deadZonePerc = incDecOnUpDown(Sys.deadZonePerc, 0, 15, NOWRAP, PRESSED_OR_HELD);
           
           display.setCursor(59,34);
           display.print(Sys.deadZonePerc);
@@ -1696,9 +1701,6 @@ void HandleMainUI()
             eeSaveSysConfig();
             changeToScreen(HOME_SCREEN);
             makeToast(F("Calibrated"), 1500);
-            //reset main menu view
-            highlightedItem = 1;
-            topItem = 1;
           }
         }
       }
@@ -1807,20 +1809,21 @@ void printVolts(int _milliVolts)
 
 //--------------------------------------------------------------------------------------------------
 
-uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLimit, bool _enableWrap, uint8_t _state)
+int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap, uint8_t _state)
 {
-  //Increments/decrements the passed uint8_t value between the specified limit. 
+  //Increments/decrements the passed value between the specified limits inclusive. 
   //If wrap is enabled, wraps around when either limit is reached.
-
+  
   if(isEditMode == false)
   {
     return _val;
   }
 
   uint8_t _heldBtn = 0;
-  if(_state == PRESSED_ONLY)         _heldBtn = 0;
-  else if(_state == PRESSED_OR_HELD) _heldBtn = heldButton;
-  else if(_state == SLOW_CHANGE && thisLoopNum % (100 / fixedLoopTime) == 1) _heldBtn = heldButton;
+  if(_state == PRESSED_OR_HELD) 
+    _heldBtn = heldButton;
+  else if(_state == SLOW_CHANGE && thisLoopNum % (100 / fixedLoopTime) == 1) 
+    _heldBtn = heldButton;
 
   //Default -- UP_KEY increments, DOWN_KEY decrements
   uint8_t incrKey = UP_KEY;
@@ -1829,7 +1832,7 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
   if(_lowerLimit > _upperLimit) 
   {
     //swap lower and upper limits
-    uint8_t _tmp = _lowerLimit;
+    int _tmp = _lowerLimit;
     _lowerLimit = _upperLimit;
     _upperLimit = _tmp;
     //swap key actions
@@ -1837,10 +1840,6 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
     decrKey = UP_KEY;
   }
    
-  //create working variables
-  int value = _val; 
-  int upperLim = _upperLimit;
-  int lowerLim = _lowerLimit;
   int delta = 1;
   if(_heldBtn > 0 && ((millis() - buttonStartTime) > (LONGPRESSTIME + 1000UL)))
   {
@@ -1850,24 +1849,24 @@ uint8_t incrDecrU8tOnUPDOWN(uint8_t _val, uint8_t _lowerLimit, uint8_t _upperLim
   //inc dec
   if (pressedButton == incrKey || _heldBtn == incrKey)
   {
-    value += delta;
-    if(value > upperLim)
+    _val += delta;
+    if(_val > _upperLimit)
     {
-      if(_enableWrap) value = lowerLim;
-      else value = upperLim;
+      if(_enableWrap) _val = _lowerLimit;
+      else _val = _upperLimit;
     }
   }
   else if (pressedButton == decrKey || _heldBtn == decrKey)
   {
-    value -= delta;
-    if(value < lowerLim)
+    _val -= delta;
+    if(_val < _lowerLimit)
     {
-      if(_enableWrap) value = upperLim;
-      else value = lowerLim;
+      if(_enableWrap) _val = _upperLimit;
+      else _val = _lowerLimit;
     }
   }
 
-  return value & 0xFF;
+  return _val;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1946,11 +1945,11 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
     highlightedItem += 1; //highlight next item
     if (highlightedItem > _numMenuItems)
       highlightedItem = 1; //wrap to first item
-    if ((highlightedItem - topItem) >= 5 || (highlightedItem - topItem) <= 0)
+    if ((highlightedItem - topItem) >= 4 || (highlightedItem - topItem) <= 0)
     {
       //Move one step down. If at bottom of list, wrap to top
       topItem += 1;
-      if (topItem > (_numMenuItems - 4))
+      if (topItem > (_numMenuItems - 3))
         topItem = 1;
     }
   }
@@ -1959,14 +1958,14 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
     highlightedItem -= 1; //highlight next item
     if (highlightedItem == 0)
       highlightedItem = _numMenuItems; //wrap to last item
-    if ((highlightedItem - topItem) < 0 || (highlightedItem - topItem) >= 5)
+    if ((highlightedItem - topItem) < 0 || (highlightedItem - topItem) >= 4)
     {
       //Move one step up .If at very top of list, wrapup to bottom
       topItem -= 1;
       if (topItem == 0)
       {
-        topItem = highlightedItem - 4;
-        if (_numMenuItems <= 5)
+        topItem = highlightedItem - 3;
+        if (_numMenuItems <= 4)
           topItem = 1;
       }
     }
@@ -1974,30 +1973,34 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
 
   //------show heading------
   strcpy_P(txtBuff, (char *)pgm_read_word(&list[0]));
-  drawHeader();
+  int _txtWidthPix = strlen(txtBuff) * 6;
+  int headingX_offset = (display.width() - _txtWidthPix) / 2; //middle align heading
+  display.setCursor(headingX_offset, 2);
+  display.println(txtBuff);
+  display.drawRect(0, 0, 128, 12, BLACK);
 
   //------fill menu slots----
-  for (int i = 0; i < 5 && i < _numMenuItems; i++) //5 item slots
+  for (int i = 0; i < 4 && i < _numMenuItems; i++) //4 item slots
   {
     strcpy_P(txtBuff, (char *)pgm_read_word(&list[topItem + i]));
     if (highlightedItem == (topItem + i)) //highlight selection
     {
-      display.fillRect(6, 9 + i*11, 116, 11, BLACK);
+      display.fillRect(6, 12 + i*13, 116, 13, BLACK);
       display.setTextColor(WHITE);
     }
-    display.setCursor(14, 11 + i*11);
+    display.setCursor(14, 15 + i*13);
     display.println(txtBuff);
     display.setTextColor(BLACK);
   }
 
   //------draw a simple scroll bar ----
-  const int viewPortHeight = 55; //5*11
-  int contentHeight = _numMenuItems * 11;
-  int contentY = (topItem - 1) * 11;
+  const int viewPortHeight = 52; //4*13
+  int contentHeight = _numMenuItems * 13;
+  int contentY = (topItem - 1) * 13;
   int barSize = (viewPortHeight * viewPortHeight) / contentHeight;
   barSize += 1; //Add 1 to compensate for truncation error
   int barYPostn = (viewPortHeight * contentY) / contentHeight;
-  display.fillRect(125 , 9 + barYPostn, 1, barSize, BLACK);
+  display.fillRect(124 , 12 + barYPostn, 2, barSize, BLACK);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2087,7 +2090,7 @@ bool isDefaultModelName(char* _nameBuff, uint8_t _len)
 }
 
 //--------------------------------------------------------------------------------------------------
-uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
+int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val)
 {
   uint8_t _heldBtn = 0;
   uint8_t _holdDelay = 200;
@@ -2096,12 +2099,12 @@ uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
   if(thisLoopNum % (_holdDelay / fixedLoopTime) == 1) 
     _heldBtn = heldButton;
   
-  if((pressedButton == _decrButton || _heldBtn == _decrButton) && _val > 75)
+  if((pressedButton == DOWN_KEY || _heldBtn == DOWN_KEY) && _val > _lowerLimit)
   {    
     _val--;
     audioToPlay = AUDIO_SWITCHMOVED;
   }
-  else if((pressedButton == _incrButton || _heldBtn == _incrButton) && _val < 125)
+  else if((pressedButton == UP_KEY || _heldBtn == UP_KEY) && _val < _upperLimit)
   {
     _val++;
     audioToPlay = AUDIO_SWITCHMOVED;
@@ -2111,9 +2114,10 @@ uint8_t adjustTrim(uint8_t _decrButton, uint8_t _incrButton, uint8_t _val)
 
 //--------------------------------------------------------------------------------------------------
 
-void loadMix( uint8_t _mixNo, uint8_t _in1, uint8_t _weight1, uint8_t _diff1, uint8_t _offset1,
-              uint8_t _in2, uint8_t _weight2, uint8_t _diff2, uint8_t _offset2, 
-              uint8_t _operator, uint8_t _sw, uint8_t _out)
+void loadMix(uint8_t _mixNo, 
+             uint8_t _in1, int8_t _weight1, int8_t _diff1, int8_t _offset1,
+             uint8_t _in2, int8_t _weight2, int8_t _diff2, int8_t _offset2, 
+             uint8_t _operator, uint8_t _sw, uint8_t _out)
 {
   if(_mixNo >= NUM_MIXSLOTS)
   {
