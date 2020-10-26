@@ -240,16 +240,14 @@ void serialSendData()
   {
     for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
     {
-      if(Model.Failsafe[i] == 0) //failsafe not specified, send 1023
+      if(Model.Failsafe[i] == -101) //failsafe not specified, send 1023
         serialWrite14bit(1023);
       else //failsafe specified, send it
       {
-        uint16_t fsf = (Model.Failsafe[i] - 1) * 5;
-        uint16_t lowerLim = (100 - Model.EndpointL[i]) * 5;
-        uint16_t upperLim = (100 + Model.EndpointR[i]) * 5;
-        if(fsf < lowerLim)  fsf = lowerLim;
-        else if(fsf > upperLim) fsf = upperLim;
-        serialWrite14bit(fsf);
+        int fsf = 5 * Model.Failsafe[i];
+        fsf = constrain(fsf, 5 * Model.EndpointL[i], 5 * Model.EndpointR[i]);
+        uint16_t val = (fsf + 500) & 0xFFFF;
+        serialWrite14bit(val);
       }
     }
   }
