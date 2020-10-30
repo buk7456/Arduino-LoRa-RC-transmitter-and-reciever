@@ -329,19 +329,19 @@ void computeChannelOutputs()
     //--- Clamp -----
     _output = constrain(_output, -500, 500);
     
-    //---Update sources array for next iteration--- 
-    MixSources[Model.MixOut[_mixNum]] = int(_output);
+    //---Update sources array for next iteration---
+    if(Model.MixOut[_mixNum] < NUM_MIXSOURCES) //protects from potential overruns
+      MixSources[Model.MixOut[_mixNum]] = int(_output);
   }
-  
-  //export mix results for graphing
-  for(int i = 0; i < NUM_PRP_CHANNLES; i++)
-    mixerChOutGraphVals[i] = MixSources[IDX_CH1 + i] / 5; //divide by 5 to fit datatype
-  
+
   ///WRITE TO CHANNELS
   for(int i = 0; i < NUM_PRP_CHANNLES; i++)
   {
     ChOut[i] = MixSources[IDX_CH1 + i];
-   
+    
+    //export for graphing
+    mixerChOutGraphVals[i] = ChOut[i] / 5; //divide by 5 to fit datatype
+    
     //---Reverse
     if (Model.Reverse[i] == true) 
       ChOut[i] = 0 - ChOut[i]; 
