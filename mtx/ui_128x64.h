@@ -496,7 +496,7 @@ void HandleMainUI()
           
           //show names and values
           display.setCursor(86, 32);
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + selectedTrim])));
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + selectedTrim])), sizeof(txtBuff));
           display.print(txtBuff);
           display.setCursor(86, 44);
           if(Model.Trim[selectedTrim] > 0)
@@ -588,7 +588,7 @@ void HandleMainUI()
       
     case MODE_TIMER_SETUP:
       {
-        strcpy_P(txtBuff, PSTR("Timer 1"));
+        strlcpy_P(txtBuff, PSTR("Timer 1"), sizeof(txtBuff));
         drawHeader();
       
         display.setCursor(1, 10);
@@ -651,7 +651,7 @@ void HandleMainUI()
       
     case MODE_MODEL:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MODEL])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MODEL])), sizeof(txtBuff));
         drawHeader();
 
         enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL, DELETEMODEL};
@@ -662,7 +662,7 @@ void HandleMainUI()
         
         //-- show action
         display.setCursor(49, 12);
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(modelActionStr[_action_])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(modelActionStr[_action_])), sizeof(txtBuff));
         display.print(txtBuff);
 
         //-- show model name
@@ -720,11 +720,11 @@ void HandleMainUI()
             else if(_action_ == COPYFROMMODEL)
             {
               //temporarily store model name as we shall maintain it 
-              strcpy(_tmpBuff, Model.modelName);
+              strlcpy(_tmpBuff, Model.modelName, sizeof(_tmpBuff));
               //load source model into ram
               eeReadModelData(_thisMdl_);
               //restore model name
-              strcpy(Model.modelName, _tmpBuff);
+              strlcpy(Model.modelName, _tmpBuff, sizeof(Model.modelName));
               //save
               eeSaveModelData(Sys.activeModel);
               
@@ -833,7 +833,7 @@ void HandleMainUI()
 
     case MODE_INPUTS:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_INPUTS])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_INPUTS])), sizeof(txtBuff));
         drawHeader();
 
         enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE, CURVE1, RAW_INPUTS};
@@ -880,9 +880,9 @@ void HandleMainUI()
           display.setCursor(0,11);
           display.print(F("Inpt:  "));
           if(_page == RUD_CURVE) 
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_RUD]))); 
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_RUD])), sizeof(txtBuff)); 
           else 
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + _page])));
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + _page])), sizeof(txtBuff));
           display.print(txtBuff);
           
           display.setCursor(0, 20);
@@ -947,7 +947,7 @@ void HandleMainUI()
           //-----draw text
           display.setCursor(0, 11);
           display.print(F("Inpt:  "));
-          strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_curveNameIdx])));
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_curveNameIdx])), sizeof(txtBuff));
           display.print(txtBuff);
           
           display.setCursor(6, 20);
@@ -962,7 +962,7 @@ void HandleMainUI()
           {
             display.setCursor(6, 38);
             display.print(F("Src:  "));
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Curve1Src])));
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Curve1Src])), sizeof(txtBuff));
             display.print(txtBuff);
           }
           
@@ -1011,7 +1011,7 @@ void HandleMainUI()
           for(int i = 0; i < 5; i++)
           {
             display.setCursor(14, 21 + i*9);
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ROLL + i])));
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ROLL + i])), sizeof(txtBuff));
             display.print(txtBuff);
             display.setCursor(42, 21 + i*9);
             display.print(_stickVal[i]/5);
@@ -1022,7 +1022,7 @@ void HandleMainUI()
           {
             int16_t _ycord = 21 + i*9;
             display.setCursor(83, _ycord);
-            strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA + i])));
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA + i])), sizeof(txtBuff));
             display.print(txtBuff);
             if(_swState[i] == 0) 
               display.drawBitmap(105, _ycord, switchUp_icon, 5, 7, BLACK);
@@ -1044,7 +1044,7 @@ void HandleMainUI()
       
     case MODE_MIXER:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MIXER])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MIXER])), sizeof(txtBuff));
         drawHeader();
         
         display.setCursor(18, 8);
@@ -1054,18 +1054,18 @@ void HandleMainUI()
         display.setCursor(0, 16);
         display.print(F("Output:  "));
         uint8_t _outNameIndex = Model.MixOut[thisMixNum];
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_outNameIndex])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_outNameIndex])), sizeof(txtBuff));
         display.print(txtBuff);
         
         display.setCursor(6, 24);
         display.print(F("Input:  "));
         uint8_t _In1NameIndex = Model.MixIn1[thisMixNum];
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])), sizeof(txtBuff));
         display.print(txtBuff);
         
         display.setCursor(97, 24);
         uint8_t _In2NameIndex = Model.MixIn2[thisMixNum];
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])), sizeof(txtBuff));
         display.print(txtBuff);
         
         display.setCursor(0, 32);
@@ -1102,7 +1102,7 @@ void HandleMainUI()
         //show mixer switch
         display.setCursor(97, 56);
         uint8_t _swNameIndex = Model.MixSwitch[thisMixNum];
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mixSwitchStr[_swNameIndex])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mixSwitchStr[_swNameIndex])), sizeof(txtBuff));
         char _lastChar = txtBuff[strlen(txtBuff) - 1];
         txtBuff[strlen(txtBuff) - 1] = '\0'; //deletes the last char
         display.print(txtBuff);
@@ -1213,7 +1213,7 @@ void HandleMainUI()
       
     case MODE_MIXER_OUTPUT:
       {
-        strcpy_P(txtBuff, PSTR("Mixer output"));
+        strlcpy_P(txtBuff, PSTR("Mixer output"), sizeof(txtBuff));
         drawHeader();
         
         display.setCursor(0,56);
@@ -1453,7 +1453,7 @@ void HandleMainUI()
       
     case MODE_OUTPUTS:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_OUTPUTS])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_OUTPUTS])), sizeof(txtBuff));
         drawHeader();
 
         changeFocusOnUPDOWN(7);
@@ -1534,7 +1534,7 @@ void HandleMainUI()
       
     case MODE_SYSTEM:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_SYSTEM])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_SYSTEM])), sizeof(txtBuff));
         drawHeader();
 
         display.setCursor(13, 10);
@@ -1543,12 +1543,12 @@ void HandleMainUI()
         
         display.setCursor(13, 19);
         display.print(F("Sounds  :  "));
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
         display.setCursor(13, 28);
         display.print(F("Backlght:  "));
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[Sys.backlightMode])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[Sys.backlightMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
         display.setCursor(13, 37);
@@ -1598,7 +1598,7 @@ void HandleMainUI()
 
     case MODE_CALIB:
       {
-        strcpy_P(txtBuff, PSTR("Calibration"));
+        strlcpy_P(txtBuff, PSTR("Calibration"), sizeof(txtBuff));
         drawHeader();
 
         isCalibratingSticks = true;
@@ -1708,7 +1708,7 @@ void HandleMainUI()
       
     case MODE_ABOUT:
       {
-        strcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_ABOUT])));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_ABOUT])), sizeof(txtBuff));
         drawHeader();
 
         //Show battery voltage
@@ -1734,6 +1734,9 @@ void HandleMainUI()
           changeToScreen(MAIN_MENU);
       }
       break;
+      
+      default:
+        changeToScreen(HOME_SCREEN);
   }
   ///-------------end of state machine -------------------------
 
@@ -1972,7 +1975,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
   }
 
   //------show heading------
-  strcpy_P(txtBuff, (char *)pgm_read_word(&list[0]));
+  strlcpy_P(txtBuff, (char *)pgm_read_word(&list[0]), sizeof(txtBuff));
   int _txtWidthPix = strlen(txtBuff) * 6;
   int headingX_offset = (display.width() - _txtWidthPix) / 2; //middle align heading
   display.setCursor(headingX_offset, 2);
@@ -1982,7 +1985,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
   //------fill menu slots----
   for (int i = 0; i < 4 && i < _numMenuItems; i++) //4 item slots
   {
-    strcpy_P(txtBuff, (char *)pgm_read_word(&list[topItem + i]));
+    strlcpy_P(txtBuff, (char *)pgm_read_word(&list[topItem + i]), sizeof(txtBuff));
     if (highlightedItem == (topItem + i)) //highlight selection
     {
       display.fillRect(6, 12 + i*13, 116, 13, BLACK);
@@ -2049,7 +2052,7 @@ void drawPopupMenu(const char *const list[], int8_t _numItems)
   //fill menu
   for (int i = 0; i < _numItems; i++)
   {
-    strcpy_P(txtBuff, (char *)pgm_read_word(&list[i]));
+    strlcpy_P(txtBuff, (char *)pgm_read_word(&list[i]), sizeof(txtBuff));
     if(i == (focusedItem - 1))
     {
       display.fillRect(17, (_yOffsetStr0 - 1)+ i*9, 93, 9, BLACK);
