@@ -23,6 +23,9 @@ enum {
   BACKLIGHT_LAST = BACKLIGHT_ON
 };
 
+/* Structure to hold system parameters.
+   Note: If this structure is edited, it's necessary to manually reformat the EEPROM.
+*/
 struct sysParams {
   uint8_t transmitterID;
   
@@ -46,6 +49,10 @@ struct sysParams {
 
 #define NUM_MIXSLOTS 10     //More slots results into less models and more ram usage 
 
+/* Structure to hold model information. 
+   NOTE: If this is edited, it's necessary to manually edit functions setDefaultModelBasicParams and
+   setDefaultModelMixerParams and also reformat the EEPROM.
+*/
 struct modelParams {
   //------- first entity is the modelName ----
   char modelName[7]; //6chars + Null
@@ -66,7 +73,6 @@ struct modelParams {
   int8_t ExpoNormal[3];   //-100 to 100
   int8_t ExpoSport[3];    //-100 to 100
 
-  
   int8_t ThrottlePts[5];  //for interpolation of throttle. Range -100 to 100
   
   int8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Are percentages. Values -25 to 25
