@@ -27,8 +27,6 @@ enum {
    Note: If this structure is edited, it's necessary to manually reformat the EEPROM.
 */
 struct sysParams {
-  uint8_t transmitterID;
-  
   uint8_t activeModel = 1; //The current model
   
   bool rfOutputEnabled = false;
@@ -55,7 +53,7 @@ struct sysParams {
 */
 struct modelParams {
   //------- first entity is the modelName ----
-  char modelName[7]; //6chars + Null
+  char modelName[8]; //7chars + Null
   
   //------- basic params ---------
   
