@@ -1581,9 +1581,8 @@ void HandleMainUI()
         else if (focusedItem == 5 && isEditMode)
         {
           bindActivated = true;
-          Sys.transmitterID = random(128) & 0x7F; //generate a random txID
-          eeSaveSysConfig();
           makeToast(F("Sending bind.."), 2000);
+          eeSaveSysConfig();
           changeToScreen(HOME_SCREEN);
         }
         
@@ -1735,8 +1734,8 @@ void HandleMainUI()
       }
       break;
       
-      default:
-        changeToScreen(HOME_SCREEN);
+    default:
+      changeToScreen(HOME_SCREEN);
   }
   ///-------------end of state machine -------------------------
 
