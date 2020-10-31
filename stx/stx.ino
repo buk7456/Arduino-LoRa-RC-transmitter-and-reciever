@@ -19,11 +19,11 @@ const int lcdBacklightPin = 6;
 const int SwCUpperPosPin = A4; //3pos switch
 const int SwCLowerPosPin = A5; //3pos switch
 
-const int msgLength = 21;  //bytes in master's message including start and stop
+const int msgLength = 20;  //bytes in master's message including start and stop
 uint8_t receivedData[msgLength];  //Holds the valid data from master mcu
 bool hasValidSerialMsg = false;
 
-uint8_t transmitterID; //got from master mcu
+uint8_t transmitterID = 0; //set on bind
 
 bool radioInitialised = false;
 unsigned long radioTotalPackets = 0;
@@ -49,6 +49,7 @@ uint8_t ptr_fhss_schema = 0;
 //-------------- EEprom stuff --------------------
 #define EE_INITFLAG         0xBA 
 #define EE_ADR_INIT_FLAG    0
+#define EE_ADR_TX_ID        1
 #define EE_ADR_FHSS_SCHEMA  2
 
 //-------------- Audio --------------------------
@@ -76,11 +77,13 @@ void setup()
   // EEPROM init
   if (EEPROM.read(EE_ADR_INIT_FLAG) != EE_INITFLAG)
   {
+    EEPROM.write(EE_ADR_TX_ID, transmitterID);
     EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
     EEPROM.write(EE_ADR_INIT_FLAG, EE_INITFLAG);
   }
   
   // Read from EEPROM
+  transmitterID = EEPROM.read(EE_ADR_TX_ID);
   EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
   //seed random number generator
@@ -125,8 +128,6 @@ void loop()
   digitalWrite(lcdBacklightPin, (receivedData[1] >> 6) & 0x01);
   
   ///----------- SEND VIA RF MODULE -----------------------
-  transmitterID = receivedData[19];
-  
   if((receivedData[1] >> 5) & 0x01) //bind command received
     bind();  
   else 
@@ -161,8 +162,7 @@ void getSerialData()
       
   byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
   byte 18- Sound to play  (1 byte)
-  byte 19- transmitterID
-  byte 20- End of message 0xDD
+  byte 19- End of message 0xDD
   */
 
   uint8_t tmpBuff[64];
@@ -271,6 +271,12 @@ void bind()
   //-------- clear fhss_schema ---------------------------
   memset(fhss_schema, 0xff, sizeof(fhss_schema));
   
+  //-------- generate random transmitterID ---------------
+  // We use random transmitter ID as most Atmega328p don't have a unique serial number
+  transmitterID = random(1, 127) & 0x7F; //allowed IDs 1 through 126 
+  //save to eeprom
+  EEPROM.write(EE_ADR_TX_ID, transmitterID);
+  
   //-------- generate unique random fhss_schema ----------
   uint8_t idx = 0;
   while (idx < sizeof(fhss_schema)/sizeof(fhss_schema[0]))
@@ -292,8 +298,7 @@ void bind()
       idx++; //increment index
     }
   }
-
-  //-------- save fhss_schema to eeprom ----------
+  //save to eeprom
   EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
   //-------- transmit on bind frequency ----------
@@ -303,7 +308,6 @@ void bind()
     Byte12 - crc8
   */
   
-
   LoRa.sleep();
   LoRa.setFrequency(freqList[0]);
   LoRa.idle();
