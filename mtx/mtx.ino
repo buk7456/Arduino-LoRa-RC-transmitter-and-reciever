@@ -36,9 +36,6 @@ void serialWrite14bit(uint16_t value); //helper
 
 void setup()
 {
-  //seed random number generator
-  randomSeed(analogRead(PIN_BATTVOLTS));
-  
   //set up pins
   pinMode(PIN_ROW1, INPUT);
   pinMode(PIN_ROW2, INPUT);
@@ -84,8 +81,7 @@ void setup()
       delay(30);
     }
     DisplayFullScreenMsg(F("Formating.."));
-    //generate random transmitterID
-    Sys.transmitterID = random(128) & 0x7F;
+    
     //save
     eeSaveSysConfig();
     for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
@@ -194,8 +190,7 @@ void serialSendData()
       
   byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
   byte 18 - Sound to play  (1 byte)
-  byte 19 - Tx ID (1 byte)
-  byte 20 - End of message 0xDD
+  byte 19 - End of message 0xDD
   */
   
   /// ---- message start
@@ -260,9 +255,6 @@ void serialSendData()
 
   Serial.write(audioToPlay); 
   audioToPlay = AUDIO_NONE; //set to none
-  
-  /// ---- send transmitterID
-  Serial.write(Sys.transmitterID);
   
   /// ---- end of message
   Serial.write(0xDD); 
