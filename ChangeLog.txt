@@ -1,5 +1,8 @@
 1.5.0
 -----
+31Oct2020
+ - Moved transmitterID generation and storage to secondary mcu
+ 
 26Oct2020
  - Code refactor: using signed types where necessary
  - Minor improvements in stick calibration screen
