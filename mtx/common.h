@@ -23,8 +23,7 @@ enum {
   BACKLIGHT_LAST = BACKLIGHT_ON
 };
 
-/* Structure to hold system parameters.
-   Note: If this structure is edited, it's necessary to manually reformat the EEPROM.
+/* Structure for system parameters
 */
 struct sysParams {
   uint8_t activeModel = 1; //The current model
@@ -41,15 +40,14 @@ struct sysParams {
   uint8_t deadZonePerc = 5; //in percentage of stick range
 } Sys;
 
+
 //------------------- MODEL PARAMS -----------------------------------------------------------------
 
 #define NUM_PRP_CHANNLES 8  //Number of proportional channels ## Leave this
 
 #define NUM_MIXSLOTS 10     //More slots results into less models and more ram usage 
 
-/* Structure to hold model information. 
-   NOTE: If this is edited, it's necessary to manually edit functions setDefaultModelBasicParams and
-   setDefaultModelMixerParams and also reformat the EEPROM.
+/* Structure for model information
 */
 struct modelParams {
   //------- first entity is the modelName ----
@@ -206,7 +204,7 @@ void setDefaultModelBasicParams()
   //throttle timer
   Model.throttleTimerType = TIMERCOUNTUP;
   Model.throttleTimerInitMins = 5; 
-  Model.throttleTimerThreshold = 25; 
+  Model.throttleTimerThreshold = 20; 
 }
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
@@ -229,6 +227,7 @@ void setDefaultModelMixerParams()
   for(uint8_t i = 0; i < NUM_MIXSLOTS; i++)
     setDefaultModelMixerParams(i);
 }
+
 
 //---------------------- MISC ----------------------------------------------------------------------
 
