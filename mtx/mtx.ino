@@ -26,6 +26,8 @@
 #include "bitmaps.h"
 #include "ui_128x64.h" 
 
+#include "crc8.h"
+
 // Declarations 
 void serialSendData(); 
 void checkBattery();
@@ -71,12 +73,12 @@ void setup()
   numOfModels = ((E2END + 1) - eeModelDataStartAddress) / sizeof(Model); //E2END is last address
 
   /********* EEPROM init ***************/
-  uint8_t eeCheckMark = EEPROM.read(0);
-  if (eeCheckMark != EE_INITFLAG)
+  uint8_t EE_INITFLAG = crc8Maxim((uint8_t *) &Sys, sizeof(Sys)) ^ crc8Maxim((uint8_t *) &Model, sizeof(Model));
+  if (EEPROM.read(0) != EE_INITFLAG)
   {
     while(buttonCode == 0)
     {
-      DisplayFullScreenMsg(F("Press any key"));
+      DisplayFullScreenMsg(F("Bad EEPROM data"));
       readSwitchesAndButtons();
       delay(30);
     }
