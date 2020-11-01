@@ -295,7 +295,7 @@ void HandleBootUI()
         delay(30);
       }
       delay(200);
-      EEPROM.write(0, 0xFF); //Clear EEPROM init flag
+      EEPROM.write(0, ~EEPROM.read(0)); //Clear EEPROM init flag
       return; //exit 
     }
     else if(_selection == 4 || heldButton == SELECT_KEY) 
