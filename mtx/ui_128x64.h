@@ -1,8 +1,7 @@
 //==================================================================================================
 void HandleMainUI(); 
 void HandleBootUI(); 
-void DisplayFullScreenMsg(const __FlashStringHelper* text);
-
+void FullScreenMsg(const char* str);
 //---helpers
 
 void toggleEditModeOnSelectClicked();
@@ -105,14 +104,12 @@ const char* const mixerMenu[] PROGMEM = { //table to refer to the strings
   mxrStr0, mxrStr1, mxrStr2, mxrStr3, mxrStr4, mxrStr5
 };
 
-#define NUM_ITEMS_TEMPLATES_POPUP 5
+#define NUM_ITEMS_TEMPLATES_POPUP 3
 char const tmpltStr0[] PROGMEM = "Elevon"; 
 char const tmpltStr1[] PROGMEM = "Vtail"; 
-char const tmpltStr2[] PROGMEM = "Flaperon";
-char const tmpltStr3[] PROGMEM = "Crow braking";
-char const tmpltStr4[] PROGMEM = "Diffr thrust";
+char const tmpltStr2[] PROGMEM = "Diffr thrust";
 const char* const templatesMenu[] PROGMEM = { //table to refer to the strings
-  tmpltStr0, tmpltStr1, tmpltStr2, tmpltStr3, tmpltStr4
+  tmpltStr0, tmpltStr1, tmpltStr2
 };
 
 //-- mixer sources name strings. 5 characters max
@@ -126,28 +123,29 @@ char const srcName6[]  PROGMEM = "SwA";
 char const srcName7[]  PROGMEM = "SwB"; 
 char const srcName8[]  PROGMEM = "SwC"; 
 char const srcName9[]  PROGMEM = "SwD"; 
-char const srcName10[] PROGMEM = "Cv1";
-char const srcName11[] PROGMEM = "Ail";
-char const srcName12[] PROGMEM = "Ele";
-char const srcName13[] PROGMEM = "Thrt";
-char const srcName14[] PROGMEM = "Rud";
-char const srcName15[] PROGMEM = "None";
-char const srcName16[] PROGMEM = "Ch1";
-char const srcName17[] PROGMEM = "Ch2";
-char const srcName18[] PROGMEM = "Ch3";
-char const srcName19[] PROGMEM = "Ch4";
-char const srcName20[] PROGMEM = "Ch5";
-char const srcName21[] PROGMEM = "Ch6";
-char const srcName22[] PROGMEM = "Ch7";
-char const srcName23[] PROGMEM = "Ch8";
-char const srcName24[] PROGMEM = "Virt1";
-char const srcName25[] PROGMEM = "Virt2";
+char const srcName10[] PROGMEM = "Slow";
+char const srcName11[] PROGMEM = "Cv1"; 
+char const srcName12[] PROGMEM = "Ail";
+char const srcName13[] PROGMEM = "Ele";
+char const srcName14[] PROGMEM = "Thrt";
+char const srcName15[] PROGMEM = "Rud";
+char const srcName16[] PROGMEM = "None";
+char const srcName17[] PROGMEM = "Ch1";
+char const srcName18[] PROGMEM = "Ch2";
+char const srcName19[] PROGMEM = "Ch3";
+char const srcName20[] PROGMEM = "Ch4";
+char const srcName21[] PROGMEM = "Ch5";
+char const srcName22[] PROGMEM = "Ch6";
+char const srcName23[] PROGMEM = "Ch7";
+char const srcName24[] PROGMEM = "Ch8";
+char const srcName25[] PROGMEM = "Virt1";
+char const srcName26[] PROGMEM = "Virt2";
 
 const char* const srcNames[] PROGMEM = { //table to refer to the strings
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
-  srcName22, srcName23, srcName24, srcName25
+  srcName22, srcName23, srcName24, srcName25, srcName26
 };
 
 //-- MixSwitch string. Last character ^ means upper postn, ~ means mid postn, _ means lower postn 
@@ -234,13 +232,43 @@ unsigned long toastExpireTime;
 
 //================================== Generic messages ==============================================
 
-void DisplayFullScreenMsg(const __FlashStringHelper* text)
+void FullScreenMsg(const char* str)
 {
+  uint8_t pos = 0; //position in string
+  uint8_t numTextLines = 1;
+  //get number of lines
+  while (pgm_read_byte(str + pos) != '\0')
+  {
+    if(pgm_read_byte(str + pos) == '\n')
+      numTextLines++;
+    pos++;
+  }
+  pos = 0; //reset
+  
   display.clearDisplay();
-  int _txtWidthPix = 6 * strlen_P((const char *)text); //(const char*) casts
-  int x_offset = (display.width() - _txtWidthPix) / 2; //middle align
-  display.setCursor(x_offset, 28);
-  display.print(text);
+
+  int y_offset = (display.height() - numTextLines * 9) / 2; //9 is line pitch
+  for(uint8_t line = 1; line <= numTextLines; line++)
+  {
+    //get number of characters in the line
+    uint8_t numChars = 0;
+    while(pgm_read_byte(str + pos) != '\n' && pgm_read_byte(str + pos) != '\0')
+    {
+      numChars++;
+      pos++;
+    }
+    pos -= numChars;
+    //center text
+    int x_offset = (display.width() - numChars * 6) / 2;
+    display.setCursor(x_offset, y_offset);
+    //write the characters 
+    while(numChars--)
+      display.write(pgm_read_byte(str + pos++));
+    //advance 
+    y_offset += 9; 
+    pos++;
+  }
+
   display.display();
 }
 
@@ -253,7 +281,7 @@ void HandleBootUI()
   display.clearDisplay();
   drawPopupMenu(bootMenu, NUM_ITEMS_BOOT_POPUP);
   display.display();
-  while (buttonCode > 0)  //wait for button release to prevent false trigger
+  while (buttonCode != 0)  //wait for button release to prevent false trigger
   {
     readSwitchesAndButtons();
   }
@@ -287,16 +315,8 @@ void HandleBootUI()
     }
     else if(_selection == 3)
     {
-      DisplayFullScreenMsg(F("Press any key"));
-      readSwitchesAndButtons();
-      while(buttonCode == 0) //wait for a key press before proceeding
-      {
-        readSwitchesAndButtons();
-        delay(30);
-      }
-      delay(200);
-      EEPROM.write(0, ~EEPROM.read(0)); //Clear EEPROM init flag
-      return; //exit 
+      EEPROM.write(EE_INITFLAG_ADDR, ~EEPROM.read(EE_INITFLAG_ADDR)); //clear flag
+      return; //exit
     }
     else if(_selection == 4 || heldButton == SELECT_KEY) 
     {
@@ -352,7 +372,7 @@ void HandleMainUI()
     if(battWarnDismissed == false)
     {
       //show warning
-      DisplayFullScreenMsg(F("Battery Low"));
+      FullScreenMsg(PSTR("Battery Low"));
       audioToPlay = AUDIO_BATTERYWARN; 
       //dismiss warning
       if((clickedButton > 0 || millis() - battWarnMillisQQ > 3000))
@@ -591,12 +611,12 @@ void HandleMainUI()
         strlcpy_P(txtBuff, PSTR("Timer 1"), sizeof(txtBuff));
         drawHeader();
       
-        display.setCursor(1, 10);
+        display.setCursor(0, 10);
         display.print(F("Throttle >=  "));
         display.print(Model.throttleTimerThreshold);
         display.print(F("%"));
         
-        display.setCursor(1, 19);
+        display.setCursor(0, 19);
         display.print(F("Timer type:  "));
         if(Model.throttleTimerType == TIMERCOUNTDOWN)
           display.print(F("CntDn"));
@@ -608,15 +628,15 @@ void HandleMainUI()
         if(Model.throttleTimerType == TIMERCOUNTDOWN)
         {
           _maxFocusableItems = 3;
-          display.setCursor(31, 28);
-          display.print(F("Start:  "));
+          display.setCursor(0, 28);
+          display.print(F("Start:       "));
           display.print(Model.throttleTimerInitMins);
           display.print(F(" min"));
         }
       
         changeFocusOnUPDOWN(_maxFocusableItems);
         toggleEditModeOnSelectClicked();
-        drawCursor(71, (focusedItem * 9) + 1);
+        drawCursor(70, (focusedItem * 9) + 1);
         
         if (focusedItem == 1)
           Model.throttleTimerThreshold = incDecOnUpDown(Model.throttleTimerThreshold, 0, 100, NOWRAP, PRESSED_OR_HELD);
@@ -640,9 +660,9 @@ void HandleMainUI()
           changeToScreen(highlightedItem);
         else if (heldButton == SELECT_KEY)
         {
-          //reset menu
-          highlightedItem = 1;
-          topItem = 1;
+          // reset menu
+          // highlightedItem = 1;
+          // topItem = 1;
           
           changeToScreen(HOME_SCREEN);
         }
@@ -836,18 +856,17 @@ void HandleMainUI()
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_INPUTS])), sizeof(txtBuff));
         drawHeader();
 
-        enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE, CURVE1, RAW_INPUTS};
+        enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE, CURVE1, SLOW1, RAW_INPUTS};
         static uint8_t _page = AIL_CURVE;
         
         if (focusedItem == 1)
-          _page = incDecOnUpDown(_page, 0, 5, WRAP, SLOW_CHANGE);
+          _page = incDecOnUpDown(_page, 0, 6, WRAP, SLOW_CHANGE);
           
         ///////////////// RATES AND EXPO ////////////////////////////////////////
         if(_page == AIL_CURVE || _page == ELE_CURVE || _page == RUD_CURVE)  
         {  
           changeFocusOnUPDOWN(4);
           toggleEditModeOnSelectClicked();
-          drawCursor(34, (focusedItem * 9) + 2);
           
           int8_t *_rate;
           int8_t *_expo;
@@ -856,8 +875,8 @@ void HandleMainUI()
             _rate = &Model.RateSport[_page];
             _expo = &Model.ExpoSport[_page];
             
-            display.drawRect(0, 47, 33, 11, BLACK);
-            display.setCursor(2, 49);
+            display.drawRect(0, 49, 33, 11, BLACK);
+            display.setCursor(2, 51);
             display.print(F("Sport"));
           }
           else //normal
@@ -877,27 +896,27 @@ void HandleMainUI()
         
           //Show text
           
-          display.setCursor(0,11);
-          display.print(F("Inpt:  "));
+          display.setCursor(8,11);
           if(_page == RUD_CURVE) 
             strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_RUD])), sizeof(txtBuff)); 
           else 
             strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + _page])), sizeof(txtBuff));
           display.print(txtBuff);
+          display.drawHLine(8, 19, strlen(txtBuff) * 6, BLACK);
           
-          display.setCursor(0, 20);
+          display.setCursor(0, 22);
           display.print(F("Rate:  "));
           display.print(*_rate);
           display.print(F("%"));
           
-          display.setCursor(0, 29);
+          display.setCursor(0, 31);
           display.print(F("Expo:  "));
           display.print(*_expo);
           display.print(F("%"));
           
-          display.setCursor(0, 38);
-          display.print(F("D/R :  "));
-          drawCheckbox(42, 38, Model.DualRateEnabled[_page]);
+          display.setCursor(0, 40);
+          display.print(F("D/R:   "));
+          drawCheckbox(42, 40, Model.DualRateEnabled[_page]);
         
           //draw graph 
           display.drawVLine(100, 11, 51, BLACK);
@@ -932,7 +951,6 @@ void HandleMainUI()
           
           changeFocusOnUPDOWN(_maxFocusableItems);
           toggleEditModeOnSelectClicked();
-          drawCursor(34, (focusedItem * 9) + 2);
           
           static uint8_t _thisPt = 0;
           
@@ -945,23 +963,23 @@ void HandleMainUI()
             Model.Curve1Src = incDecOnUpDown(Model.Curve1Src, 0, IDX_KNOB, NOWRAP, SLOW_CHANGE);
           
           //-----draw text
-          display.setCursor(0, 11);
-          display.print(F("Inpt:  "));
+          display.setCursor(8, 11);
           strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_curveNameIdx])), sizeof(txtBuff));
           display.print(txtBuff);
+          display.drawHLine(8, 19, strlen(txtBuff) * 6, BLACK);
           
-          display.setCursor(6, 20);
-          display.print(F("Pt :  "));
+          display.setCursor(0, 22);
+          display.print(F("Pt :   "));
           display.write(97 + _thisPt); //a,b,c,d,e
         
-          display.setCursor(6, 29);
-          display.print(F("Val:  "));
+          display.setCursor(0, 31);
+          display.print(F("Val:   "));
           display.print(*(ptr_CurvePts + _thisPt));
           
           if(_page == CURVE1)
           {
-            display.setCursor(6, 38);
-            display.print(F("Src:  "));
+            display.setCursor(0, 40);
+            display.print(F("Src:   "));
             strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Curve1Src])), sizeof(txtBuff));
             display.print(txtBuff);
           }
@@ -997,14 +1015,52 @@ void HandleMainUI()
           }
         }
         
-        ////////////////// RAW /////////////////////////////
+        ////////////////// SLOWED INPUTS //////////////////////////////////////
+        if(_page == SLOW1)
+        {
+          changeFocusOnUPDOWN(4);
+          toggleEditModeOnSelectClicked();
+          
+          display.setCursor(8, 11);
+          strlcpy_P(txtBuff, PSTR("(Slow)"), sizeof(txtBuff));
+          display.print(txtBuff);
+          display.drawHLine(8, 19, strlen(txtBuff) * 6, BLACK);
+          
+          display.setCursor(0, 22);
+          display.print(F("Up:    "));
+          display.print(Model.Slow1Up / 10);
+          display.print(F("."));
+          display.print(Model.Slow1Up % 10);
+          display.print(F("s"));
+          
+          display.setCursor(0, 31);
+          display.print(F("Down:  "));
+          display.print(Model.Slow1Down / 10);
+          display.print(F("."));
+          display.print(Model.Slow1Down % 10);
+          display.print(F("s"));
+          
+          display.setCursor(0, 40);
+          display.print(F("Src:   "));
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
+          display.print(txtBuff);
+          
+          if(focusedItem == 2)
+            Model.Slow1Up = incDecOnUpDown(Model.Slow1Up, 0, 50, NOWRAP, PRESSED_OR_HELD);
+          else if(focusedItem == 3)
+            Model.Slow1Down = incDecOnUpDown(Model.Slow1Down, 0, 50, NOWRAP, PRESSED_OR_HELD);
+          else if(focusedItem == 4)
+            Model.Slow1Src = incDecOnUpDown(Model.Slow1Src, IDX_SWA, IDX_SWD, NOWRAP, PRESSED_OR_HELD);
+        }
+
+        ////////////////// RAW /////////////////////////////////////////////////
         if(_page == RAW_INPUTS)
         {
           toggleEditModeOnSelectClicked();
-          drawCursor(34, 11);
           
-          display.setCursor(0, 11);
-          display.print(F("Inpt:  Raw"));
+          display.setCursor(8, 11);
+          display.print(F("Raw"));
+          display.drawHLine(8, 19, 18, BLACK);
           
           //show sticks and knob
           int _stickVal[5] = {rollIn, pitchIn, throttleIn, yawIn, knobIn}; //order as in source names
@@ -1032,6 +1088,9 @@ void HandleMainUI()
               display.drawBitmap(105, _ycord, switchMid_icon, 5, 7, BLACK);
           }
         }
+        
+        if(focusedItem == 1) drawCursor(0, 11);
+        else drawCursor(34, (focusedItem * 9) + 4);
 
         ////// Exit
         if (heldButton == SELECT_KEY)
@@ -1047,8 +1106,8 @@ void HandleMainUI()
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MIXER])), sizeof(txtBuff));
         drawHeader();
         
-        display.setCursor(18, 8);
-        display.print(F("Mix:  #"));
+        display.setCursor(0, 8);
+        display.print(F("Mix no:  #"));
         display.print(thisMixNum + 1);
         
         display.setCursor(0, 16);
@@ -1057,16 +1116,34 @@ void HandleMainUI()
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_outNameIndex])), sizeof(txtBuff));
         display.print(txtBuff);
         
-        display.setCursor(6, 24);
-        display.print(F("Input:  "));
+        display.setCursor(0, 24);
+        display.print(F("Input:   "));
         uint8_t _In1NameIndex = Model.MixIn1[thisMixNum];
-        strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])), sizeof(txtBuff));
-        display.print(txtBuff);
+        if(_In1NameIndex == IDX_SLOW1) 
+        {
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
+          display.print(txtBuff);
+          display.drawBitmap(display.getCursorX(), display.getCursorY(), asterisk_small, 3, 3, 1);
+        }
+        else
+        {
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])), sizeof(txtBuff));
+          display.print(txtBuff);
+        }
         
         display.setCursor(97, 24);
         uint8_t _In2NameIndex = Model.MixIn2[thisMixNum];
-        strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])), sizeof(txtBuff));
-        display.print(txtBuff);
+        if(_In2NameIndex == IDX_SLOW1) 
+        {
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
+          display.print(txtBuff);
+          display.drawBitmap(display.getCursorX(), display.getCursorY(), asterisk_small, 3, 3, 1);
+        }
+        else
+        {
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])), sizeof(txtBuff));
+          display.print(txtBuff);
+        }
         
         display.setCursor(0, 32);
         display.print(F("Weight:  "));
@@ -1076,8 +1153,8 @@ void HandleMainUI()
         display.print(Model.MixIn2Weight[thisMixNum]);
         display.print(F("%"));
         
-        display.setCursor(12, 40);
-        display.print(F("Diff:  "));
+        display.setCursor(0, 40);
+        display.print(F("Dfrntl:  "));
         display.print(Model.MixIn1Diff[thisMixNum]);
         display.print(F("%"));
         display.setCursor(97, 40);
@@ -1090,8 +1167,8 @@ void HandleMainUI()
         display.setCursor(97, 48);
         display.print(Model.MixIn2Offset[thisMixNum]);
         
-        display.setCursor(18, 56);
-        display.print(F("Mux:  "));
+        display.setCursor(0, 56);
+        display.print(F("Opertr:  "));
         if(Model.MixOperator[thisMixNum] == OPERATOR_ADD) 
           display.print(F("Add"));
         else if(Model.MixOperator[thisMixNum] == OPERATOR_MULTIPLY) 
@@ -1104,7 +1181,7 @@ void HandleMainUI()
         uint8_t _swNameIndex = Model.MixSwitch[thisMixNum];
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mixSwitchStr[_swNameIndex])), sizeof(txtBuff));
         char _lastChar = txtBuff[strlen(txtBuff) - 1];
-        txtBuff[strlen(txtBuff) - 1] = '\0'; //deletes the last char
+        txtBuff[strlen(txtBuff) - 1] = '\0'; //delete the last char
         display.print(txtBuff);
         int16_t _xcord = 97 + strlen(txtBuff)*6;
         if(_lastChar == '^')
@@ -1412,33 +1489,9 @@ void HandleMainUI()
 
           changeToScreen(MODE_MIXER);
         }
-        else if(_selection == 3)
+        else if(_selection == 3) 
         {
-          //flaperon
-          // Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
-          // Ch8 = 100%Ail{25%Diff} + -50%SwC{-50offset}
-          loadMix(thisMixNum,     IDX_AIL, -100, -25, 0, IDX_SWC, -50, 0, -50, OPERATOR_ADD, SW_NONE, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL,  100,  25, 0, IDX_SWC, -50, 0, -50, OPERATOR_ADD, SW_NONE, IDX_CH8);
-
-          changeToScreen(MODE_MIXER);
-        }  
-        else if(_selection == 4)
-        {
-          //crow 
-          // Ch1 = -100%Ail{-25%Diff} + 50%SwC{100%Diff}
-          // Ch8 = 100%Ail{ 25%Diff} + 50%SwC{100%Diff}
-          // Ch5 = -50%SwC{-50offset}
-          // Ch6 = 100%Ch5
-          loadMix(thisMixNum,     IDX_AIL, -100, -25,   0, IDX_SWC,  50, 100, 0, OPERATOR_ADD, SW_NONE, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL,  100,  25,   0, IDX_SWC,  50, 100, 0, OPERATOR_ADD, SW_NONE, IDX_CH8);
-          loadMix(thisMixNum + 2, IDX_SWC,  -50,   0, -50, IDX_NONE, 0,    0, 0, OPERATOR_ADD, SW_NONE, IDX_CH5);
-          loadMix(thisMixNum + 3, IDX_CH5,  100,   0,   0, IDX_NONE, 0,    0, 0, OPERATOR_ADD, SW_NONE, IDX_CH6);
-
-          changeToScreen(MODE_MIXER);
-        }
-        else if(_selection == 5) //twin motor
-        {
-          //twin
+          //differential thrust
           // Ch3 = 100%Thrt +  40%Rud when SwD is down
           // Ch7 = 100%Thrt + -40%Rud when SwD is down
           loadMix(thisMixNum,     IDX_THRTL_CURV, 100, 0, 0, IDX_RUD,  40, 0, 0,  OPERATOR_ADD, SWD_DOWN, IDX_CH3);
@@ -1458,14 +1511,19 @@ void HandleMainUI()
 
         changeFocusOnUPDOWN(7);
         toggleEditModeOnSelectClicked();
-        drawCursor(71, focusedItem * 8);
+        drawCursor(52, focusedItem * 8);
         
         static uint8_t _selectedChannel = 0; //0 is ch1, 1 is ch2, etc.
-    
+
         if (focusedItem == 1)
           _selectedChannel = incDecOnUpDown(_selectedChannel, 0, NUM_PRP_CHANNLES - 1, WRAP, SLOW_CHANGE); 
         else if (focusedItem == 2)
-          Model.Reverse[_selectedChannel] = incDecOnUpDown(Model.Reverse[_selectedChannel], 0, 1, WRAP, PRESSED_ONLY);
+        {
+          uint8_t _reverseVal = (Model.Reverse >> _selectedChannel) & 0x01;
+          _reverseVal = incDecOnUpDown(_reverseVal, 0, 1, WRAP, PRESSED_ONLY);
+          Model.Reverse &= ~((uint16_t) 1 << _selectedChannel); //clear
+          Model.Reverse |= ((uint16_t)_reverseVal << _selectedChannel); //set
+        }
         else if (focusedItem == 3)
           Model.Subtrim[_selectedChannel] = incDecOnUpDown(Model.Subtrim[_selectedChannel], -25, 25, NOWRAP, SLOW_CHANGE);
         else if (focusedItem == 4)
@@ -1478,38 +1536,39 @@ void HandleMainUI()
           Model.EndpointR[_selectedChannel] = incDecOnUpDown(Model.EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
 
         //-------Show on lcd---------------
-        display.setCursor(49, 8);
-        display.print(F("Ch:  "));
+        display.setCursor(0, 8);
+        display.print(F("Channel:  "));
         display.print(_selectedChannel + 1);
         
-        display.setCursor(19, 16);
+        display.setCursor(0, 16);
         display.print(F("Reverse:  "));
-        drawCheckbox(79, 16, Model.Reverse[_selectedChannel]);
+        uint8_t _reverseVal = (Model.Reverse >> _selectedChannel) & 0x01;
+        drawCheckbox(60, 16, _reverseVal);
 
-        display.setCursor(19, 24);
+        display.setCursor(0, 24);
         display.print(F("Subtrim:  "));
         display.print(Model.Subtrim[_selectedChannel]); 
         
-        display.setCursor(43, 32);
-        display.print(F("Cut:  "));
+        display.setCursor(0, 32);
+        display.print(F("Cut:      "));
         if(Model.CutValue[_selectedChannel]== -101)
           display.print(F("Off"));
         else
           display.print(Model.CutValue[_selectedChannel]);
         
-        display.setCursor(19, 40);
+        display.setCursor(0, 40);
         display.print(F("Failsaf:  "));
         if(Model.Failsafe[_selectedChannel]== -101)
           display.print(F("Off"));
         else
           display.print(Model.Failsafe[_selectedChannel]);
 
-        display.setCursor(25, 48);
-        display.print(F("Travel:  "));
+        display.setCursor(0, 48);
+        display.print(F("Endpt L:  "));
         display.print(Model.EndpointL[_selectedChannel]);
         
-        display.setCursor(49, 56);
-        display.print(F("to:  "));
+        display.setCursor(0, 56);
+        display.print(F("Endpt R:  "));
         display.print(Model.EndpointR[_selectedChannel]);
         
         //----show the current channel output value (right align)
@@ -1537,33 +1596,33 @@ void HandleMainUI()
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_SYSTEM])), sizeof(txtBuff));
         drawHeader();
 
-        display.setCursor(13, 10);
-        display.print(F("RFoutput:"));
-        drawCheckbox(79, 10, Sys.rfOutputEnabled);
+        display.setCursor(0, 10);
+        display.print(F("RFoutput:  "));
+        drawCheckbox(66, 10, Sys.rfOutputEnabled);
         
-        display.setCursor(13, 19);
-        display.print(F("Sounds  :  "));
+        display.setCursor(0, 19);
+        display.print(F("Sounds:    "));
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
-        display.setCursor(13, 28);
+        display.setCursor(0, 28);
         display.print(F("Backlght:  "));
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[Sys.backlightMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
-        display.setCursor(13, 37);
+        display.setCursor(0, 37);
         display.print(F("Ch3 Mode:  "));
         if(Sys.PWM_Mode_Ch3 == 1) 
           display.print(F("ServoPWM"));
         else  
           display.print(F("PWM"));
         
-        display.setCursor(13, 46);
+        display.setCursor(0, 46);
         display.print(F("Receiver:  [Bind]"));
         
         changeFocusOnUPDOWN(5);
         toggleEditModeOnSelectClicked();
-        drawCursor(71, 10 + (focusedItem - 1) * 9);
+        drawCursor(58, 10 + (focusedItem - 1) * 9);
         
         //edit values
         if (focusedItem == 1)
@@ -1711,22 +1770,22 @@ void HandleMainUI()
         drawHeader();
 
         //Show battery voltage
-        display.setCursor(19,10);
+        display.setCursor(0,10);
         display.print(F("Battery: "));
         printVolts(battVoltsNow);
         
         //Show uptime
-        display.setCursor(19,19);
+        display.setCursor(0,19);
         display.print(F("Uptime:  "));
-        printHHMMSS(millis(), 73, 19);
+        printHHMMSS(millis(), 54, 19);
         
         //show version
-        display.setCursor(19, 28);
+        display.setCursor(0, 28);
         display.print(F("FW ver:  "));
         display.print(F(_SKETCHVERSION));
         
         //Show author
-        display.setCursor(19, 37);
+        display.setCursor(0, 37);
         display.print(F("Devlpr:  buk7456"));
 
         if (heldButton == SELECT_KEY)
@@ -1979,7 +2038,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
   int headingX_offset = (display.width() - _txtWidthPix) / 2; //middle align heading
   display.setCursor(headingX_offset, 2);
   display.println(txtBuff);
-  display.drawRect(0, 0, 128, 12, BLACK);
+  display.drawHLine(0, 11, 128, BLACK);
 
   //------fill menu slots----
   for (int i = 0; i < 4 && i < _numMenuItems; i++) //4 item slots
@@ -1987,7 +2046,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
     strlcpy_P(txtBuff, (char *)pgm_read_word(&list[topItem + i]), sizeof(txtBuff));
     if (highlightedItem == (topItem + i)) //highlight selection
     {
-      display.fillRect(6, 12 + i*13, 116, 13, BLACK);
+      display.fillRect(6, 13 + i * 13, 116, 11, BLACK);
       display.setTextColor(WHITE);
     }
     display.setCursor(14, 15 + i*13);
@@ -2002,7 +2061,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
   int barSize = (viewPortHeight * viewPortHeight) / contentHeight;
   barSize += 1; //Add 1 to compensate for truncation error
   int barYPostn = (viewPortHeight * contentY) / contentHeight;
-  display.fillRect(124 , 12 + barYPostn, 2, barSize, BLACK);
+  display.drawVLine(125 , 12 + barYPostn, barSize, BLACK);
 }
 
 //--------------------------------------------------------------------------------------------------
