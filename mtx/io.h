@@ -9,6 +9,7 @@ void computeChannelOutputs();
 int deadzoneAndMap(int _input, int _minVal, int _centerVal, int _maxVal, int _deadzn, int _mapMin, int _mapMax);
 int calcRateExpo(int _input, int _rate, int _expo);
 int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX);
+int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fallTime);
 long weightAndOffset(int _input, int _weight, int _diff, int _offset);
 bool mixSwitchIsActive(uint8_t _mixNum);
 bool cutIsActivated();
@@ -184,52 +185,32 @@ void computeChannelOutputs()
   MixSources[IDX_YAW] = yawIn;
   MixSources[IDX_KNOB] = knobIn;
   
-  ///--Mix source Switches
-  
-  //switches are slowed down to prevent abrupt change
-  int _delta = 2 * fixedLoopTime;
+  ///--Mix source switches
   
   //Switch A
-  static int _SwAVal = -500;
-  if(SwAEngaged == true) _SwAVal += _delta;
-  else _SwAVal -= _delta;
-  _SwAVal = constrain(_SwAVal, -500, 500);
-  MixSources[IDX_SWA] = _SwAVal;
+  if(SwAEngaged == true) 
+    MixSources[IDX_SWA] = 500;
+  else
+    MixSources[IDX_SWA] = -500;
   
   //Switch B
-  static int _SwBVal = -500;
-  if(SwBEngaged == true) _SwBVal += _delta;
-  else _SwBVal -= _delta;
-  _SwBVal = constrain(_SwBVal, -500, 500);
-  MixSources[IDX_SWB] = _SwBVal;
+  if(SwBEngaged == true) 
+    MixSources[IDX_SWB] = 500;
+  else
+    MixSources[IDX_SWB] = -500;
   
   //Switch C (3 pos)
-  static int _SwCVal = 0;
-  int _target;
-  if(SwCState == SWLOWERPOS) _target = 500;
-  else if(SwCState == SWUPPERPOS) _target = -500;
-  else _target = 0;
-  if(_target < _SwCVal) 
-  { 
-    _SwCVal -= _delta;
-    if(_SwCVal < _target)
-      _SwCVal = _target;
-  }
-  else if(_target > _SwCVal) 
-  {
-    _SwCVal += _delta;
-    if(_SwCVal > _target)
-      _SwCVal = _target;
-  }
-  MixSources[IDX_SWC] = _SwCVal;
+  if(SwCState == SWLOWERPOS) 
+    MixSources[IDX_SWC] = 500;
+  else if(SwCState == SWUPPERPOS)
+    MixSources[IDX_SWC] = -500;
   
   //Switch D
-  static int _SwDVal = -500;
-  if(SwDEngaged == true) _SwDVal += _delta;
-  else _SwDVal -= _delta;
-  _SwDVal = constrain(_SwDVal, -500, 500);
-  MixSources[IDX_SWD] = _SwDVal;
-  
+  if(SwDEngaged == true) 
+    MixSources[IDX_SWD] = 500;
+  else 
+    MixSources[IDX_SWD] = -500;
+ 
   ///--Mix source 100Perc
   MixSources[IDX_100PERC] = 500;
   
@@ -273,7 +254,13 @@ void computeChannelOutputs()
   for(int i = 0; i < 5; i++)
     ypoints[i] = 5 * Model.Curve1Pts[i];
   MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, curve1SrcVal);
-
+  
+  ///--Mix source Slow1
+  
+  static int _valueNow = MixSources[IDX_SLOW1];
+  MixSources[IDX_SLOW1] = applySlow(_valueNow, MixSources[Model.Slow1Src], Model.Slow1Up, Model.Slow1Down);
+  _valueNow = MixSources[IDX_SLOW1];
+  
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
   MixSources[IDX_CH1] = MixSources[IDX_AIL];  //send Ail  to Ch1
@@ -343,7 +330,7 @@ void computeChannelOutputs()
     mixerChOutGraphVals[i] = ChOut[i] / 5; //divide by 5 to fit datatype
     
     //---Reverse
-    if (Model.Reverse[i] == true) 
+    if (((Model.Reverse >> i) & 0x01) == 1) 
       ChOut[i] = 0 - ChOut[i]; 
 
     //---Subtrim
@@ -439,6 +426,40 @@ int calcRateExpo(int _input, int _rate, int _expo)
     y = -y;
     
   return int(y);
+}
+
+//--------------------------------------------------------------------------------------------------
+int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fallTime)
+{
+  //convert times to ms
+  _riseTime *= 100; 
+  _fallTime *= 100;
+  
+  //scale by 10
+  _currentVal *= 10;
+  _targetVal *= 10;
+  
+  //calc
+  if(_currentVal < _targetVal && _riseTime > 0)
+  {
+    int _step = (1000L * fixedLoopTime * 10) / _riseTime;
+    _currentVal += _step;
+    if(_currentVal > _targetVal)
+      _currentVal = _targetVal;
+  }
+  else if(_currentVal > _targetVal && _fallTime > 0) 
+  {
+    int _step = (1000L * fixedLoopTime * 10) / _fallTime;
+    _currentVal -= _step;
+    if(_currentVal < _targetVal)
+      _currentVal = _targetVal;
+  }
+  else
+  {
+    _currentVal = _targetVal;
+  }
+  
+  return _currentVal / 10; //scale back
 }
 
 //--------------------------------------------------------------------------------------------------
