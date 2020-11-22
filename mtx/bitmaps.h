@@ -90,9 +90,15 @@ static const unsigned char switchMid_icon [] PROGMEM = {
   // 5x7px
 	0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00
 };
+
 static const unsigned char switchUp_icon [] PROGMEM = {
   // 5x7px
 	0x20, 0x70, 0x88, 0x20, 0x20, 0x20, 0x20
+};
+
+static const unsigned char asterisk_small [] PROGMEM = {
+	//3x3px
+	0xa0, 0x40, 0xa0
 };
 
 #endif
