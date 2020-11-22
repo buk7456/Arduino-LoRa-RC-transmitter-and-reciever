@@ -32,6 +32,8 @@ Left aileron in Ch1, right aileron in Ch8. Using SwC to operate the flaperons.
 1. Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
 2. Ch8 =  100%Ail{ 25%Diff} + -50%SwC{-50offset}
 ```
+If desired, the flaperon deployment can be slowed with the 'Slow' function in Inputs screen, specifying 
+SwC as the source. When this is done, it is neccessary to manually edit the mix to use SwC* instead.
 
 #### Crow braking 
 Left ail servo in Ch1, Right Ail servo in Ch8, left flap servo in Ch5, right flap servo in Ch6.
@@ -46,21 +48,16 @@ thus crow braking.
 3. Ch5 = -50%SwC{-50offset}
 4. Ch6 =  100%Ch5
 ```
+If desired, the flap/crow deployment can be slowed with the 'Slow' function in Inputs screen, specifying 
+SwC as the source. When this is done, it is neccessary to manually edit the mix to use SwC* instead.
 
 #### Differential thrust
 Left motor in Ch3, right motor in Ch7. 
 <br>We can use a switch e.g SwD to turn the differential thrust on or off.
 <br>For safety, we also need to specify Cut and Failsafe for both Ch3 and Ch7 in the 'Outputs' screen.
-<br>Method 1: 
 ```txt
 1. Ch3  = 100%Thrt + 40%Rud  [SwD_Down]  
 2. Ch7  = 100%Thrt + -40%Rud [SwD_Down]
-```
-Method 2:
-```txt
-1. Virt1 = 40%Rud * 100%SwD{100%Diff}
-2. Ch3 = 100%Thrt + 100%Virt1
-3. Ch7 = 100%Thrt + -100%Virt1
 ```
 
 #### Elevator throttle mixing
