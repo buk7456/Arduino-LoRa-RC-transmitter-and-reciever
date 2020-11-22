@@ -29,6 +29,7 @@ MIT license
 - 2x Atmega328p microcontrollers
 - 1x Semtech SX1276/77/78/79 based rf module 
 - 128x64 KS0108 based LCD, or any 128x64 lcd (provide own driver code).
+- 2x Joysticks, 3x two position switches, 1x three position switch, 1x potentiometer
 - 3x push buttons
 - Additional support components
 
@@ -51,7 +52,7 @@ the rx folder. No external libraries are required to compile.
 - Holding the Select key while powering opens the hidden boot menu.
 
 <p align="center">
-<img src="img2.png" width="816" height="864"/>
+<img src="img2.png" width="832" height="1168"/>
 </p>
 
 ## Binding
@@ -68,13 +69,14 @@ Mixer slots are evaluated sequentially.
 - Raw stick inputs (roll, pitch, thrt, yaw, knob)
 - Constants (max)
 - Switches (SwA, SwB, SwC, SwD)
+- Slowed input (appears with an asterisk)
 - Curves (Ail, Ele, Thrt, Rud, Cv1)
 - Channels (Ch1 to Ch8)
 - Temporary variables (Virt1, Virt2)
 
 The default mapping is Ail->Ch1, Ele->Ch2, Thrt->Ch3, Rud->Ch4, unless overridden in the mixer.
 
-##### [More about mixer](mixer.md)
+##### [Example mixes](mixer.md)
 
 ## Testing
 I have done several tests on this system and found it reliable enough. 
