@@ -1,3 +1,15 @@
+1.6.0
+-----
+16Nov2020
+ - Added 'Slow' function for switches, usable on only one switch. The source switch has its name
+   displayed with an asterisk in mixer.
+ - Removed hard-coded slowing of all switches in mixer. This could only be overcome with workarounds.
+ - Redesigned some layouts in gui.
+ - Removed mixer templates for crow braking and flaperon.
+ - Using single variable for all channel reverse. An array was quite wasteful for boolean data.
+ - Removed automatic formating of eeprom when default system or model values are edited.
+ - Other minor code improvements.
+
 1.5.0
 -----
 01Nov2020
