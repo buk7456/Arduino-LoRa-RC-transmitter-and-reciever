@@ -51,7 +51,7 @@ void setup()
   //init lcd
   display.begin();
   display.setTextWrap(false);
-  
+
   //init serial port
   Serial.begin(UART_BAUD_RATE);
   delay(200);
@@ -68,54 +68,87 @@ void setup()
     HandleBootUI(); //blocking
   }
   
-  //compute eeprom start address for model data and number of possible models we can have
+  //compute eeprom start address for model data and number of possible models
   eeModelDataStartAddress = eeSysDataStartAddress + sizeof(Sys);
-  numOfModels = ((E2END + 1) - eeModelDataStartAddress) / sizeof(Model); //E2END is last address
+  numOfModels = (EEPROM.length() - eeModelDataStartAddress) / sizeof(Model);
 
-  /********* EEPROM init ***************/
-  uint8_t EE_INITFLAG = crc8Maxim((uint8_t *) &Sys, sizeof(Sys)) ^ crc8Maxim((uint8_t *) &Model, sizeof(Model));
-  if (EEPROM.read(0) != EE_INITFLAG)
+  ///------------- EEPROM Check ------------------
+  
+  uint8_t eeInitFlag = crc8Maxim((uint8_t *) &Sys, sizeof(Sys)) ^ crc8Maxim((uint8_t *) &Model, sizeof(Model));
+ 
+  /// Check signature. If its not matching, then assume it's a fresh mcu and format the eeprom
+  uint16_t fileSignature;
+  EEPROM.get(EE_FILE_SIGNATURE_ADDR, fileSignature);
+  if(fileSignature != 0xE7D9) //force format
   {
+    FullScreenMsg(PSTR("Bad EEPROM data\n\nPress any key"));
     while(buttonCode == 0)
     {
-      DisplayFullScreenMsg(F("Bad EEPROM data"));
       readSwitchesAndButtons();
       delay(30);
     }
-    DisplayFullScreenMsg(F("Formating.."));
-    
-    //save
+    FullScreenMsg(PSTR("Formatting.."));
+    delay(500);
+    //write system data
     eeSaveSysConfig();
+    //write model data
     for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
       eeSaveModelData(mdlNo);
- 
-    EEPROM.write(0, EE_INITFLAG);
-    delay(1000);
-    changeToScreen(MODE_CALIB); //Set to sticks calib screen
-    buttonCode = 0; 
+    //write flag
+    EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
+    //write signature
+    fileSignature = 0xE7D9;
+    EEPROM.put(EE_FILE_SIGNATURE_ADDR, fileSignature);
     
+    buttonCode = 0; 
+    changeToScreen(MODE_CALIB);
     skipThrottleCheck = true;
   }
 
+  ///Check flag. Signature may match but not the data structs
+  if(EEPROM.read(2) != eeInitFlag)
+  {
+    FullScreenMsg(PSTR("Do you want to\nformat EEPROM?\n\nYes [Up]  \nNo  [Down]"));
+    while(buttonCode != UP_KEY && buttonCode != DOWN_KEY)
+    {
+      readSwitchesAndButtons();
+      delay(30);
+    }
+    if(buttonCode == UP_KEY) //format
+    {
+      FullScreenMsg(PSTR("Formatting.."));
+      delay(500);
+      //write system data
+      eeSaveSysConfig();
+      //write model data
+      for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
+        eeSaveModelData(mdlNo);
+      //write flag
+      EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
+      
+      buttonCode = 0; 
+      changeToScreen(MODE_CALIB); 
+      skipThrottleCheck = true;
+    }
+    else if(buttonCode == DOWN_KEY) //cancel format
+    {
+      EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
+      buttonCode = 0;
+    }
+  }
+  
+  ///-------------------------------------------
+  FullScreenMsg(PSTR("Welcome"));
+  delay(1000);
+
   ///--------- Load data from eeprom -----------
-  DisplayFullScreenMsg(F("Loading.."));
-  delay(500);
   eeReadSysConfig();
   eeReadModelData(Sys.activeModel);
 
-  ///--------- Init battery reading --------------
+  ///--------- Init battery reading ------------
   battVoltsNow = battVoltsMax; 
-  
-  ///--------- Overrides on startup ----------
-  readSwitchesAndButtons();
-  if(buttonCode == UP_KEY) //mute
-  {
-    Sys.soundMode = SOUND_OFF;
-    eeSaveSysConfig();
-  }
-  buttonCode = 0;
-  
-  ///---------- Warn throttle if throttle position is more than 5% above minimum ---
+
+  ///--------- Warn if throttle is not low -----
   if(!skipThrottleCheck)
   {
     readSwitchesAndButtons();
@@ -123,7 +156,7 @@ void setup()
     bool _rfState = Sys.rfOutputEnabled;
     while (throttleIn > -450)
     {
-      DisplayFullScreenMsg(F("Check throttle"));
+      FullScreenMsg(PSTR("Check throttle"));
       readSwitchesAndButtons();
       readSticks();
       //play warning sound
@@ -135,7 +168,7 @@ void setup()
     Sys.rfOutputEnabled = _rfState; //restore
   }
 
-  //------------------- Init throttle timer -------------------------
+  ///--------- Init throttle timer -------------
   throttleTimerLastPaused = millis(); 
   
 }
