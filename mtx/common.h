@@ -30,7 +30,7 @@ struct sysParams {
   
   bool rfOutputEnabled = false;
   uint8_t soundMode = SOUND_ALL; 
-  uint8_t backlightMode = BACKLIGHT_15S;
+  uint8_t backlightMode = BACKLIGHT_60S;
   uint8_t PWM_Mode_Ch3 = 1; //1 is servo pwm, 0 is ordinary pwm
 
   int rollMax  = 1023, rollMin  = 0, rollCenterVal = 512;
@@ -39,7 +39,6 @@ struct sysParams {
   int thrtlMax = 1023, thrtlMin = 0;
   uint8_t deadZonePerc = 5; //in percentage of stick range
 } Sys;
-
 
 //------------------- MODEL PARAMS -----------------------------------------------------------------
 
@@ -55,13 +54,13 @@ struct modelParams {
   
   //------- basic params ---------
   
-  bool Reverse[NUM_PRP_CHANNLES];
+  uint16_t Reverse; // each bit represents a channel. 1 is on, 0 is off
   int8_t EndpointL[NUM_PRP_CHANNLES];   //left endpoint, -100 to 0
   int8_t EndpointR[NUM_PRP_CHANNLES];   //right endpoint, 0 to 100
   int8_t Subtrim[NUM_PRP_CHANNLES];     //-25 to 25
   int8_t Failsafe[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
   int8_t CutValue[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
-  
+
   // Ail, Ele, Rud.
   bool DualRateEnabled[3]; 
   int8_t RateNormal[3];   //0 to 100
@@ -74,7 +73,11 @@ struct modelParams {
   int8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Are percentages. Values -25 to 25
   
   uint8_t Curve1Src;     
-  int8_t Curve1Pts[5];    //interpolation points. Range -100 to 100
+  int8_t  Curve1Pts[5];    //interpolation points. Range -100 to 100
+  
+  uint8_t Slow1Up;   // in tenths of a second
+  uint8_t Slow1Down; // in tenths of a second
+  uint8_t Slow1Src;  // only switches allowed as source
   
   uint8_t throttleTimerType;      
   uint8_t throttleTimerInitMins; 
@@ -122,7 +125,7 @@ enum {
   IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
   IDX_100PERC,
   IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
-  IDX_CRV1,
+  IDX_SLOW1, IDX_CRV1, 
   IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
   IDX_NONE, 
   IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8,
@@ -151,10 +154,11 @@ void setDefaultModelName()
 
 void setDefaultModelBasicParams()
 {
-  //reverse, subtrim, endpoints, cut, failsafe
+  //reverse 
+  Model.Reverse = 0;
+  //subtrim, endpoints, cut, failsafe
   for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
   {
-    Model.Reverse[i]   = false;
     Model.EndpointL[i] = -100;
     Model.EndpointR[i] = 100;
     Model.Subtrim[i]   = 0;
@@ -201,9 +205,14 @@ void setDefaultModelBasicParams()
   Model.Curve1Pts[3] = 50;
   Model.Curve1Pts[4] = 100;
   
+  //custom slowed inputs
+  Model.Slow1Src = IDX_SWC; 
+  Model.Slow1Up = 5;
+  Model.Slow1Down = 5;
+  
   //throttle timer
   Model.throttleTimerType = TIMERCOUNTUP;
-  Model.throttleTimerInitMins = 5; 
+  Model.throttleTimerInitMins = 10; 
   Model.throttleTimerThreshold = 20; 
 }
 
@@ -227,7 +236,6 @@ void setDefaultModelMixerParams()
   for(uint8_t i = 0; i < NUM_MIXSLOTS; i++)
     setDefaultModelMixerParams(i);
 }
-
 
 //---------------------- MISC ----------------------------------------------------------------------
 
@@ -276,6 +284,7 @@ int battVoltsNow; //millivolts
 enum{BATTLOW = 0, BATTHEALTY};
 uint8_t battState = BATTHEALTY;
 
+//---Audio----
 enum{  
   AUDIO_NONE = 0, 
   AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED,
@@ -284,16 +293,11 @@ enum{
 };
 uint8_t audioToPlay = AUDIO_NONE;
 
-//--- EEPROM
-//Address 0 is used to store eeprom init flag
-const uint8_t eeSysDataStartAddress = 1; 
-uint8_t eeModelDataStartAddress; //recalculated in setup()
-uint8_t numOfModels;  //recalculated in setup()
-
-//-----------
+//------------
 bool bindActivated = false;
 
-//---etc-----
+//---etc------
+
 uint8_t returnedByte; //got from slave mcu
 
 bool showPktsPerSec = false;
