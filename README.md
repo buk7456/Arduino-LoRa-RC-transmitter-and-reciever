@@ -14,7 +14,7 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - Safety (cut) switch
 - 5 model memory
 - User definable mixes with 10 mixer slots per model
-- Preconfigured mixer templates for Elevon, Vtail, Flaperon, Crow braking, Differential thrust
+- Preconfigured mixer templates for Elevon, Vtail, Differential thrust
 - 2 timers; Throttle timer and a free stopwatch
 - Sticks calibration
 - Audio tones
