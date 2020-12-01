@@ -67,7 +67,7 @@ When the throttle is increased, some down elevator can be added.
 ```
 
 #### Variable Steering Depending on Throttle Position
-Steering servo in Ch6.Suppose we want full steering when the throttle is closed, reducing to no steering at full throttle, we use a Multiply mix for this. 
+Steering servo in Ch6. Suppose we want full steering when the throttle is closed, reducing to no steering at full throttle, we use a Multiply mix for this. 
 ```txt
 1. Ch6 = 100%yaw * -50%thrt{50 offset}
 ```
