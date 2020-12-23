@@ -19,7 +19,7 @@ const int lcdBacklightPin = 6;
 const int SwCUpperPosPin = A4; //3pos switch
 const int SwCLowerPosPin = A5; //3pos switch
 
-const int msgLength = 20;  //bytes in master's message including start and stop
+const int msgLength = 21;  //bytes in master's message including start and stop
 uint8_t receivedData[msgLength];  //Holds the valid data from master mcu
 bool hasValidSerialMsg = false;
 
@@ -53,11 +53,11 @@ uint8_t ptr_fhss_schema = 0;
 #define EE_ADR_FHSS_SCHEMA  2
 
 //-------------- Audio --------------------------
-enum {  
+enum{  
   AUDIO_NONE = 0, 
   AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED,
-  AUDIO_SWITCHMOVED, AUDIO_TRIMSELECTED,
-  AUDIO_KEYTONE      
+  AUDIO_SWITCHMOVED, AUDIO_TRIM_AIL, AUDIO_TRIM_ELE, AUDIO_TRIM_THR, AUDIO_TRIM_RUD,
+  AUDIO_KEYTONE
 };
 
 uint8_t audioToPlay = AUDIO_NONE;
@@ -68,7 +68,10 @@ const char* battLowSound = "battlow2:d=4,o=5,b=290:4c6,32p,4a#,32p,4g.";
 const char* warnSound = "warn:d=4,o=4,b=160:4b5";
 const char* shortBeepSound = "shortBeep:d=4,o=4,b=250:16c#7";
 const char* timerElapsedSound = "timerElapsed:d=4,o=5,b=210:16b6,16p,8b6";
-const char* trimSelectSound = "trimSelect:d=4,o=4,b=160:16c#5";
+const char* trimAilSound = "ail:d=4,o=4,b=160:16a5";
+const char* trimEleSound = "ele:d=4,o=4,b=160:16b5";
+const char* trimThrSound = "thr:d=4,o=4,b=160:16c6";
+const char* trimRudSound = "rud:d=4,o=4,b=160:16d6";
 
 //==================================================================================================
 
@@ -116,6 +119,15 @@ void setup()
   }
   else
     radioInitialised = false;
+  
+  
+  //wait for atleast some valid message from master mcu
+  while(!hasValidSerialMsg)
+  {
+    getSerialData();
+    delay(1);
+  }
+
 }
 
 //========================================= MAIN ==================================================
@@ -127,6 +139,18 @@ void loop()
   ///----------- CONTROL LCD BACKLIGHT --------------------
   digitalWrite(lcdBacklightPin, (receivedData[1] >> 6) & 0x01);
   
+  ///------------ SET TX POWER LEVEL ----------------------
+  static uint8_t lastPowerLevel = 0xFF;
+  uint8_t powerLevel = receivedData[19];
+  if(powerLevel != lastPowerLevel && radioInitialised == true) //change power
+  {
+    lastPowerLevel = powerLevel;
+    uint8_t power_dBm[5] = {3, 7, 10, 14, 17}; //2mW, 5mW, 10mW, 25mW, 50mW
+    LoRa.sleep();
+    LoRa.setTxPower(power_dBm[powerLevel]);
+    LoRa.idle();
+  }
+
   ///----------- SEND VIA RF MODULE -----------------------
   if((receivedData[1] >> 5) & 0x01) //bind command received
     bind();  
@@ -161,8 +185,9 @@ void getSerialData()
       bit0 - Failsafe: 1 means failsafe data, 0 normal data
       
   byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
-  byte 18- Sound to play  (1 byte)
-  byte 19- End of message 0xDD
+  byte 18 - Sound to play  (1 byte)
+  byte 19 - RF power level (1 byte)
+  byte 20 - End of message 0xDD
   */
 
   uint8_t tmpBuff[64];
@@ -252,8 +277,17 @@ void playTones()
       case AUDIO_SWITCHMOVED:    
         rtttl::begin(buzzerPin, shortBeepSound); 
         break;
-      case AUDIO_TRIMSELECTED:
-        rtttl::begin(buzzerPin, trimSelectSound); 
+      case AUDIO_TRIM_AIL:
+        rtttl::begin(buzzerPin, trimAilSound); 
+        break;
+      case AUDIO_TRIM_ELE:
+        rtttl::begin(buzzerPin, trimEleSound); 
+        break;
+      case AUDIO_TRIM_THR:
+        rtttl::begin(buzzerPin, trimThrSound); 
+        break;
+      case AUDIO_TRIM_RUD:
+        rtttl::begin(buzzerPin, trimRudSound); 
         break;
     }
   }
