@@ -1,5 +1,9 @@
 1.6.0
 -----
+21Dec2020
+ - User adjustable transmitter rf power.
+ - Easily discernible audio beeps for trim to help tell which input we are trimming.
+ 
 16Nov2020
  - Added 'Slow' function for switches, usable on only one switch. The source switch has its name
    displayed with an asterisk in mixer.
