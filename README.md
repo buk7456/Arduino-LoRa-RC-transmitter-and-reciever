@@ -7,15 +7,14 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 </p>
 
 ## Features
-- 8 proportional channels with Reverse, Endpoints, Subtrim, Cut, Failsafe
-- 2 digital toggle channels
-- Dualrate & expo for Ail, Ele, Rud
+- 8 proportional channels and 2 digital channels
+- Reverse, Endpoints, Subtrim, Cut, and Failsafe
+- Dual rates and expo for Ail, Ele, Rud
 - Throttle curve and a custom curve with 5 points
-- Safety (cut) switch
-- 5 model memory
-- User definable mixes with 10 mixer slots per model
+- Flexible mixer with 10 mixer slots per model
 - Preconfigured mixer templates for Elevon, Vtail, Differential thrust
-- 2 timers; Throttle timer and a free stopwatch
+- Throttle timer and a free stopwatch
+- 5 model memory
 - Sticks calibration
 - Audio tones
 - Receiver binding
@@ -42,22 +41,24 @@ The schematics can be found in the 'etc' folder under root directory
 
 ## Compiling
 The code compiles on Arduino IDE 1.8.x or higher with board set to Arduino Uno. 
-The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in 
+<br>The transmitter code is in mtx (master mcu) and stx (slave mcu) folders. The receiver mcu code is in 
 the rx folder. No external libraries are required to compile.
+<br>I am using the 433MHz band with the SX1278 modules. If using other modules or frequency band, it is 
+neccessary to edit the frequency lists in the stx.ino and rx.ino files. 
 
 ## User Interface
 - Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
 - Holding the Down key on home screen accesses the extra digital channels A and B.
 - Holding the Select key on home screen accesses the trims.
-- Holding the Select key while powering opens the hidden boot menu.
+- Holding the Select key while powering opens the boot menu (for stick recalibration, format eeprom, etc.)
 
 <p align="center">
-<img src="img2.png" width="832" height="1168"/>
+<img src="img2.png" width="832" height="1312"/>
 </p>
 
 ## Binding
-To bind the receiver and transmitter, we use the bind option in the system settings. 
-Select bind option in transmitter and simultaneously restart the receiver.
+To bind the receiver and transmitter, we use the bind option in the receiver setup screen. 
+Select bind option and simultaneously restart the receiver.
 
 ## Mixing
 This controller implements a free mixer that offers flexiblity with what we want to control. 
@@ -80,9 +81,9 @@ The default mapping is Ail->Ch1, Ele->Ch2, Thrt->Ch3, Rud->Ch4, unless overridde
 
 ## Testing
 I have done several tests on this system and found it reliable enough. 
-The range I got with the SX1278 modules at the settings I used was more than 1.5km Line of sight in a semi urban area. 
-I have also tested the frequency hopping feature and it is stable enough. 
-The transmitter to receiver update rate averages at around 40 frames a second which is sufficient to control an RC model. 
+<br>The range I got with the SX1278 modules (433MHz at BW 250kHz, SF7, CR 4/5, 17dBm tx power, monopole antennas) was more than 2km line of sight in a semi urban area.
+<br>I have also tested the frequency hopping feature and it is stable enough. 
+<br>The transmitter to receiver update rate is about 40 frames a second which is sufficient to control an RC model. 
 There are no issues experienced with the servo control either. 
 
 ## Limitations
