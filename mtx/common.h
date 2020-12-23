@@ -23,12 +23,23 @@ enum {
   BACKLIGHT_LAST = BACKLIGHT_ON
 };
 
+enum {
+  RFPOWER_3dBm = 0,
+  RFPOWER_7dBm,
+  RFPOWER_10dBm,
+  RFPOWER_14dBm,
+  RFPOWER_17dBm,
+  RFPOWER_LAST = RFPOWER_17dBm
+};
+
 /* Structure for system parameters
 */
 struct sysParams {
   uint8_t activeModel = 1; //The current model
   
   bool rfOutputEnabled = false;
+  uint8_t rfPower = RFPOWER_10dBm;
+  
   uint8_t soundMode = SOUND_ALL; 
   uint8_t backlightMode = BACKLIGHT_60S;
   uint8_t PWM_Mode_Ch3 = 1; //1 is servo pwm, 0 is ordinary pwm
@@ -288,8 +299,8 @@ uint8_t battState = BATTHEALTY;
 enum{  
   AUDIO_NONE = 0, 
   AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED,
-  AUDIO_SWITCHMOVED, AUDIO_TRIMSELECTED,
-  AUDIO_KEYTONE      
+  AUDIO_SWITCHMOVED, AUDIO_TRIM_AIL, AUDIO_TRIM_ELE, AUDIO_TRIM_THR, AUDIO_TRIM_RUD,
+  AUDIO_KEYTONE
 };
 uint8_t audioToPlay = AUDIO_NONE;
 
