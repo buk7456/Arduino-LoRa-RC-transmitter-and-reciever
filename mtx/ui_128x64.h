@@ -42,16 +42,17 @@ const char* const bootMenu[] PROGMEM = { //table to refer to the strings
 };
 
 //-- Main menu strings. Max 16 characters per string
-#define NUM_ITEMS_MAIN_MENU 7
+#define NUM_ITEMS_MAIN_MENU 8
 char const main0[] PROGMEM = "Main menu"; //heading
 char const main1[] PROGMEM = "Model";
 char const main2[] PROGMEM = "Inputs";
 char const main3[] PROGMEM = "Mixer";
 char const main4[] PROGMEM = "Outputs";
 char const main5[] PROGMEM = "System";
-char const main6[] PROGMEM = "About";
+char const main6[] PROGMEM = "Receiver";
+char const main7[] PROGMEM = "About";
 const char* const mainMenu[] PROGMEM = { //table to refer to the strings
-  main0, main1, main2, main3, main4, main5, main6 
+  main0, main1, main2, main3, main4, main5, main6, main7
 };
 
 //Assign indices for ui states
@@ -64,6 +65,7 @@ enum
   MODE_MIXER,
   MODE_OUTPUTS,
   MODE_SYSTEM,
+  MODE_RECEIVER,
   MODE_ABOUT,
   //others
   HOME_SCREEN,
@@ -193,6 +195,16 @@ char const backlightModeStr3[] PROGMEM = "60s";
 char const backlightModeStr4[] PROGMEM = "On";
 const char* const backlightModeStr[] PROGMEM = { //table to refer to the strings
   backlightModeStr0, backlightModeStr1, backlightModeStr2, backlightModeStr3, backlightModeStr4
+};
+
+char const rfPowerStr0[] PROGMEM = "2mW";
+char const rfPowerStr1[] PROGMEM = "5mW";
+char const rfPowerStr2[] PROGMEM = "10mW";
+char const rfPowerStr3[] PROGMEM = "25mW";
+char const rfPowerStr4[] PROGMEM = "50mW";
+
+const char* const rfPowerStr[] PROGMEM = {  //table to refer to the strings
+  rfPowerStr0, rfPowerStr1, rfPowerStr2, rfPowerStr3, rfPowerStr4
 };
 
 // ---------------- Globals ------------------
@@ -428,9 +440,13 @@ void HandleMainUI()
         if (SwBEngaged && (Model.DualRateEnabled[AILRTE] || Model.DualRateEnabled[ELERTE] || Model.DualRateEnabled[RUDRTE]))
           display.drawBitmap(79, 1, dualrate_icon, 13, 6, 1);
         
-        //--------show rf icon------------
+        //--------show rf icon and tx power level ----
         if (Sys.rfOutputEnabled == true)
-          display.drawBitmap(97, 0, rf_icon, 7, 7, 1);
+        {
+          display.drawBitmap(95, 0, rf_icon, 7, 7, 1);
+          for(int i = 0; i < Sys.rfPower + 2; i++)
+            display.drawVLine(101 + i, 6 - i, i + 1, BLACK);
+        }
         
         //--------show mute icon------------
         if (Sys.soundMode == SOUND_OFF)
@@ -503,10 +519,10 @@ void HandleMainUI()
           //handle keys
           if(clickedButton == SELECT_KEY) 
           {
-            audioToPlay = AUDIO_TRIMSELECTED;
             selectedTrim++;
             if(selectedTrim > 3)
               selectedTrim = 0;
+            audioToPlay = AUDIO_TRIM_AIL + selectedTrim;
           }
           //adjust
           int8_t oldTrimVal = Model.Trim[selectedTrim];
@@ -1597,47 +1613,73 @@ void HandleMainUI()
         drawHeader();
 
         display.setCursor(0, 10);
-        display.print(F("RFoutput:  "));
-        drawCheckbox(66, 10, Sys.rfOutputEnabled);
-        
-        display.setCursor(0, 19);
-        display.print(F("Sounds:    "));
-        strlcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])), sizeof(txtBuff));
-        display.print(txtBuff);
-        
-        display.setCursor(0, 28);
         display.print(F("Backlght:  "));
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[Sys.backlightMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
+        display.setCursor(0, 19);
+        display.print(F("Sounds  :  "));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])), sizeof(txtBuff));
+        display.print(txtBuff);
+        
+        display.setCursor(0, 28);
+        display.print(F("RF outpt:  "));
+        drawCheckbox(66, 28, Sys.rfOutputEnabled);
+        
         display.setCursor(0, 37);
+        display.print(F("RF power:  "));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(rfPowerStr[Sys.rfPower])), sizeof(txtBuff));
+        display.print(txtBuff);
+         
+        changeFocusOnUPDOWN(4);
+        toggleEditModeOnSelectClicked();
+        drawCursor(58, 10 + (focusedItem - 1) * 9);
+        
+        //edit values
+        if (focusedItem == 1)
+          Sys.backlightMode = incDecOnUpDown(Sys.backlightMode, 0, BACKLIGHT_LAST, NOWRAP, PRESSED_ONLY);
+        else if (focusedItem == 2)
+          Sys.soundMode = incDecOnUpDown(Sys.soundMode, 0, SOUND_LAST, NOWRAP, PRESSED_ONLY);
+        else if (focusedItem == 3)
+          Sys.rfOutputEnabled = incDecOnUpDown(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
+        else if (focusedItem == 4) //adjust rf power
+          Sys.rfPower = incDecOnUpDown(Sys.rfPower, 0, RFPOWER_LAST, NOWRAP, PRESSED_ONLY);
+
+        //go back to main menu
+        if (heldButton == SELECT_KEY)
+        {
+          eeSaveSysConfig();
+          changeToScreen(MAIN_MENU);
+        }
+      }
+      break;
+      
+    case MODE_RECEIVER:
+      {
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_RECEIVER])), sizeof(txtBuff));
+        drawHeader();
+        
+        display.setCursor(0, 10);
         display.print(F("Ch3 Mode:  "));
         if(Sys.PWM_Mode_Ch3 == 1) 
           display.print(F("ServoPWM"));
         else  
           display.print(F("PWM"));
         
-        display.setCursor(0, 46);
+        display.setCursor(0, 19);
         display.print(F("Receiver:  [Bind]"));
         
-        changeFocusOnUPDOWN(5);
+        changeFocusOnUPDOWN(2);
         toggleEditModeOnSelectClicked();
         drawCursor(58, 10 + (focusedItem - 1) * 9);
         
-        //edit values
         if (focusedItem == 1)
-          Sys.rfOutputEnabled = incDecOnUpDown(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
-        else if (focusedItem == 2)
-          Sys.soundMode = incDecOnUpDown(Sys.soundMode, 0, SOUND_LAST, WRAP, PRESSED_ONLY);
-        else if (focusedItem == 3)
-          Sys.backlightMode = incDecOnUpDown(Sys.backlightMode, 0, BACKLIGHT_LAST, WRAP, PRESSED_ONLY);     
-        else if (focusedItem == 4)
         {
           Sys.PWM_Mode_Ch3 = incDecOnUpDown(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
           if(isEditMode && (pressedButton == UP_KEY || pressedButton == DOWN_KEY))
             makeToast(F("Restart receiver"), 2000);
         }
-        else if (focusedItem == 5 && isEditMode)
+        else if (focusedItem == 2 && isEditMode)
         {
           bindActivated = true;
           makeToast(F("Sending bind.."), 2000);
