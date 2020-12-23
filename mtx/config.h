@@ -37,9 +37,9 @@
 LCDCGM12864G_595 display = LCDCGM12864G_595(PIN_CGM_RSEL, PIN_CGM_RD, PIN_CGM_RST, PIN_LATCH);
 
 //---------- Battery voltage ----
-const int battVoltsMin = 3400; //millivolts
-const int battVoltsMax = 3900; //millivolts
-const int battVfactor  = 487;  //scaling factor
+const int battVoltsMin = 3500; //millivolts
+const int battVoltsMax = 4000; //millivolts
+const int battVfactor  = 503;  //scaling factor
 
 //-------------------------------
 #define UART_BAUD_RATE 115200
