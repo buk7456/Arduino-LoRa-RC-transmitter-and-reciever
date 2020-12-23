@@ -108,7 +108,7 @@ void setup()
   ///Check flag. Signature may match but not the data structs
   if(EEPROM.read(2) != eeInitFlag)
   {
-    FullScreenMsg(PSTR("Do you want to\nformat EEPROM?\n\nYes [Up]  \nNo  [Down]"));
+    FullScreenMsg(PSTR("Format EEPROM?\n\nYes [Up]  \nNo  [Down]"));
     while(buttonCode != UP_KEY && buttonCode != DOWN_KEY)
     {
       readSwitchesAndButtons();
@@ -225,7 +225,8 @@ void serialSendData()
       
   byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
   byte 18 - Sound to play  (1 byte)
-  byte 19 - End of message 0xDD
+  byte 19 - RF Power level (1 byte)
+  byte 20 - End of message 0xDD
   */
   
   /// ---- message start
@@ -290,6 +291,9 @@ void serialSendData()
 
   Serial.write(audioToPlay); 
   audioToPlay = AUDIO_NONE; //set to none
+  
+  /// ---- rf power level
+  Serial.write(Sys.rfPower);
   
   /// ---- end of message
   Serial.write(0xDD); 
