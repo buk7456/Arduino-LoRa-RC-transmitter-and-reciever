@@ -4,8 +4,8 @@
 //-------- PINS -----------------
 
 #define PIN_ROW1       2
-#define PIN_ROW2       3
-// #define PIN_ROW2      12
+// #define PIN_ROW2       3
+#define PIN_ROW2      12
 #define PIN_COL1 4
 #define PIN_COL2 5
 #define PIN_COL3 6
@@ -29,12 +29,12 @@
 #define PIN_BATTVOLTS  A5
 
 //--------- LCD KS0108 ----------
-// #include "LCDKS0108.h"
-// LCDKS0108 display = LCDKS0108(PIN_KS_RS, PIN_KS_EN, PIN_KS_CS1, PIN_KS_CS2, PIN_LATCH);
+#include "LCDKS0108.h"
+LCDKS0108 display = LCDKS0108(PIN_KS_RS, PIN_KS_EN, PIN_KS_CS1, PIN_KS_CS2, PIN_LATCH);
 
 //--------- LCD CGM12864G -------
-#include "LCDCGM12864G_595.h"
-LCDCGM12864G_595 display = LCDCGM12864G_595(PIN_CGM_RSEL, PIN_CGM_RD, PIN_CGM_RST, PIN_LATCH);
+// #include "LCDCGM12864G_595.h"
+// LCDCGM12864G_595 display = LCDCGM12864G_595(PIN_CGM_RSEL, PIN_CGM_RD, PIN_CGM_RST, PIN_LATCH);
 
 //---------- Battery voltage ----
 const int battVoltsMin = 3500; //millivolts
@@ -42,5 +42,4 @@ const int battVoltsMax = 4000; //millivolts
 const int battVfactor  = 503;  //scaling factor
 
 //-------------------------------
-#define UART_BAUD_RATE 115200
-// #define UART_BAUD_RATE 9600 //Testing 
+#define UART_BAUD_RATE 115200  //should match secondary mcu baud
