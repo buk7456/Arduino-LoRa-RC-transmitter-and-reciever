@@ -48,13 +48,13 @@ void setup()
   //init spi 
   SPI.begin(); //Still needed even when using SPI transactions
 
-  //init lcd
-  display.begin();
-  display.setTextWrap(false);
-
   //init serial port
   Serial.begin(UART_BAUD_RATE);
   delay(200);
+  
+  //init lcd
+  display.begin();
+  display.setTextWrap(false);
   
   //initialise with safe values. Will be overridden by reading from eeprom
   setDefaultModelName();
