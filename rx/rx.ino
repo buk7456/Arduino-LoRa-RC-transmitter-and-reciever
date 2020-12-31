@@ -77,11 +77,21 @@ to eeprom so we don't have to rebind each time we power on. */
 
 uint8_t ptr_fhss_schema = 0; 
 
+#define MAX_LISTEN_TIME_ON_HOP_CHANNEL 100 //in ms. If no packet received within this time, we hop 
+
 //-------------- EEprom stuff --------------------
 #define EE_INITFLAG         0xBA 
 #define EE_ADR_INIT_FLAG    0
 #define EE_ADR_TX_ID        1
 #define EE_ADR_FHSS_SCHEMA  2
+
+//--------------- Function Declarations ----------
+
+void readBindPacket();
+void readFlyModePacket();
+void hop();
+void writeOutputs();
+void printDebugData();
 
 //==================================================================================================
 void setup()
@@ -241,7 +251,7 @@ void readBindPacket()
   
   if(receivedBind == false)
   {
-    hop();  //set to operating frequencies
+    hop(); //set to operating frequencies
     return; //bail out
   }
 
@@ -259,7 +269,6 @@ void readBindPacket()
   EEPROM.write(EE_ADR_TX_ID, transmitterID);
   EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
-
   //set to fly mode freq
   hop();
 }
@@ -271,7 +280,7 @@ void hop()
   ptr_fhss_schema++;
   if(ptr_fhss_schema >= sizeof(fhss_schema)/sizeof(fhss_schema[0]))
     ptr_fhss_schema = 0;
-  
+
   uint8_t idx_freq = fhss_schema[ptr_fhss_schema];
   if(idx_freq < sizeof(freqList)/sizeof(freqList[0])) //prevents invalid references
   {
@@ -309,11 +318,16 @@ void readFlyModePacket()
     C is the CRC
   */
   
+  static uint32_t timeOfLastPacket = millis();
+  
   bool hasValidPacket = false;
   
   int packetSize = LoRa.parsePacket();
   if (packetSize > 0) //received a packet
   {
+    //record time packet received
+    timeOfLastPacket = millis();
+    
     rssi = LoRa.packetRssi();
     
     /// read packet
@@ -346,6 +360,14 @@ void readFlyModePacket()
       lastValidPacketMillis = millis();
     }
   }
+  else if(millis() - timeOfLastPacket > MAX_LISTEN_TIME_ON_HOP_CHANNEL)
+  {
+    //reset
+    timeOfLastPacket = millis();
+    //hop
+    hop();
+  }
+  
   
   if(hasValidPacket)
   {
@@ -390,7 +412,7 @@ void readFlyModePacket()
   }
   else
   {
-    //control orange LED
+    //turn off orange LED
     if(millis() - lastValidPacketMillis > 50) 
       digitalWrite(ORANGE_LED_PIN, LOW);
   }
@@ -464,4 +486,3 @@ void printDebugData()
     Serial.println();
   }
 }
-
