@@ -1,7 +1,10 @@
 1.6.0
 -----
+06Jan2021
+ - Flash LED on successful bind
+
 21Dec2020
- - User adjustable transmitter rf power.
+ - User selectable transmitter rf power.
  - Easily discernible audio beeps for trim to help tell which input we are trimming.
  
 16Nov2020
