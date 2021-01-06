@@ -97,14 +97,14 @@ struct modelParams {
   //------- mixer params ---------
   
   uint8_t MixIn1[NUM_MIXSLOTS];  //index in mix sources array
-  int8_t MixIn1Offset[NUM_MIXSLOTS]; //-100 to 200
-  int8_t MixIn1Weight[NUM_MIXSLOTS]; //-100 to 200
-  int8_t MixIn1Diff[NUM_MIXSLOTS];   //-100 to 200
+  int8_t MixIn1Offset[NUM_MIXSLOTS]; //-100 to 100
+  int8_t MixIn1Weight[NUM_MIXSLOTS]; //-100 to 100
+  int8_t MixIn1Diff[NUM_MIXSLOTS];   //-100 to 100
   
   uint8_t MixIn2[NUM_MIXSLOTS];  //index in mix sources array
-  int8_t MixIn2Offset[NUM_MIXSLOTS]; //-100 to 200
-  int8_t MixIn2Weight[NUM_MIXSLOTS]; //-100 to 200
-  int8_t MixIn2Diff[NUM_MIXSLOTS];   //-100 to 200
+  int8_t MixIn2Offset[NUM_MIXSLOTS]; //-100 to 100
+  int8_t MixIn2Weight[NUM_MIXSLOTS]; //-100 to 100
+  int8_t MixIn2Diff[NUM_MIXSLOTS];   //-100 to 100
   
   uint8_t MixOperator[NUM_MIXSLOTS];  
   uint8_t MixSwitch[NUM_MIXSLOTS];    
