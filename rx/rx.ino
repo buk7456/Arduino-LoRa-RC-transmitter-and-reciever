@@ -271,6 +271,15 @@ void readBindPacket()
   
   //set to fly mode freq
   hop();
+  
+  //indicate a successful bind
+  for(int i = 0; i < 3; i++) //flash led 3 times
+  {
+    digitalWrite(ORANGE_LED_PIN, HIGH);
+    delay(200);
+    digitalWrite(ORANGE_LED_PIN, LOW);
+    delay(200);
+  }
 }
 
 //==================================================================================================
