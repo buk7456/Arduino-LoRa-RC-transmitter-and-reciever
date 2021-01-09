@@ -89,9 +89,6 @@ void setup()
   transmitterID = EEPROM.read(EE_ADR_TX_ID);
   EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
-  //seed random number generator
-  randomSeed(analogRead(2));
-  
   //Clear receivedData to prevent unexpected results
   memset(receivedData, 0, sizeof(receivedData)); 
 
@@ -305,13 +302,17 @@ void bind()
   //-------- clear fhss_schema ---------------------------
   memset(fhss_schema, 0xff, sizeof(fhss_schema));
   
-  //-------- generate random transmitterID ---------------
-  // We use random transmitter ID as most Atmega328p don't have a unique serial number
+  //-------- generate random transmitterID and fhss_schema ----
+  
+  //Seed PRNG
+  randomSeed(millis());
+
+  //Generate random transmitterID
   transmitterID = random(1, 127) & 0x7F; //allowed IDs 1 through 126 
   //save to eeprom
   EEPROM.write(EE_ADR_TX_ID, transmitterID);
   
-  //-------- generate unique random fhss_schema ----------
+  //Generate random unique fhss_schema
   uint8_t idx = 0;
   while (idx < sizeof(fhss_schema)/sizeof(fhss_schema[0]))
   {
