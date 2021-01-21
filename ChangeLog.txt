@@ -1,5 +1,10 @@
 1.6.0
 -----
+21Jan2021
+ - Reduced receiver startup time. 
+ - Minor improvements to 'Model' screen.
+ - Other minor improvemnts.
+ 
 06Jan2021
  - Flash LED on successful bind
 
