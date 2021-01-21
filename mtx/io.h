@@ -75,53 +75,43 @@ void determineButtonEvent()
   - clickedButton is triggered when the button is released before heldButton event
   - heldButton is triggered when button is held down long enough  
   */
-  
+
   static uint8_t lastButtonCode = 0;
   static bool buttonActive = false, longPressActive = false;
   
-  pressedButton = 0; //clear 
+  //clear events
+  pressedButton = 0;
+  clickedButton = 0;
   
-  if (buttonCode > 0 && (millis() - buttonReleaseTime > 100)) //button down  
+  //button just went down
+  if (buttonCode > 0 && buttonActive == false && (millis() - buttonReleaseTime > 100)) 
   {
-    if (buttonActive == false)
-    {
-      buttonActive = true;
-      buttonStartTime = millis();
-      lastButtonCode = buttonCode;
-      pressedButton = buttonCode; //event
-    }
-
-    if ((millis() - buttonStartTime > LONGPRESSTIME) && longPressActive == false)
-    {
-      longPressActive = true;
-      heldButton = buttonCode; //event
-    }
-  }
-
-  else //button released
-  {
-    if(buttonActive == true)
-    {
-      buttonReleaseTime = millis();
-      buttonActive = false;
-    }
-    
-    if (longPressActive == true)
-    {
-      longPressActive = false;
-      heldButton = 0;
-      lastButtonCode = 0; //avoids falsely triggering clickedButton event
-    }
-    else
-    {
-      clickedButton = lastButtonCode;
-      lastButtonCode = 0; //enables setting clickedButton event only once
-    }
-  }
-  
-  //play tones
-  if(pressedButton > 0) 
+    buttonActive = true;
+    buttonStartTime = millis();
+    lastButtonCode = buttonCode;
+    pressedButton = buttonCode; //event
     audioToPlay = AUDIO_KEYTONE;
+  }
+  
+  //button is down long enough
+  if(buttonActive == true && longPressActive == false && (millis() - buttonStartTime > LONGPRESSTIME))
+  {
+    longPressActive = true;
+    heldButton = buttonCode; //event
+  }
+  
+  //button has just been released
+  if(buttonCode == 0 && buttonActive == true)
+  {
+    buttonActive = false;
+    buttonReleaseTime = millis();
+    
+    if(longPressActive == false)
+      clickedButton = lastButtonCode; //event
+    
+    heldButton = 0; //clear event
+    longPressActive = false;
+  }
 }
 
 //==================================================================================================
@@ -217,7 +207,7 @@ void computeChannelOutputs()
   ///--Mix source Ail, Ele, Thr, Rud, Custom curves
   
   //Ail
-  if(SwBEngaged == false || Model.DualRateEnabled[AILRTE] == false)
+  if(SwBEngaged == false || ((Model.DualRate >> AILRTE) & 1) == 0)
     MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateNormal[AILRTE], Model.ExpoNormal[AILRTE]);
   else
     MixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.RateSport[AILRTE], Model.ExpoSport[AILRTE]);
@@ -225,7 +215,7 @@ void computeChannelOutputs()
   MixSources[IDX_AIL] = constrain(MixSources[IDX_AIL], -500, 500);
   
   //Ele
-  if(SwBEngaged == false || Model.DualRateEnabled[ELERTE] == false)
+  if(SwBEngaged == false || ((Model.DualRate >> ELERTE) & 1) == 0)
     MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateNormal[ELERTE], Model.ExpoNormal[ELERTE]);
   else
     MixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.RateSport[ELERTE], Model.ExpoSport[ELERTE]);
@@ -233,7 +223,7 @@ void computeChannelOutputs()
   MixSources[IDX_ELE] = constrain(MixSources[IDX_ELE], -500, 500);
   
   //Rud
-  if(SwBEngaged == false || Model.DualRateEnabled[RUDRTE] == false)
+  if(SwBEngaged == false || ((Model.DualRate >> RUDRTE) & 1) == 0)
     MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateNormal[RUDRTE], Model.ExpoNormal[RUDRTE]);
   else
     MixSources[IDX_RUD] = calcRateExpo(yawIn, Model.RateSport[RUDRTE], Model.ExpoSport[RUDRTE]);
@@ -289,28 +279,23 @@ void computeChannelOutputs()
                                    Model.MixIn2Diff[_mixNum], Model.MixIn2Offset[_mixNum]);
     }
     
-    long _output = 0;
-    
     //--- Mix the inputs ---
+    long _output = _operand1;
     if(mixSwitchIsActive(_mixNum))
     {
       switch(Model.MixOperator[_mixNum])
       {
         case OPERATOR_ADD:
-          _output = _operand1 + _operand2;
+          _output += _operand2;
           break;
         case OPERATOR_MULTIPLY:
-          _output = (_operand1 * _operand2) / 500; 
+          _output *= _operand2;
+          _output /= 500; 
           break;
         case OPERATOR_REPLACE:
           _output = _operand2;
           break; 
       }
-    }
-    else
-    {
-      //the control switch is inactive. Simply ignore _operand2
-      _output = _operand1;
     }
     
     //--- Clamp -----
