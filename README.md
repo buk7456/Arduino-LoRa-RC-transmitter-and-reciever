@@ -57,8 +57,8 @@ neccessary to edit the frequency lists in the stx.ino and rx.ino files.
 </p>
 
 ## Binding
-To bind the receiver and transmitter, we use the bind option in the receiver setup screen. 
-Select bind option and simultaneously restart the receiver. The LED in receiver blinks on successful bind.
+To bind the receiver and transmitter, use the bind option in the receiver setup screen. 
+Select bind option and restart the receiver. The LED in receiver blinks on successful bind.
 
 ## Mixing
 This controller implements a free mixer that offers flexiblity with what we want to control. 
