@@ -31,7 +31,7 @@
 #define ORANGE_LED_PIN 6
 
 //-----------------------------------------------
-#define SERVOPULSERANGE 1000
+#define SERVO_PULSE_RANGE 1000
 #define SERVO_MAX_ANGLE 100 
 
 #include <Servo.h>
@@ -57,6 +57,8 @@ long validPacketCount = 0; //debug
 int rssi = 0; //debug
 
 uint8_t transmitterID = 0xFF; //settable during bind
+
+#define BIND_TIMEOUT  100 //in ms. Should be low to enable fast startup after a brownout in flight
 
 //--------------- Freq allocation --------------------
 
@@ -116,21 +118,17 @@ void setup()
   pinMode(CH10PIN, OUTPUT);
   
   //calc servo ranges
-  lowerLimMicroSec = SERVOPULSERANGE/2;
-  lowerLimMicroSec *= SERVO_MAX_ANGLE;
-  lowerLimMicroSec /= 90;
-  lowerLimMicroSec = 1500 - lowerLimMicroSec;
-  
-  upperLimMicroSec = SERVOPULSERANGE/2;
-  upperLimMicroSec *= SERVO_MAX_ANGLE;
-  upperLimMicroSec /= 90;
-  upperLimMicroSec += 1500;
+  long _microsec = SERVO_PULSE_RANGE / 2;
+  _microsec *= SERVO_MAX_ANGLE;
+  _microsec /= 90;
+  lowerLimMicroSec = 1500 - _microsec;  
+  upperLimMicroSec = 1500 + _microsec;
   
 #if defined (DEBUG)
   Serial.begin(115200);
 #endif
 
-  delay(500);
+  delay(100);
   
   //setup lora module
   LoRa.setPins(10, 8);
@@ -214,9 +212,9 @@ void readBindPacket()
   LoRa.setFrequency(freqList[0]);
   LoRa.idle();
   
-  //listen for 1 second
+  //listen for bind
   bool receivedBind = false;
-  uint32_t stopTime = millis() + 1000;
+  uint32_t stopTime = millis() + BIND_TIMEOUT;
   while(millis() < stopTime)
   {
     int packetSize = LoRa.parsePacket();
