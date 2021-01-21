@@ -183,9 +183,8 @@ char const modelActionStr0[] PROGMEM = "Load";
 char const modelActionStr1[] PROGMEM = "Copy from";
 char const modelActionStr2[] PROGMEM = "Rename";
 char const modelActionStr3[] PROGMEM = "Reset";
-char const modelActionStr4[] PROGMEM = "Delete";
 const char* const modelActionStr[] PROGMEM = { //table to refer to the strings
-  modelActionStr0, modelActionStr1, modelActionStr2, modelActionStr3, modelActionStr4
+  modelActionStr0, modelActionStr1, modelActionStr2, modelActionStr3
 };
 
 char const backlightModeStr0[] PROGMEM = "Off"; 
@@ -437,7 +436,7 @@ void HandleMainUI()
           display.drawBitmap(63, 1, cut_icon, 13, 6, 1);
 
         //---------show dualrate icon --------
-        if (SwBEngaged && (Model.DualRateEnabled[AILRTE] || Model.DualRateEnabled[ELERTE] || Model.DualRateEnabled[RUDRTE]))
+        if (SwBEngaged && Model.DualRate > 0)
           display.drawBitmap(79, 1, dualrate_icon, 13, 6, 1);
         
         //--------show rf icon and tx power level ----
@@ -690,7 +689,7 @@ void HandleMainUI()
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MODEL])), sizeof(txtBuff));
         drawHeader();
 
-        enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL, DELETEMODEL};
+        enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL};
         static uint8_t _action_ = LOADMODEL;
         static uint8_t _thisMdl_ = Sys.activeModel;
         
@@ -727,7 +726,7 @@ void HandleMainUI()
         drawCursor(41, (focusedItem * 10) + 2);
         
         if (focusedItem == 1) 
-          _action_ = incDecOnUpDown(_action_, 0, 4, WRAP, SLOW_CHANGE);
+          _action_ = incDecOnUpDown(_action_, 0, 3, WRAP, SLOW_CHANGE);
         
         else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYFROMMODEL))
           _thisMdl_ = incDecOnUpDown(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
@@ -735,14 +734,16 @@ void HandleMainUI()
         else if (focusedItem == 3 && isEditMode) //confirm action
         {
           if(_action_ == RENAMEMODEL)
-          {
-            _action_ = LOADMODEL; //reinit
-            _thisMdl_ = Sys.activeModel; //reinit
             changeToScreen(POPUP_RENAME_MODEL);
-          }
-          else
+          
+          else if(_action_ == LOADMODEL)
           {
-            if(_action_ == LOADMODEL)
+            if(_thisMdl_ == Sys.activeModel)
+            {
+              makeToast(F("Already loaded"), 1500);
+              changeToScreen(HOME_SCREEN);
+            }
+            else
             {
               //Save the active model before changing to another model
               eeSaveModelData(Sys.activeModel);
@@ -750,10 +751,25 @@ void HandleMainUI()
               eeReadModelData(_thisMdl_);
               //set as active model
               Sys.activeModel = _thisMdl_; 
-
+              
+              //reset other stuff
+              resetThrottleTimer();
+              Sys.rfOutputEnabled = false;
+              eeSaveSysConfig();
+              
               makeToast(F("Loaded"), 1500);
+              changeToScreen(HOME_SCREEN);
             }
-            else if(_action_ == COPYFROMMODEL)
+          }
+          
+          else if(_action_ == COPYFROMMODEL)
+          {
+            if(_thisMdl_ == Sys.activeModel)
+            {
+              makeToast(F("Nothing to copy"), 1500);
+              changeToScreen(HOME_SCREEN);
+            }
+            else
             {
               //temporarily store model name as we shall maintain it 
               strlcpy(_tmpBuff, Model.modelName, sizeof(_tmpBuff));
@@ -764,43 +780,36 @@ void HandleMainUI()
               //save
               eeSaveModelData(Sys.activeModel);
               
-              makeToast(F("Copied"), 1500);
-            }
-            else if (_action_ == RESETMODEL)
-            {
-              //set defaults, except the name
-              setDefaultModelBasicParams();
-              setDefaultModelMixerParams();
-              //save
-              eeSaveModelData(Sys.activeModel);
-
-              makeToast(F("Reset"), 1500);
-            }
-            else if (_action_ == DELETEMODEL)
-            {
-              //set defaults, as well as name
-              setDefaultModelBasicParams();
-              setDefaultModelMixerParams();
-              setDefaultModelName();
-              //save
-              eeSaveModelData(Sys.activeModel);
+              //reset other stuff
+              resetThrottleTimer();
+              Sys.rfOutputEnabled = false;
+              eeSaveSysConfig();
               
-              makeToast(F("Deleted"), 1500);
+              makeToast(F("Copied"), 1500);
+              changeToScreen(HOME_SCREEN);
             }
-
+          }
+          
+          else if (_action_ == RESETMODEL)
+          {
+           //set defaults
+            setDefaultModelBasicParams();
+            setDefaultModelMixerParams();
+            setDefaultModelName();
+            //save
+            eeSaveModelData(Sys.activeModel);
+            
             //reset other stuff
             resetThrottleTimer();
             Sys.rfOutputEnabled = false;
-            
-            //save system
             eeSaveSysConfig();
             
-            //reinit
-            _action_  = LOADMODEL;
-            _thisMdl_ = Sys.activeModel;
-            
+            makeToast(F("Data cleared"), 1500);
             changeToScreen(HOME_SCREEN);
           }
+          
+          _action_ = LOADMODEL; //reinit
+          _thisMdl_ = Sys.activeModel; //reinit
         }
 
         if (heldButton == SELECT_KEY)
@@ -884,9 +893,10 @@ void HandleMainUI()
           changeFocusOnUPDOWN(4);
           toggleEditModeOnSelectClicked();
           
-          int8_t *_rate;
-          int8_t *_expo;
-          if(SwBEngaged == true && Model.DualRateEnabled[_page] == true) //sport
+          int8_t *_rate = &Model.RateNormal[_page];
+          int8_t *_expo = &Model.ExpoNormal[_page];
+          
+          if(SwBEngaged == true && ((Model.DualRate >> _page) & 0x01)) //sport
           {
             _rate = &Model.RateSport[_page];
             _expo = &Model.ExpoSport[_page];
@@ -895,20 +905,19 @@ void HandleMainUI()
             display.setCursor(2, 51);
             display.print(F("Sport"));
           }
-          else //normal
-          {
-            _rate = &Model.RateNormal[_page];
-            _expo = &Model.ExpoNormal[_page];
-          }
-          
+
           //Adjust values
-          
           if (focusedItem == 2)
             *_rate = incDecOnUpDown(*_rate, 0, 100, NOWRAP, PRESSED_OR_HELD); 
           else if (focusedItem == 3)
             *_expo = incDecOnUpDown(*_expo, -100, 100, NOWRAP, PRESSED_OR_HELD);
           else if (focusedItem == 4)
-            Model.DualRateEnabled[_page] = incDecOnUpDown(Model.DualRateEnabled[_page], 0, 1, WRAP, PRESSED_ONLY);
+          {
+            uint8_t _drVal = (Model.DualRate >> _page) & 0x01;
+            _drVal = incDecOnUpDown(_drVal, 0, 1, WRAP, PRESSED_ONLY);
+            Model.DualRate &= ~(1 << _page); //clear
+            Model.DualRate |= (_drVal << _page); //set
+          }
         
           //Show text
           
@@ -932,7 +941,8 @@ void HandleMainUI()
           
           display.setCursor(0, 40);
           display.print(F("D/R:   "));
-          drawCheckbox(42, 40, Model.DualRateEnabled[_page]);
+          uint8_t _drVal = (Model.DualRate >> _page) & 0x01;
+          drawCheckbox(42, 40, _drVal);
         
           //draw graph 
           display.drawVLine(100, 11, 51, BLACK);
@@ -1134,31 +1144,21 @@ void HandleMainUI()
         
         display.setCursor(0, 24);
         display.print(F("Input:   "));
-        uint8_t _In1NameIndex = Model.MixIn1[thisMixNum];
-        if(_In1NameIndex == IDX_SLOW1) 
+        uint8_t _inName[2] = {Model.MixIn1[thisMixNum], Model.MixIn2[thisMixNum]};
+        for(uint8_t i = 0; i < 2; i++)
         {
-          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
-          display.print(txtBuff);
-          display.drawBitmap(display.getCursorX(), display.getCursorY(), asterisk_small, 3, 3, 1);
-        }
-        else
-        {
-          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In1NameIndex])), sizeof(txtBuff));
-          display.print(txtBuff);
-        }
-        
-        display.setCursor(97, 24);
-        uint8_t _In2NameIndex = Model.MixIn2[thisMixNum];
-        if(_In2NameIndex == IDX_SLOW1) 
-        {
-          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
-          display.print(txtBuff);
-          display.drawBitmap(display.getCursorX(), display.getCursorY(), asterisk_small, 3, 3, 1);
-        }
-        else
-        {
-          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_In2NameIndex])), sizeof(txtBuff));
-          display.print(txtBuff);
+          display.setCursor(54 + i*43, 24);
+          if(_inName[i] == IDX_SLOW1) 
+          {
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
+            display.print(txtBuff);
+            display.drawBitmap(display.getCursorX(), display.getCursorY(), asterisk_small, 3, 3, 1);
+          }
+          else
+          {
+            strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_inName[i]])), sizeof(txtBuff));
+            display.print(txtBuff);
+          }
         }
         
         display.setCursor(0, 32);
@@ -1682,7 +1682,7 @@ void HandleMainUI()
         else if (focusedItem == 2 && isEditMode)
         {
           bindActivated = true;
-          makeToast(F("Sending bind.."), 2000);
+          makeToast(F("Sending bind.."), 3000);
           eeSaveSysConfig();
           changeToScreen(HOME_SCREEN);
         }
@@ -2178,18 +2178,12 @@ void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val)
 
 bool isDefaultModelName(char* _nameBuff, uint8_t _len)
 {
-  /* Checks whether the passed model name is default */
-  
-  uint8_t _count = 0;
   for(uint8_t i = 0; i < _len - 1; i++)
   {
-    if(*(_nameBuff + i) == ' ') //check if it is a space character
-      _count++;
+    if(*(_nameBuff + i) != ' ') //check if it isn't a space character
+      return false;
   }
-  if(_count == (_len - 1)) 
-    return true;
-  else 
-    return false;
+  return true;
 }
 
 //--------------------------------------------------------------------------------------------------
