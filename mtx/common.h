@@ -72,8 +72,8 @@ struct modelParams {
   int8_t Failsafe[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
   int8_t CutValue[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
 
-  // Ail, Ele, Rud.
-  bool DualRateEnabled[3]; 
+  // Ail, Ele, Rud
+  uint8_t DualRate;  //Bit0 Ail, Bit1 Ele, Bit2 Rud  
   int8_t RateNormal[3];   //0 to 100
   int8_t RateSport[3];    //0 to 100
   int8_t ExpoNormal[3];   //-100 to 100
@@ -191,14 +191,14 @@ void setDefaultModelBasicParams()
   Model.Trim[2] = 0;
   Model.Trim[3] = 0;
   
-  //rate and expo, dualrate enabled
+  //rate and expo, dualrate
+  Model.DualRate = 0;
   for(uint8_t i = 0; i < 3; i++)
   {
     Model.RateNormal[i] = 100;
     Model.RateSport[i]  = 100;
     Model.ExpoNormal[i] = 0;
     Model.ExpoSport[i]  = 0;
-    Model.DualRateEnabled[i] = false;
   }
   
   //throttle curve
