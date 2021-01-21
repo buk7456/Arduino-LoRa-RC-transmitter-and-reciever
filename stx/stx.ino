@@ -359,7 +359,7 @@ void bind()
   dataToTransmit[12] = crc8Maxim(dataToTransmit, 12);
   
   //start transmission
-  uint32_t stopTime = millis() + 2000;
+  uint32_t stopTime = millis() + 3000;
   while(millis() < stopTime)
   {
     if (LoRa.beginPacket()) 
