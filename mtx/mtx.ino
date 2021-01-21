@@ -106,14 +106,16 @@ void setup()
   }
 
   ///Check flag. Signature may match but not the data structs
-  if(EEPROM.read(2) != eeInitFlag)
+  if(EEPROM.read(EE_INITFLAG_ADDR) != eeInitFlag)
   {
     FullScreenMsg(PSTR("Format EEPROM?\n\nYes [Up]  \nNo  [Down]"));
+    
     while(buttonCode != UP_KEY && buttonCode != DOWN_KEY)
     {
       readSwitchesAndButtons();
       delay(30);
     }
+    
     if(buttonCode == UP_KEY) //format
     {
       FullScreenMsg(PSTR("Formatting.."));
@@ -123,18 +125,13 @@ void setup()
       //write model data
       for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
         eeSaveModelData(mdlNo);
-      //write flag
-      EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
       
-      buttonCode = 0; 
       changeToScreen(MODE_CALIB); 
       skipThrottleCheck = true;
     }
-    else if(buttonCode == DOWN_KEY) //cancel format
-    {
-      EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
-      buttonCode = 0;
-    }
+    
+    EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
+    buttonCode = 0;
   }
   
   ///-------------------------------------------
@@ -151,13 +148,11 @@ void setup()
   ///--------- Warn if throttle is not low -----
   if(!skipThrottleCheck)
   {
-    readSwitchesAndButtons();
     readSticks();
     bool _rfState = Sys.rfOutputEnabled;
     while (throttleIn > -450)
     {
       FullScreenMsg(PSTR("Check throttle"));
-      readSwitchesAndButtons();
       readSticks();
       //play warning sound
       audioToPlay = AUDIO_THROTTLEWARN;
