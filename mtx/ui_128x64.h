@@ -7,23 +7,25 @@ void FullScreenMsg(const char* str);
 void toggleEditModeOnSelectClicked();
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
 void changeToScreen(int8_t _theScrn);
-void resetThrottleTimer();
+void resetTimer1();
 void drawHeader();
 void printVolts(int _milliVolts);
 void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY);
 void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
-void makeToast(const __FlashStringHelper* text, unsigned long duration);
+void makeToast(const __FlashStringHelper* text, unsigned long _duration);
+void makeToast(const __FlashStringHelper* text, unsigned long _duration, unsigned long _delay);
 void drawToast();
 void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
-bool isDefaultModelName(char* _nameBuff, uint8_t _len);
+bool isDefaultModelName(char* _nameBuff, uint8_t _lenBuff);
 int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val);
 
 enum {WRAP = true, NOWRAP = false};
 enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
 int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap, uint8_t _state);
 
+bool hasEnoughSlots(uint8_t _startIdx, uint8_t _numRequired);
 void loadMix(uint8_t _mixNo, 
              uint8_t _in1, int8_t _weight1, int8_t _diff1, int8_t _offset1,
              uint8_t _in2, int8_t _weight2, int8_t _diff2, int8_t _offset2, 
@@ -67,6 +69,7 @@ enum
   MODE_SYSTEM,
   MODE_RECEIVER,
   MODE_ABOUT,
+  
   //others
   HOME_SCREEN,
   POPUP_TIMER_MENU,
@@ -78,6 +81,10 @@ enum
   POPUP_COPY_MIX,
   POPUP_TEMPLATES_MENU,
   MODE_CALIB,
+  
+  CONFIRMATION_MODEL_COPY,
+  CONFIRMATION_MODEL_RESET,
+  CONFIRMATION_MIXES_RESET
 };
 
 //-- Timer popup menu strings. Max 15 characters per string
@@ -87,10 +94,10 @@ char const tmrStr2[] PROGMEM = "Reset timer 2";
 char const tmrStr3[] PROGMEM = "Reset timer 1";
 char const tmrStr4[] PROGMEM = "Setup timer 1";
 #define NUM_ITEMS_TIMER_POPUP 4
-const char* const timerMenuA[] PROGMEM = { //table to refer to the strings
+const char* const timerMenuA[] PROGMEM = {
   tmrStr0, tmrStr2, tmrStr3, tmrStr4
 };
-const char* const timerMenuB[] PROGMEM = { //table to refer to the strings
+const char* const timerMenuB[] PROGMEM = { 
   tmrStr1, tmrStr2, tmrStr3, tmrStr4
 };
 
@@ -143,7 +150,7 @@ char const srcName24[] PROGMEM = "Ch8";
 char const srcName25[] PROGMEM = "Virt1";
 char const srcName26[] PROGMEM = "Virt2";
 
-const char* const srcNames[] PROGMEM = { //table to refer to the strings
+const char* const srcNames[] PROGMEM = {
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
@@ -164,7 +171,7 @@ char const mxSwStr9[]  PROGMEM = "!SwC~";
 char const mxSwStr10[]  PROGMEM = "!SwC_";
 char const mxSwStr11[] PROGMEM = "SwD^";
 char const mxSwStr12[] PROGMEM = "SwD_";
-const char* const mixSwitchStr[] PROGMEM = { //table to refer to the strings
+const char* const mixSwitchStr[] PROGMEM = { 
   mxSwStr0, mxSwStr1, mxSwStr2, mxSwStr3, mxSwStr4, mxSwStr5, 
   mxSwStr6, mxSwStr7, mxSwStr8, mxSwStr9, mxSwStr10, mxSwStr11, mxSwStr12
 };
@@ -174,7 +181,7 @@ char const soundModeStr0[] PROGMEM = "Off";
 char const soundModeStr1[] PROGMEM = "Alarm"; 
 char const soundModeStr2[] PROGMEM = "NoKey"; 
 char const soundModeStr3[] PROGMEM = "All";
-const char* const soundModeStr[] PROGMEM = { //table to refer to the strings
+const char* const soundModeStr[] PROGMEM = { 
   soundModeStr0, soundModeStr1, soundModeStr2, soundModeStr3
 };
   
@@ -183,27 +190,37 @@ char const modelActionStr0[] PROGMEM = "Load";
 char const modelActionStr1[] PROGMEM = "Copy from";
 char const modelActionStr2[] PROGMEM = "Rename";
 char const modelActionStr3[] PROGMEM = "Reset";
-const char* const modelActionStr[] PROGMEM = { //table to refer to the strings
+const char* const modelActionStr[] PROGMEM = { 
   modelActionStr0, modelActionStr1, modelActionStr2, modelActionStr3
 };
 
+//Backlight mode strings
 char const backlightModeStr0[] PROGMEM = "Off"; 
 char const backlightModeStr1[] PROGMEM = "5s"; 
 char const backlightModeStr2[] PROGMEM = "15s"; 
 char const backlightModeStr3[] PROGMEM = "60s";
 char const backlightModeStr4[] PROGMEM = "On";
-const char* const backlightModeStr[] PROGMEM = { //table to refer to the strings
+const char* const backlightModeStr[] PROGMEM = { 
   backlightModeStr0, backlightModeStr1, backlightModeStr2, backlightModeStr3, backlightModeStr4
 };
 
+//RF power level strings
 char const rfPowerStr0[] PROGMEM = "2mW";
 char const rfPowerStr1[] PROGMEM = "5mW";
 char const rfPowerStr2[] PROGMEM = "10mW";
 char const rfPowerStr3[] PROGMEM = "25mW";
 char const rfPowerStr4[] PROGMEM = "50mW";
-
-const char* const rfPowerStr[] PROGMEM = {  //table to refer to the strings
+const char* const rfPowerStr[] PROGMEM = {  
   rfPowerStr0, rfPowerStr1, rfPowerStr2, rfPowerStr3, rfPowerStr4
+};
+
+//Timer operator strings
+char const tmrOperatorStr0[] PROGMEM = ">";
+char const tmrOperatorStr1[] PROGMEM = "<";
+char const tmrOperatorStr2[] PROGMEM = "abs>";
+char const tmrOperatorStr3[] PROGMEM = "abs<";
+const char* const tmrOperatorStr[] PROGMEM = {
+  tmrOperatorStr0, tmrOperatorStr1, tmrOperatorStr2, tmrOperatorStr3
 };
 
 // ---------------- Globals ------------------
@@ -218,13 +235,14 @@ bool isEditMode = false;
 int8_t topItem = 1;         //in main menu
 int8_t highlightedItem = 1; //in main menu
 
+//Model
+enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL};
+uint8_t _action_ = LOADMODEL;
+uint8_t _thisMdl_;
+
 //mixer
 uint8_t thisMixNum = 0; //these are references
 uint8_t destMixNum = 0; 
-
-// Throttle timer 
-unsigned long throttleTimerElapsedTime = 0, throttleTimerLastElapsedTime = 0;
-unsigned long throttleTimerLastPaused = 0;
 
 //generic stopwatch
 unsigned long stopwatchElapsedTime = 0;
@@ -239,6 +257,7 @@ unsigned long battWarnMillisQQ = 0;
 //toast
 const __FlashStringHelper* toastText;
 unsigned long toastExpireTime;
+unsigned long toastStartTime;
 
 
 //================================== Generic messages ==============================================
@@ -255,8 +274,6 @@ void FullScreenMsg(const char* str)
     pos++;
   }
   pos = 0; //reset
-  
-  display.clearDisplay();
 
   int y_offset = (display.height() - numTextLines * 9) / 2; //9 is line pitch
   for(uint8_t line = 1; line <= numTextLines; line++)
@@ -279,8 +296,6 @@ void FullScreenMsg(const char* str)
     y_offset += 9; 
     pos++;
   }
-
-  display.display();
 }
 
 ///=================================================================================================
@@ -342,32 +357,6 @@ void HandleBootUI()
 
 void HandleMainUI()
 {
-  /* This function handles the main user interface, allowing us to view, navigate and adjust values, etc.
-    Three buttons are used for interaction; select, up, and down. Longpressing select acts as back.
-  */
-
-  ///------------ THROTTLE TIMER -----------------
-  //controlled by throttle stick value. If throttle is above threshold, run, else pause.
-  
-  int thStpwtch = -500 + (10 * int(Model.throttleTimerThreshold));
-  unsigned long timerCountDownInitVal = Model.throttleTimerInitMins * 60000UL;
-  if(throttleIn <= thStpwtch || cutIsActivated()) //pause
-  {
-    throttleTimerLastElapsedTime = throttleTimerElapsedTime;
-    throttleTimerLastPaused = millis();
-  }
-  else //run
-  {
-    throttleTimerElapsedTime = throttleTimerLastElapsedTime + millis() - throttleTimerLastPaused;
-  }
- 
-  //play audio
-  if(Model.throttleTimerType == TIMERCOUNTDOWN && throttleTimerElapsedTime > timerCountDownInitVal)
-  {
-    if((throttleTimerElapsedTime - timerCountDownInitVal) < 500) //only play sound within this timeframe
-      audioToPlay = AUDIO_TIMERELAPSED;
-  }
-  
   ///--------------- GENERIC STOPWATCH --------------------
   if(stopwatchIsPaused == false) //run
     stopwatchElapsedTime = stopwatchLastElapsedTime + millis() - stopwatchLastPaused;
@@ -376,6 +365,15 @@ void HandleMainUI()
     stopwatchLastElapsedTime = stopwatchElapsedTime;
     stopwatchLastPaused = millis();
   }
+  
+  ///---------------- TIMER 1 -----------------------------
+  //play sound when timer expires (if count down timer)
+  uint32_t _initMillis = Model.Timer1InitMins * 60000UL;
+  if (Model.Timer1InitMins > 0 && timer1ElapsedTime > _initMillis)
+  {
+    if((timer1ElapsedTime - _initMillis) < 500) //only play sound within this timeframe
+      audioToPlay = AUDIO_TIMERELAPSED;
+  }
 
   /// -------------- LOW BATTERY WARN ----------------------
   if(battState == BATTLOW)
@@ -383,8 +381,12 @@ void HandleMainUI()
     if(battWarnDismissed == false)
     {
       //show warning
+      display.clearDisplay();
       FullScreenMsg(PSTR("Battery Low"));
+      display.display();
+      
       audioToPlay = AUDIO_BATTERYWARN; 
+      
       //dismiss warning
       if((clickedButton > 0 || millis() - battWarnMillisQQ > 3000))
       {
@@ -430,10 +432,6 @@ void HandleMainUI()
             display.fillRect(2 + i*3, 2, 2, 3, BLACK);
           lastNumOfBars = numOfBars;
         }
-        
-        //---------show cut icon -----------
-        if (cutIsActivated())
-          display.drawBitmap(63, 1, cut_icon, 13, 6, 1);
 
         //---------show dualrate icon --------
         if (SwBEngaged && Model.DualRate > 0)
@@ -464,22 +462,21 @@ void HandleMainUI()
         // draw separator
         display.drawHLine(20,27,84,BLACK);
 
-        //----show throttle timer---------
-        display.drawBitmap(13, 33, pow_icon, 4, 5, 1);
-        if(Model.throttleTimerType == TIMERCOUNTUP)
-          printHHMMSS(throttleTimerElapsedTime, 20, 32);
-        else if(Model.throttleTimerType == TIMERCOUNTDOWN)
+        //----show timer 1 ---------
+        if(Model.Timer1InitMins == 0) //a countup timer
+          printHHMMSS(timer1ElapsedTime, 20, 32);
+        else //a count down timer
         {
-          unsigned long timerCountDownInitVal = Model.throttleTimerInitMins * 60000UL;
-          if(throttleTimerElapsedTime < timerCountDownInitVal)
+          uint32_t _initMillis = Model.Timer1InitMins * 60000UL;
+          if(timer1ElapsedTime < _initMillis)
           {
-            unsigned long ttqq = timerCountDownInitVal - throttleTimerElapsedTime;
+            uint32_t ttqq = _initMillis - timer1ElapsedTime;
             printHHMMSS(ttqq + 999, 20, 32); //add 999ms so the displayed time doesnt 
             //change immediately upon running the timer
           }
           else
           {
-            unsigned long ttqq = throttleTimerElapsedTime - timerCountDownInitVal;
+            uint32_t ttqq = timer1ElapsedTime - _initMillis;
             if(ttqq >= 1000) //prevents displaying -00:00
             { 
               display.setCursor(20, 32);
@@ -490,7 +487,7 @@ void HandleMainUI()
               printHHMMSS(ttqq, 20, 32);
           }
         }
-        
+
         //------- Show generic timer ------------
         printHHMMSS(stopwatchElapsedTime, 20, 45);
 
@@ -504,10 +501,10 @@ void HandleMainUI()
           if(pressedButton == SELECT_KEY) 
             DigChB = ~DigChB & 0x01; //toggle
           //draw
-          if(DigChA) display.drawBitmap(110, 1, chA_icon1, 9, 9, 1);
-          else display.drawBitmap(110, 1, chA_icon0, 9, 9, 1);
-          if(DigChB) display.drawBitmap(110, 29, chB_icon1, 9, 9, 1);
-          else display.drawBitmap(110, 29, chB_icon0, 9, 9, 1);
+          if(DigChA) display.drawBitmap(113, 1, chA_icon1, 9, 9, 1);
+          else display.drawBitmap(113, 1, chA_icon0, 9, 9, 1);
+          if(DigChB) display.drawBitmap(113, 29, chB_icon1, 9, 9, 1);
+          else display.drawBitmap(113, 29, chB_icon0, 9, 9, 1);
         }
         else if(homeScreenMode == TRIMMODE)
         {
@@ -525,24 +522,23 @@ void HandleMainUI()
           }
           //adjust
           int8_t oldTrimVal = Model.Trim[selectedTrim];
-          Model.Trim[selectedTrim] = adjustTrim(-25, 25, Model.Trim[selectedTrim]);
+          Model.Trim[selectedTrim] = adjustTrim(-20, 20, Model.Trim[selectedTrim]);
           if(Model.Trim[selectedTrim] != oldTrimVal)
             trimIsPendingSave = true;
           
-          //show names and values
-          display.setCursor(86, 32);
+          //show current trim
+          display.setCursor(81, 34);
           strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_AIL + selectedTrim])), sizeof(txtBuff));
           display.print(txtBuff);
-          display.setCursor(86, 44);
-          if(Model.Trim[selectedTrim] > 0)
-           display.print(F("+"));
-          display.print(Model.Trim[selectedTrim]);
-
+          display.setCursor(81, 42);
+          display.print(F("trim"));
+          display.drawRect(79, 32, 27, 20, BLACK);
+          
           //draw sliders
-          display.drawHLine(68, 62, 51, BLACK);
-          display.drawVLine(126, 12, 51, BLACK);
-          display.drawVLine(1, 12, 51, BLACK);
-          display.drawHLine(9, 62, 51, BLACK);
+          display.drawHLine(73, 62, 41, BLACK);
+          display.drawVLine(126, 17, 41, BLACK);
+          display.drawVLine(1, 17, 41, BLACK);
+          display.drawHLine(14, 62, 41, BLACK);
           //draw thumbs
           display.drawRect(Model.Trim[0] + 92, 61, 3, 3, BLACK);
           display.drawRect(125, 36 - Model.Trim[1], 3, 3, BLACK);
@@ -610,7 +606,7 @@ void HandleMainUI()
         }
         else if(_selection == 3) //reset timer 1
         {
-          resetThrottleTimer();
+          resetTimer1();
           changeToScreen(HOME_SCREEN);
         }
         else if(_selection == 4) //reset timer 1
@@ -625,40 +621,57 @@ void HandleMainUI()
       {
         strlcpy_P(txtBuff, PSTR("Timer 1"), sizeof(txtBuff));
         drawHeader();
-      
+        
+        uint8_t _maxFocusableItems = 1;
+        
         display.setCursor(0, 10);
-        display.print(F("Throttle >=  "));
-        display.print(Model.throttleTimerThreshold);
-        display.print(F("%"));
+        display.print(F("Control:   "));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Timer1ControlSrc])), sizeof(txtBuff));
+        display.print(txtBuff);
         
-        display.setCursor(0, 19);
-        display.print(F("Timer type:  "));
-        if(Model.throttleTimerType == TIMERCOUNTDOWN)
-          display.print(F("CntDn"));
-        else if(Model.throttleTimerType == TIMERCOUNTUP)
-          display.print(F("CntUp"));
-        
-        uint8_t _maxFocusableItems = 2;
-        
-        if(Model.throttleTimerType == TIMERCOUNTDOWN)
+        if(Model.Timer1ControlSrc != IDX_NONE)
         {
-          _maxFocusableItems = 3;
+          _maxFocusableItems = 4;
+          
+          display.setCursor(0, 19);
+          display.print(F("Operator:  "));
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(tmrOperatorStr[Model.Timer1Operator])), sizeof(txtBuff));
+          display.print(txtBuff);
+          
           display.setCursor(0, 28);
-          display.print(F("Start:       "));
-          display.print(Model.throttleTimerInitMins);
+          display.print(F("Value:     "));
+          display.print(Model.Timer1Value);
+          
+          display.setCursor(0, 37);
+          display.print(F("Initial:   "));
+          display.print(Model.Timer1InitMins);
           display.print(F(" min"));
         }
-      
+        
         changeFocusOnUPDOWN(_maxFocusableItems);
         toggleEditModeOnSelectClicked();
-        drawCursor(70, (focusedItem * 9) + 1);
+        drawCursor(58, (focusedItem * 9) + 1);
         
         if (focusedItem == 1)
-          Model.throttleTimerThreshold = incDecOnUpDown(Model.throttleTimerThreshold, 0, 100, NOWRAP, PRESSED_OR_HELD);
+        {
+          Model.Timer1ControlSrc = incDecOnUpDown(Model.Timer1ControlSrc, 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
+          //Validate sources. Allowed sources are raw sticks, knob, switches, channels, virtuals
+          while(Model.Timer1ControlSrc == IDX_100PERC 
+                || (Model.Timer1ControlSrc >= IDX_SLOW1 && Model.Timer1ControlSrc <= IDX_RUD))
+          {
+            if(buttonCode == UP_KEY) 
+              ++Model.Timer1ControlSrc;
+            else if(buttonCode == DOWN_KEY) 
+              --Model.Timer1ControlSrc;
+          }
+        }
         else if(focusedItem == 2)
-          Model.throttleTimerType = incDecOnUpDown(Model.throttleTimerType, TIMERCOUNTUP, TIMERCOUNTDOWN, WRAP, PRESSED_ONLY);
+          Model.Timer1Operator = incDecOnUpDown(Model.Timer1Operator, 0, NUM_TIMER_OPERATORS - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 3)
-          Model.throttleTimerInitMins = incDecOnUpDown(Model.throttleTimerInitMins, 1, 240, NOWRAP, PRESSED_OR_HELD);
+          Model.Timer1Value = incDecOnUpDown(Model.Timer1Value, -100, 100, NOWRAP, PRESSED_OR_HELD);
+        else if(focusedItem == 4)
+          Model.Timer1InitMins = incDecOnUpDown(Model.Timer1InitMins, 0, 240, NOWRAP, PRESSED_OR_HELD);
+          
       
         if (heldButton == SELECT_KEY)
         {
@@ -689,12 +702,6 @@ void HandleMainUI()
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MODEL])), sizeof(txtBuff));
         drawHeader();
 
-        enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL};
-        static uint8_t _action_ = LOADMODEL;
-        static uint8_t _thisMdl_ = Sys.activeModel;
-        
-        char _tmpBuff[sizeof(Model.modelName)/sizeof(Model.modelName[0])]; //for model names
-        
         //-- show action
         display.setCursor(49, 12);
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(modelActionStr[_action_])), sizeof(txtBuff));
@@ -707,14 +714,14 @@ void HandleMainUI()
         
         display.setCursor(49, 22);
         
-        eeCopyModelName(_thisMdl_, _tmpBuff); //copy model name into temporary buffer
-        if(isDefaultModelName(_tmpBuff, sizeof(_tmpBuff)/sizeof(_tmpBuff[0])))
+        eeCopyModelName(_thisMdl_, txtBuff); //copy model name into temporary buffer
+        if(isDefaultModelName(txtBuff, sizeof(txtBuff)))
         { 
           display.print(F("MODEL"));
           display.print(_thisMdl_);
         }
         else
-          display.print(_tmpBuff);
+          display.print(txtBuff);
         
         //-- show confirmation
         display.setCursor(49, 32);
@@ -740,7 +747,7 @@ void HandleMainUI()
           {
             if(_thisMdl_ == Sys.activeModel)
             {
-              makeToast(F("Already loaded"), 1500);
+              makeToast(F("Already loaded"), 2000);
               changeToScreen(HOME_SCREEN);
             }
             else
@@ -753,63 +760,31 @@ void HandleMainUI()
               Sys.activeModel = _thisMdl_; 
               
               //reset other stuff
-              resetThrottleTimer();
+              resetTimer1();
               Sys.rfOutputEnabled = false;
               eeSaveSysConfig();
               
-              makeToast(F("Loaded"), 1500);
+              makeToast(F("Loaded"), 2000);
               changeToScreen(HOME_SCREEN);
             }
+            
+            _action_ = LOADMODEL; //reinit
+            _thisMdl_ = Sys.activeModel; //reinit
           }
           
           else if(_action_ == COPYFROMMODEL)
           {
             if(_thisMdl_ == Sys.activeModel)
             {
-              makeToast(F("Nothing to copy"), 1500);
+              makeToast(F("Nothing to copy"), 2000);
               changeToScreen(HOME_SCREEN);
             }
             else
-            {
-              //temporarily store model name as we shall maintain it 
-              strlcpy(_tmpBuff, Model.modelName, sizeof(_tmpBuff));
-              //load source model into ram
-              eeReadModelData(_thisMdl_);
-              //restore model name
-              strlcpy(Model.modelName, _tmpBuff, sizeof(Model.modelName));
-              //save
-              eeSaveModelData(Sys.activeModel);
-              
-              //reset other stuff
-              resetThrottleTimer();
-              Sys.rfOutputEnabled = false;
-              eeSaveSysConfig();
-              
-              makeToast(F("Copied"), 1500);
-              changeToScreen(HOME_SCREEN);
-            }
+              changeToScreen(CONFIRMATION_MODEL_COPY);
           }
           
           else if (_action_ == RESETMODEL)
-          {
-           //set defaults
-            setDefaultModelBasicParams();
-            setDefaultModelMixerParams();
-            setDefaultModelName();
-            //save
-            eeSaveModelData(Sys.activeModel);
-            
-            //reset other stuff
-            resetThrottleTimer();
-            Sys.rfOutputEnabled = false;
-            eeSaveSysConfig();
-            
-            makeToast(F("Data cleared"), 1500);
-            changeToScreen(HOME_SCREEN);
-          }
-          
-          _action_ = LOADMODEL; //reinit
-          _thisMdl_ = Sys.activeModel; //reinit
+            changeToScreen(CONFIRMATION_MODEL_RESET);
         }
 
         if (heldButton == SELECT_KEY)
@@ -823,12 +798,82 @@ void HandleMainUI()
       }
       break;
       
+    case CONFIRMATION_MODEL_COPY:
+      {
+        FullScreenMsg(PSTR("Model data\nwill be overwritten.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        if(clickedButton == UP_KEY)
+        {
+          //temporarily store model name as we shall maintain it 
+          strlcpy(txtBuff, Model.modelName, sizeof(txtBuff));
+          //load source model into ram
+          eeReadModelData(_thisMdl_);
+          //restore model name
+          strlcpy(Model.modelName, txtBuff, sizeof(Model.modelName));
+          //save
+          eeSaveModelData(Sys.activeModel);
+          
+          //reset other stuff
+          resetTimer1();
+          Sys.rfOutputEnabled = false;
+          eeSaveSysConfig();
+          
+          _action_ = LOADMODEL; //reinit
+          _thisMdl_ = Sys.activeModel; //reinit
+          
+          makeToast(F("Copied"), 2000);
+          changeToScreen(HOME_SCREEN);
+        }
+        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
+        {
+          _action_ = LOADMODEL; //reinit
+          _thisMdl_ = Sys.activeModel; //reinit
+          
+          makeToast(F("Canceled"), 2000);
+          changeToScreen(HOME_SCREEN);
+        }
+      }
+      break;
+      
+    case CONFIRMATION_MODEL_RESET:
+      {
+        FullScreenMsg(PSTR("Model data\nwill be cleared.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        if(clickedButton == UP_KEY)
+        {
+          //set defaults
+          setDefaultModelBasicParams();
+          setDefaultModelMixerParams();
+          setDefaultModelName();
+          //save
+          eeSaveModelData(Sys.activeModel);
+          
+          //reset other stuff
+          resetTimer1();
+          Sys.rfOutputEnabled = false;
+          eeSaveSysConfig();
+          
+          _action_ = LOADMODEL; //reinit
+          _thisMdl_ = Sys.activeModel; //reinit
+          
+          makeToast(F("Data cleared"), 2000);
+          changeToScreen(HOME_SCREEN);
+        }
+        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
+        {
+          _action_ = LOADMODEL; //reinit
+          _thisMdl_ = Sys.activeModel; //reinit
+          
+          makeToast(F("Canceled"), 2000);
+          changeToScreen(HOME_SCREEN);
+        }
+      }
+      break;
+      
     case POPUP_RENAME_MODEL:
       {
         display.drawRect(15,11,97,40,BLACK); //draw bounding box
         
         display.setCursor(19,14);
-        display.print(F("Rename Model"));
+        display.print(F("Rename MODEL"));
         display.print(Sys.activeModel); 
         display.setCursor(19,23);
         display.print(F("Name:  "));
@@ -839,16 +884,25 @@ void HandleMainUI()
         static uint8_t charPos = 0;
         uint8_t thisChar = Model.modelName[charPos] ;
         
-        if(thisChar == 32) thisChar = 0; //map ascii 32 (space) to 0
-        else if(thisChar >= 65 && thisChar <= 90) thisChar -= 64; //map ascii 65..90 to 1..26
-        else if(thisChar >= 45 && thisChar <= 57) thisChar -= 18; //map ascii 45..57 to 27..39
-
-        thisChar = incDecOnUpDown(thisChar, 0, 39, NOWRAP, SLOW_CHANGE);
+        //----mapping characters---
+        //Z to A (ascii 90 to 65) --> 0 to 25
+        //space  (ascii 32) --> 26
+        //a to z (ascii 97 to 122) --> 27 to 52
+        //Symbols and numbers (ascii 45 to 57) --> 53 to 65
+        
+        if(thisChar >= 65 && thisChar <= 90) thisChar = 90 - thisChar ;
+        else if(thisChar == 32) thisChar = 26;
+        else if(thisChar >= 97 && thisChar <= 122) thisChar -= 70;
+        else if(thisChar >= 45 && thisChar <= 57) thisChar += 8;
+        
+        //adjust 
+        thisChar = incDecOnUpDown(thisChar, 0, 65, NOWRAP, SLOW_CHANGE);
 
         //map back
-        if(thisChar == 0) thisChar = 32; //map 0 to ascii 32 (space)
-        else if(thisChar >= 1 && thisChar <= 26) thisChar += 64; //map 1..26 to ascii 65..90
-        else if(thisChar >= 27 && thisChar <= 39) thisChar += 18; //map 27..39 to ascii 45..57
+        if(thisChar <= 25) thisChar = 90 - thisChar;
+        else if(thisChar == 26) thisChar = 32; 
+        else if(thisChar >= 27 && thisChar <= 52) thisChar += 70;
+        else if(thisChar >= 53 && thisChar <= 65) thisChar -= 8;
 
         //write
         Model.modelName[charPos] = thisChar;
@@ -871,7 +925,7 @@ void HandleMainUI()
           charPos = 0;
           eeSaveModelData(Sys.activeModel);
           changeToScreen(HOME_SCREEN); 
-          makeToast(F("Done"), 1500);
+          makeToast(F("Done"), 2000);
         }
       }
       break;
@@ -1185,12 +1239,12 @@ void HandleMainUI()
         
         display.setCursor(0, 56);
         display.print(F("Opertr:  "));
-        if(Model.MixOperator[thisMixNum] == OPERATOR_ADD) 
+        if(Model.MixOperator[thisMixNum] == MIX_ADD) 
           display.print(F("Add"));
-        else if(Model.MixOperator[thisMixNum] == OPERATOR_MULTIPLY) 
+        else if(Model.MixOperator[thisMixNum] == MIX_MULTIPLY) 
           display.print(F("Mltply"));
-        else if(Model.MixOperator[thisMixNum] == OPERATOR_REPLACE) 
-          display.print(F("Replc"));
+        else if(Model.MixOperator[thisMixNum] == MIX_REPLACE) 
+          display.print(F("RplcW"));
         
         //show mixer switch
         display.setCursor(97, 56);
@@ -1290,17 +1344,34 @@ void HandleMainUI()
         }
         else if(_selection == 5) //reset all mixes
         {
-          setDefaultModelMixerParams();
-          thisMixNum = 0;
-          destMixNum = 0;
-          changeToScreen(MODE_MIXER);
+          changeToScreen(CONFIRMATION_MIXES_RESET);
         }
-        else if(_selection == 6) 
+        else if(_selection == 6) //mixer templates
         {
           changeToScreen(POPUP_TEMPLATES_MENU);
         }
         else if(heldButton == SELECT_KEY) //exit
           changeToScreen(MODE_MIXER);
+      }
+      break;
+      
+    case CONFIRMATION_MIXES_RESET:
+      {
+        FullScreenMsg(PSTR("All mixes\nwill be cleared.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        if(clickedButton == UP_KEY)
+        {
+          setDefaultModelMixerParams();
+          thisMixNum = 0;
+          destMixNum = 0;
+
+          makeToast(F("All mixes cleared"), 2000);
+          changeToScreen(MODE_MIXER);
+        }
+        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
+        {
+          makeToast(F("Canceled"), 2000);
+          changeToScreen(MODE_MIXER);
+        }
       }
       break;
       
@@ -1490,9 +1561,11 @@ void HandleMainUI()
           //elevon 
           // Ch1 = -50%Ail + -50%Ele, 
           // Ch2 = 50%Ail + -50%Ele
-          loadMix(thisMixNum,     IDX_AIL, -50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH1);
-          loadMix(thisMixNum + 1, IDX_AIL,  50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH2);
-
+          if(hasEnoughSlots(thisMixNum, 2))
+          {
+            loadMix(thisMixNum,     IDX_AIL, -50, 0, 0, IDX_ELE, -50, 0, 0, MIX_ADD, SW_NONE, IDX_CH1);
+            loadMix(thisMixNum + 1, IDX_AIL,  50, 0, 0, IDX_ELE, -50, 0, 0, MIX_ADD, SW_NONE, IDX_CH2);
+          }
           changeToScreen(MODE_MIXER);
         }
         else if(_selection == 2)
@@ -1500,32 +1573,37 @@ void HandleMainUI()
           //vtail  
           // Ch2 = 50%Rud + -50%Ele, 
           // Ch4 = -50%Rud + -50%Ele
-          loadMix(thisMixNum,     IDX_RUD,  50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH2);
-          loadMix(thisMixNum + 1, IDX_RUD, -50, 0, 0, IDX_ELE, -50, 0, 0, OPERATOR_ADD, SW_NONE, IDX_CH4);
-
+          if(hasEnoughSlots(thisMixNum, 2))
+          {
+            loadMix(thisMixNum,     IDX_RUD,  50, 0, 0, IDX_ELE, -50, 0, 0, MIX_ADD, SW_NONE, IDX_CH2);
+            loadMix(thisMixNum + 1, IDX_RUD, -50, 0, 0, IDX_ELE, -50, 0, 0, MIX_ADD, SW_NONE, IDX_CH4);
+          }
           changeToScreen(MODE_MIXER);
         }
         else if(_selection == 3) 
         {
           //differential thrust
-          // Ch3 = 100%Thrt +  40%Rud when SwD is down
-          // Ch7 = 100%Thrt + -40%Rud when SwD is down
-          loadMix(thisMixNum,     IDX_THRTL_CURV, 100, 0, 0, IDX_RUD,  40, 0, 0,  OPERATOR_ADD, SWD_DOWN, IDX_CH3);
-          loadMix(thisMixNum + 1, IDX_THRTL_CURV, 100, 0, 0, IDX_RUD, -40, 0, 0, OPERATOR_ADD, SWD_DOWN, IDX_CH7);
-
+          // Ch3 = 100%Thrt +  40%yaw when SwD is down
+          // Ch7 = 100%Thrt + -40%yaw when SwD is down
+          if(hasEnoughSlots(thisMixNum, 2))
+          {
+            loadMix(thisMixNum,     IDX_THRTL_CURV, 100, 0, 0, IDX_YAW,  40, 0, 0,  MIX_ADD, SWD_DOWN, IDX_CH3);
+            loadMix(thisMixNum + 1, IDX_THRTL_CURV, 100, 0, 0, IDX_YAW, -40, 0, 0, MIX_ADD, SWD_DOWN, IDX_CH7);
+            makeToast(F("Set failsafe!"), 2500, 750);
+          }
           changeToScreen(MODE_MIXER);
         }
         else if(heldButton == SELECT_KEY) //exit
           changeToScreen(MODE_MIXER);
       }
       break;
-      
+
     case MODE_OUTPUTS:
       {
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_OUTPUTS])), sizeof(txtBuff));
         drawHeader();
 
-        changeFocusOnUPDOWN(7);
+        changeFocusOnUPDOWN(6);
         toggleEditModeOnSelectClicked();
         drawCursor(52, focusedItem * 8);
         
@@ -1541,14 +1619,12 @@ void HandleMainUI()
           Model.Reverse |= ((uint16_t)_reverseVal << _selectedChannel); //set
         }
         else if (focusedItem == 3)
-          Model.Subtrim[_selectedChannel] = incDecOnUpDown(Model.Subtrim[_selectedChannel], -25, 25, NOWRAP, SLOW_CHANGE);
+          Model.Subtrim[_selectedChannel] = incDecOnUpDown(Model.Subtrim[_selectedChannel], -20, 20, NOWRAP, SLOW_CHANGE);
         else if (focusedItem == 4)
-          Model.CutValue[_selectedChannel] = incDecOnUpDown(Model.CutValue[_selectedChannel], -101, 100, NOWRAP, PRESSED_OR_HELD);
-        else if (focusedItem == 5)
           Model.Failsafe[_selectedChannel] = incDecOnUpDown(Model.Failsafe[_selectedChannel], -101, 100, NOWRAP, PRESSED_OR_HELD);
-        else if (focusedItem == 6)
+        else if (focusedItem == 5)
           Model.EndpointL[_selectedChannel] = incDecOnUpDown(Model.EndpointL[_selectedChannel], -100, 0, NOWRAP, PRESSED_OR_HELD);
-        else if (focusedItem == 7)
+        else if (focusedItem == 6)
           Model.EndpointR[_selectedChannel] = incDecOnUpDown(Model.EndpointR[_selectedChannel], 0, 100, NOWRAP, PRESSED_OR_HELD);
 
         //-------Show on lcd---------------
@@ -1566,24 +1642,17 @@ void HandleMainUI()
         display.print(Model.Subtrim[_selectedChannel]); 
         
         display.setCursor(0, 32);
-        display.print(F("Cut:      "));
-        if(Model.CutValue[_selectedChannel]== -101)
-          display.print(F("Off"));
-        else
-          display.print(Model.CutValue[_selectedChannel]);
-        
-        display.setCursor(0, 40);
         display.print(F("Failsaf:  "));
         if(Model.Failsafe[_selectedChannel]== -101)
           display.print(F("Off"));
         else
           display.print(Model.Failsafe[_selectedChannel]);
 
-        display.setCursor(0, 48);
+        display.setCursor(0, 40);
         display.print(F("Endpt L:  "));
         display.print(Model.EndpointL[_selectedChannel]);
         
-        display.setCursor(0, 56);
+        display.setCursor(0, 48);
         display.print(F("Endpt R:  "));
         display.print(Model.EndpointR[_selectedChannel]);
         
@@ -1677,7 +1746,7 @@ void HandleMainUI()
         {
           Sys.PWM_Mode_Ch3 = incDecOnUpDown(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
           if(isEditMode && (pressedButton == UP_KEY || pressedButton == DOWN_KEY))
-            makeToast(F("Restart receiver"), 2000);
+            makeToast(F("Restart receiver"), 2000, 500);
         }
         else if (focusedItem == 2 && isEditMode)
         {
@@ -1800,7 +1869,7 @@ void HandleMainUI()
             calibStage = STICKS_MOVE;
             eeSaveSysConfig();
             changeToScreen(HOME_SCREEN);
-            makeToast(F("Calibrated"), 1500);
+            makeToast(F("Calibrated"), 2000);
           }
         }
       }
@@ -2108,11 +2177,11 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
 
 //--------------------------------------------------------------------------------------------------
 
-void resetThrottleTimer()
+void resetTimer1()
 {
-  throttleTimerElapsedTime = 0;
-  throttleTimerLastElapsedTime = 0;
-  throttleTimerLastPaused = millis();
+  timer1ElapsedTime = 0;
+  timer1LastElapsedTime = 0;
+  timer1LastPaused = millis();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2120,12 +2189,21 @@ void resetThrottleTimer()
 void makeToast(const __FlashStringHelper* text, unsigned long _duration)
 {
   toastText = text;
-  toastExpireTime = millis() + _duration;
+  toastStartTime = millis();
+  toastExpireTime = toastStartTime + _duration;
+}
+
+void makeToast(const __FlashStringHelper* text, unsigned long _duration, unsigned long _delay)
+{
+  toastText = text;
+  toastStartTime = millis() + _delay;
+  toastExpireTime = toastStartTime + _duration;
 }
 
 void drawToast()
 {
-  if (millis() < toastExpireTime)
+  uint32_t _currTime = millis();
+  if (_currTime >= toastStartTime && _currTime < toastExpireTime)
   {
     int _txtWidthPix = 6 * strlen_P((const char*)toastText); //(const char*) casts
     int x_offset = (display.width() - _txtWidthPix) / 2; //middle align
@@ -2176,9 +2254,11 @@ void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val)
 
 //--------------------------------------------------------------------------------------------------
 
-bool isDefaultModelName(char* _nameBuff, uint8_t _len)
+bool isDefaultModelName(char* _nameBuff, uint8_t _lenBuff)
 {
-  for(uint8_t i = 0; i < _len - 1; i++)
+  uint8_t _nameLen = sizeof(Model.modelName)/sizeof(Model.modelName[0]) - 1;
+  
+  for(uint8_t i = 0; i < _nameLen && i < _lenBuff - 1; i++)
   {
     if(*(_nameBuff + i) != ' ') //check if it isn't a space character
       return false;
@@ -2187,6 +2267,7 @@ bool isDefaultModelName(char* _nameBuff, uint8_t _len)
 }
 
 //--------------------------------------------------------------------------------------------------
+
 int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val)
 {
   uint8_t _heldBtn = 0;
@@ -2211,6 +2292,17 @@ int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val)
 
 //--------------------------------------------------------------------------------------------------
 
+bool hasEnoughSlots(uint8_t _startIdx, uint8_t _numRequired)
+{
+  if((_startIdx + _numRequired) > NUM_MIXSLOTS)
+  {
+    makeToast(F("Can't load here!"), 2000);
+    return false;
+  }
+  else 
+    return true;
+}
+
 void loadMix(uint8_t _mixNo, 
              uint8_t _in1, int8_t _weight1, int8_t _diff1, int8_t _offset1,
              uint8_t _in2, int8_t _weight2, int8_t _diff2, int8_t _offset2, 
@@ -2218,7 +2310,6 @@ void loadMix(uint8_t _mixNo,
 {
   if(_mixNo >= NUM_MIXSLOTS)
   {
-    makeToast(F("Out of slots!"), 2000);
     return;
   }
   
