@@ -61,16 +61,15 @@ struct sysParams {
 */
 struct modelParams {
   //------- first entity is the modelName ----
-  char modelName[8]; //7chars + Null
+  char modelName[9]; //8chars + Null
   
   //------- basic params ---------
   
   uint16_t Reverse; // each bit represents a channel. 1 is on, 0 is off
   int8_t EndpointL[NUM_PRP_CHANNLES];   //left endpoint, -100 to 0
   int8_t EndpointR[NUM_PRP_CHANNLES];   //right endpoint, 0 to 100
-  int8_t Subtrim[NUM_PRP_CHANNLES];     //-25 to 25
+  int8_t Subtrim[NUM_PRP_CHANNLES];     //-20 to 20
   int8_t Failsafe[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
-  int8_t CutValue[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
 
   // Ail, Ele, Rud
   uint8_t DualRate;  //Bit0 Ail, Bit1 Ele, Bit2 Rud  
@@ -81,7 +80,7 @@ struct modelParams {
 
   int8_t ThrottlePts[5];  //for interpolation of throttle. Range -100 to 100
   
-  int8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Are percentages. Values -25 to 25
+  int8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Values -20 to 20
   
   uint8_t Curve1Src;     
   int8_t  Curve1Pts[5];    //interpolation points. Range -100 to 100
@@ -89,10 +88,11 @@ struct modelParams {
   uint8_t Slow1Up;   // in tenths of a second
   uint8_t Slow1Down; // in tenths of a second
   uint8_t Slow1Src;  // only switches allowed as source
-  
-  uint8_t throttleTimerType;      
-  uint8_t throttleTimerInitMins; 
-  uint8_t throttleTimerThreshold; // in percentage of throttle stick input: 0 to 100
+
+  uint8_t Timer1ControlSrc;
+  uint8_t Timer1Operator;
+  int8_t  Timer1Value;      //-100 to 100
+  uint8_t Timer1InitMins;   //if 0, timer will count up, else count down
   
   //------- mixer params ---------
   
@@ -119,14 +119,17 @@ enum {
 };
 
 enum {
-  TIMERCOUNTUP = 0, 
-  TIMERCOUNTDOWN
+  GREATER_THAN = 0,
+  LESS_THAN,
+  ABS_GREATER_THAN,
+  ABS_LESS_THAN,
+  NUM_TIMER_OPERATORS
 };
 
 enum {
-  OPERATOR_ADD = 0,
-  OPERATOR_MULTIPLY,
-  OPERATOR_REPLACE,
+  MIX_ADD = 0,
+  MIX_MULTIPLY,
+  MIX_REPLACE,
   NUM_MIXOPERATORS //should be last
 };
 
@@ -167,22 +170,16 @@ void setDefaultModelBasicParams()
 {
   //reverse 
   Model.Reverse = 0;
-  //subtrim, endpoints, cut, failsafe
+  //subtrim, endpoints, failsafe
   for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
   {
     Model.EndpointL[i] = -100;
     Model.EndpointR[i] = 100;
     Model.Subtrim[i]   = 0;
-    if(i == 2) //specify cut and failsafe on Channel 3
-    {
-      Model.CutValue[i]  = -100; 
+    if(i == 2) //specify failsafe on Channel 3
       Model.Failsafe[i]  = -100;
-    }
     else
-    {
-      Model.CutValue[i]  = -101; 
       Model.Failsafe[i]  = -101;
-    }
   }
   
   //trim
@@ -221,10 +218,11 @@ void setDefaultModelBasicParams()
   Model.Slow1Up = 5;
   Model.Slow1Down = 5;
   
-  //throttle timer
-  Model.throttleTimerType = TIMERCOUNTUP;
-  Model.throttleTimerInitMins = 10; 
-  Model.throttleTimerThreshold = 20; 
+  //Timers
+  Model.Timer1ControlSrc = IDX_NONE;
+  Model.Timer1Operator = GREATER_THAN;
+  Model.Timer1Value = 0;
+  Model.Timer1InitMins = 0;
 }
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
@@ -237,7 +235,7 @@ void setDefaultModelMixerParams(uint8_t _mixNo)
   Model.MixIn2Offset[_mixNo]  = 0;
   Model.MixIn2Weight[_mixNo]  = 0;
   Model.MixIn2Diff[_mixNo]    = 0;
-  Model.MixOperator[_mixNo]   = OPERATOR_ADD; 
+  Model.MixOperator[_mixNo]   = MIX_ADD; 
   Model.MixSwitch[_mixNo]     = SW_NONE;
   Model.MixOut[_mixNo]        = IDX_NONE;
 }
@@ -251,8 +249,8 @@ void setDefaultModelMixerParams()
 //---------------------- MISC ----------------------------------------------------------------------
 
 //---Output channels---
-int ChOut[NUM_PRP_CHANNLES]; //Proportional Channels. Centered at 0, range is -500 to 500.
-uint8_t DigChA = 0, DigChB = 0; /*Digital channels. ChA is momentary, ChB is toggle.*/
+int ChOut[NUM_PRP_CHANNLES];    //Proportional Channels. Centered at 0, range is -500 to 500.
+uint8_t DigChA = 0, DigChB = 0; //Digital channels. ChA is momentary, ChB is toggle.
 
 int8_t mixerChOutGraphVals[NUM_PRP_CHANNLES];  //for graphing raw mixer output for channels. range -100 to 100
 
@@ -287,8 +285,13 @@ uint8_t pressedButton = 0; //triggered once when the button goes down
 uint8_t clickedButton = 0; //triggered when the button is released before heldButton event
 uint8_t heldButton = 0;    //triggered when button is held down long enough
 
-unsigned long buttonStartTime = 0;
-unsigned long buttonReleaseTime = 0;
+uint32_t buttonStartTime = 0;
+uint32_t buttonReleaseTime = 0;
+
+//Model timers
+uint32_t timer1ElapsedTime = 0;
+uint32_t timer1LastElapsedTime = 0;
+uint32_t timer1LastPaused = 0;
 
 //---Battery---
 int battVoltsNow; //millivolts

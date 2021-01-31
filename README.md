@@ -8,12 +8,11 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 
 ## Features
 - 8 proportional channels and 2 digital channels
-- Reverse, Endpoints, Subtrim, Cut, and Failsafe
+- Reverse, subrim, Endpoints, Failsafe
 - Dual rates and expo for Ail, Ele, Rud
 - Throttle curve and a custom curve with 5 points
 - Flexible mixer with 10 mixer slots per model
-- Preconfigured mixer templates for Elevon, Vtail, Differential thrust
-- Throttle timer and a free stopwatch
+- Adaptable timer plus a stopwatch
 - 5 model memory
 - Sticks calibration
 - Audio tones
@@ -53,7 +52,7 @@ neccessary to edit the frequency lists in the stx.ino and rx.ino files.
 - Holding the Select key while powering opens the boot menu (for stick recalibration, format eeprom, etc.)
 
 <p align="center">
-<img src="img2.png" width="832" height="1312"/>
+<img src="img2.png" width="828" height="1036"/>
 </p>
 
 ## Binding

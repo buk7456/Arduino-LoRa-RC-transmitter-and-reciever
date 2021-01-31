@@ -81,14 +81,21 @@ void setup()
   EEPROM.get(EE_FILE_SIGNATURE_ADDR, fileSignature);
   if(fileSignature != 0xE7D9) //force format
   {
+    display.clearDisplay();
     FullScreenMsg(PSTR("Bad EEPROM data\n\nPress any key"));
+    display.display();
+    
     while(buttonCode == 0)
     {
       readSwitchesAndButtons();
       delay(30);
     }
+    
+    display.clearDisplay();
     FullScreenMsg(PSTR("Formatting.."));
+    display.display();
     delay(500);
+    
     //write system data
     eeSaveSysConfig();
     //write model data
@@ -108,7 +115,9 @@ void setup()
   ///Check flag. Signature may match but not the data structs
   if(EEPROM.read(EE_INITFLAG_ADDR) != eeInitFlag)
   {
+    display.clearDisplay();
     FullScreenMsg(PSTR("Format EEPROM?\n\nYes [Up]  \nNo  [Down]"));
+    display.display();
     
     while(buttonCode != UP_KEY && buttonCode != DOWN_KEY)
     {
@@ -118,7 +127,9 @@ void setup()
     
     if(buttonCode == UP_KEY) //format
     {
+      display.clearDisplay();
       FullScreenMsg(PSTR("Formatting.."));
+      display.display();
       delay(500);
       //write system data
       eeSaveSysConfig();
@@ -135,7 +146,9 @@ void setup()
   }
   
   ///-------------------------------------------
+  display.clearDisplay();
   FullScreenMsg(PSTR("Welcome"));
+  display.display();
   delay(1000);
 
   ///--------- Load data from eeprom -----------
@@ -152,7 +165,9 @@ void setup()
     bool _rfState = Sys.rfOutputEnabled;
     while (throttleIn > -450)
     {
+      display.clearDisplay();
       FullScreenMsg(PSTR("Check throttle"));
+      display.display();
       readSticks();
       //play warning sound
       audioToPlay = AUDIO_THROTTLEWARN;
@@ -163,8 +178,11 @@ void setup()
     Sys.rfOutputEnabled = _rfState; //restore
   }
 
-  ///--------- Init throttle timer -------------
-  throttleTimerLastPaused = millis(); 
+  ///--------- Init timers -------------
+  timer1LastPaused = millis(); 
+  
+  ///--------- other initialisations ----
+  _thisMdl_ = Sys.activeModel;
   
 }
 

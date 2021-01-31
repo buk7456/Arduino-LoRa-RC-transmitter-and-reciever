@@ -12,7 +12,7 @@ int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX);
 int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fallTime);
 long weightAndOffset(int _input, int _weight, int _diff, int _offset);
 bool mixSwitchIsActive(uint8_t _mixNum);
-bool cutIsActivated();
+void evaluateTimer1(int16_t srcVal);
 
 //==================================================================================================
 
@@ -285,14 +285,14 @@ void computeChannelOutputs()
     {
       switch(Model.MixOperator[_mixNum])
       {
-        case OPERATOR_ADD:
+        case MIX_ADD:
           _output += _operand2;
           break;
-        case OPERATOR_MULTIPLY:
+        case MIX_MULTIPLY:
           _output *= _operand2;
           _output /= 500; 
           break;
-        case OPERATOR_REPLACE:
+        case MIX_REPLACE:
           _output = _operand2;
           break; 
       }
@@ -321,13 +321,15 @@ void computeChannelOutputs()
     //---Subtrim
     ChOut[i] += 5 * Model.Subtrim[i]; 
     
-    //---Check Cut. If specified and switch engaged, overide
-    if(!SwAEngaged && Model.CutValue[i] > -101)
-      ChOut[i] = 5 * Model.CutValue[i];
-    
     //---Endpoints
     ChOut[i] = constrain(ChOut[i], 5 * Model.EndpointL[i], 5 * Model.EndpointR[i]); 
   }
+  
+  ///EVALUATE TIMER1
+  if(Model.Timer1ControlSrc >= IDX_CH1 && Model.Timer1ControlSrc < (IDX_CH1 + NUM_PRP_CHANNLES))
+    evaluateTimer1(ChOut[Model.Timer1ControlSrc - IDX_CH1]);
+  else
+    evaluateTimer1(MixSources[Model.Timer1ControlSrc]);
 }
 
 //====================================Helpers=======================================================
@@ -504,19 +506,6 @@ int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
 
 //--------------------------------------------------------------------------------------------------
 
-bool cutIsActivated()
-{
-  for(int i = 0; i < NUM_PRP_CHANNLES; i++)
-  {
-    if(Model.CutValue[i] > -101  && SwAEngaged == false)
-    {
-      return true;
-    }
-  }
-  return false;
-}
-
-//--------------------------------------------------------------------------------------------------
 bool mixSwitchIsActive(uint8_t _mixNum)
 {
   bool rslt = false;
@@ -542,4 +531,42 @@ bool mixSwitchIsActive(uint8_t _mixNum)
     case SWD_DOWN:  rslt =  SwDEngaged;  break;
   }
   return rslt;
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void evaluateTimer1(int16_t srcVal)
+{
+  bool timerPaused = true;
+
+  if(Model.Timer1ControlSrc != IDX_NONE)
+  {
+    int16_t thresh = Model.Timer1Value * 5;
+    switch(Model.Timer1Operator)
+    {
+      case GREATER_THAN:
+        if(srcVal > thresh) timerPaused = false;
+      break;
+     
+      case LESS_THAN:
+        if(srcVal < thresh) timerPaused = false;
+      break;
+      
+      case ABS_GREATER_THAN:
+        if(abs(srcVal) > thresh) timerPaused = false;
+      break;
+      
+      case ABS_LESS_THAN:
+        if(abs(srcVal) < thresh) timerPaused = false;
+      break;
+    }
+  }
+  
+  if(timerPaused)
+  {
+    timer1LastElapsedTime = timer1ElapsedTime;
+    timer1LastPaused = millis();
+  }
+  else
+    timer1ElapsedTime = timer1LastElapsedTime + millis() - timer1LastPaused;
 }

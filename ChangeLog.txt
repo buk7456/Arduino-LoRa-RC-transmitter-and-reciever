@@ -1,5 +1,12 @@
 1.6.0
 -----
+31Jan2021
+ - Added confirmation screens to ui for model copy, model reset, mixer reset
+ - Can now use lower case letters in model name.
+ - Other minor improvements.
+ - Timer 1 is now adaptable. We can specify a control source.
+ - Inherent throttle cut feature dropped. Throttle cut should instead be programmed in the mixer.
+
 21Jan2021
  - Reduced receiver startup time. 
  - Minor improvements to 'Model' screen.
