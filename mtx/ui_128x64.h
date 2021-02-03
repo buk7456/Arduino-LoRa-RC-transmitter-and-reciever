@@ -800,7 +800,7 @@ void HandleMainUI()
       
     case CONFIRMATION_MODEL_COPY:
       {
-        FullScreenMsg(PSTR("Model data\nwill be overwritten.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        FullScreenMsg(PSTR("Model data will\nbe overwritten.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
         if(clickedButton == UP_KEY)
         {
           //temporarily store model name as we shall maintain it 
@@ -825,18 +825,14 @@ void HandleMainUI()
         }
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
         {
-          _action_ = LOADMODEL; //reinit
-          _thisMdl_ = Sys.activeModel; //reinit
-          
-          makeToast(F("Canceled"), 2000);
-          changeToScreen(HOME_SCREEN);
+          changeToScreen(MODE_MODEL);
         }
       }
       break;
       
     case CONFIRMATION_MODEL_RESET:
       {
-        FullScreenMsg(PSTR("Model data\nwill be cleared.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        FullScreenMsg(PSTR("Model data will\nbe cleared.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
         if(clickedButton == UP_KEY)
         {
           //set defaults
@@ -859,11 +855,7 @@ void HandleMainUI()
         }
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
         {
-          _action_ = LOADMODEL; //reinit
-          _thisMdl_ = Sys.activeModel; //reinit
-          
-          makeToast(F("Canceled"), 2000);
-          changeToScreen(HOME_SCREEN);
+          changeToScreen(MODE_MODEL);
         }
       }
       break;
@@ -1357,19 +1349,18 @@ void HandleMainUI()
       
     case CONFIRMATION_MIXES_RESET:
       {
-        FullScreenMsg(PSTR("All mixes\nwill be cleared.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        FullScreenMsg(PSTR("All mixes will\nbe reset.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
         if(clickedButton == UP_KEY)
         {
           setDefaultModelMixerParams();
           thisMixNum = 0;
           destMixNum = 0;
 
-          makeToast(F("All mixes cleared"), 2000);
+          makeToast(F("All mixes reset"), 2000);
           changeToScreen(MODE_MIXER);
         }
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
         {
-          makeToast(F("Canceled"), 2000);
           changeToScreen(MODE_MIXER);
         }
       }
