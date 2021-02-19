@@ -78,6 +78,13 @@ Steering servo in Ch6. Suppose we want full steering when the throttle is closed
 ```txt
 1. Ch6 = 100%yaw * -50%thrt{50 offset}
 ```
+#### Adjust maximum throttle with knob
+We can adjust the maximum throttle without affecting the low throttle setting.
+Assuming the motor is in Ch3,
+```txt
+1. Virt1 = 50%Thrt{50 offset} * 30%knob{-30 offset}
+2. Ch3 = 100%Thrt + 100%Virt1
+```
 #### Adjust throttle idle with knob
 Suppose we have a gas model and want to adjust the idle setting of engine with knob without affecting full throttle.
 Assuming the throttle servo is in Ch3,
