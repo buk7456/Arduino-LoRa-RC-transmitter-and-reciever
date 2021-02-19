@@ -1,5 +1,5 @@
 //-------------------------------
-#define _SKETCHVERSION "1.6.0"
+#define _SKETCHVERSION "1.7.0"
 
 //-------- PINS -----------------
 
