@@ -29,10 +29,10 @@
 #include "crc8.h"
 
 // Declarations 
-void serialSendData(); 
+void sendSerialData(); 
+void getSerialData();
 void checkBattery();
-
-void serialWrite14bit(uint16_t value); //helper
+uint16_t joinBytes(uint8_t _highByte, uint8_t _lowByte); //helper
 
 //===================================== setup ======================================================
 
@@ -172,7 +172,8 @@ void setup()
       //play warning sound
       audioToPlay = AUDIO_THROTTLEWARN;
       Sys.rfOutputEnabled = false; //overide
-      serialSendData();
+      sendSerialData();
+      getSerialData();
       delay(30);
     }
     Sys.rfOutputEnabled = _rfState; //restore
@@ -199,13 +200,9 @@ void loop()
   readSticks();
   computeChannelOutputs();
   HandleMainUI();
-  serialSendData();
+  sendSerialData();
+  getSerialData();
   
-  while (Serial.available() > 0)
-  {
-    returnedByte = Serial.read();
-  }
-
   //limit max rate of loop
   unsigned long loopTime = millis() - loopStartTime;
   if(loopTime < fixedLoopTime) 
@@ -216,37 +213,34 @@ void loop()
 
 //==================================================================================================
 
-void serialSendData()
+void sendSerialData()
 {
-  /* if(Sys.rfOutputEnabled == false)
-  {
-    return;
-  } */
-  
   /** Master to Slave MCU communication format as below
-  
-  byte 0 - Start of message 0xBB
-  byte 1 - Status byte 
-      bit7 - 0
-      bit6 - backlight 1 on, 0 off
-      bit5 - bind state 1 bind 0 operate
-      bit4 - RF module, 1 on, 0 off 
-      bit3 - DigChA, 1 on, 0 off
-      bit2 - DigChB, 1 on, 0 off
-      bit1 - PWM mode for Channel3, 1 means servo pwm, 0 ordinary pwm
-      bit0 - Failsafe, 1 means failsafe data, 0 normal data
-      
-  byte 2 to 17 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
-  byte 18 - Sound to play  (1 byte)
-  byte 19 - RF Power level (1 byte)
-  byte 20 - End of message 0xDD
+  byte 0 - First Status byte 
+    bit7 - 0
+    bit6 - backlight 1 on, 0 off
+    bit5 - bind state 1 bind 0 operate
+    bit4 - RF module, 1 on, 0 off 
+    bit3 - DigChA, 1 on, 0 off
+    bit2 - DigChB, 1 on, 0 off
+    bit1 - Failsafe, 1 means failsafe data, 0 normal data
+    bit0 - Reserved
+  byte 1 - Second status byte
+    bit7 - 0
+    bits 6 to 4 reserved
+    bit3 - telemetry request
+    bits 2 to 0 RF Power level (3bits)
+  byte 2 - Sound to play
+  byte 3 to 18 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
+  byte 19 - CRC8
   */
   
-  /// ---- message start
-  Serial.write(0xBB); 
+  uint8_t _data[20];
   
-  /// ---- status byte
-  uint8_t status = 0x00;
+  /// ---- status bytes
+  
+  uint8_t status1 = 0x00;
+  uint8_t status2 = 0x00;
   
   static unsigned long lastBtnDownTime = 0;
   if(buttonCode > 0) 
@@ -256,70 +250,134 @@ void serialSendData()
      || (Sys.backlightMode == BACKLIGHT_5S  && elapsed < 5000UL )
      || (Sys.backlightMode == BACKLIGHT_15S && elapsed < 15000UL)
      || (Sys.backlightMode == BACKLIGHT_60S && elapsed < 60000UL)) 
-    status |= 0x40;
+    status1 |= 0x40;
   
-  status |= (bindActivated & 0x01) << 5;
+  status1 |= (bindActivated & 0x01) << 5;
   bindActivated = false;
   
-  status |= (Sys.rfOutputEnabled & 0x01) << 4;
-  status |= DigChA << 3;
-  status |= DigChB << 2;
-  status |= Sys.PWM_Mode_Ch3 << 1;
-  bool isFailsafeData = false; 
-  if(thisLoopNum % (2000 / fixedLoopTime) == 1) 
-    isFailsafeData = true;
-  status |= isFailsafeData & 0x01;
-  Serial.write(status); 
-  
-  /// ---- channel data and failsafes
-  if(isFailsafeData == false) 
+  status1 |= (Sys.rfOutputEnabled & 0x01) << 4;
+  status1 |= DigChA << 3;
+  status1 |= DigChB << 2;
+
+  //alternately send failsafe or request telemetry
+  bool sendFailsafe = false;
+  static bool telemRequest = false;
+  if(thisLoopNum % (200 / fixedLoopTime) == 1) //every 200ms
   {
-    for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
-    {
-      uint16_t val = (ChOut[i] + 500) & 0xFFFF; 
-      serialWrite14bit(val);
-    }
-  }
-  else //send failsafe
-  {
-    for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
-    {
-      if(Model.Failsafe[i] == -101) //failsafe not specified, send 1023
-        serialWrite14bit(1023);
-      else //failsafe specified, send it
-      {
-        int fsf = 5 * Model.Failsafe[i];
-        fsf = constrain(fsf, 5 * Model.EndpointL[i], 5 * Model.EndpointR[i]);
-        uint16_t val = (fsf + 500) & 0xFFFF;
-        serialWrite14bit(val);
-      }
-    }
+    telemRequest = !telemRequest;
+    if(telemRequest)
+      status2 |= (1 << 3);
+    else
+      sendFailsafe = true;
   }
   
+  status1 |= (sendFailsafe & 0x01) << 1;
+  status2 |= Sys.rfPower;
+
+  _data[0] = status1;
+  _data[1] = status2;
+
   /// ---- sounds
   if((Sys.soundMode == SOUND_OFF)
       || (Sys.soundMode == SOUND_ALARMS && audioToPlay >= AUDIO_SWITCHMOVED)
       || (Sys.soundMode == SOUND_NOKEY && audioToPlay == AUDIO_KEYTONE))
     audioToPlay = AUDIO_NONE; 
-
-  Serial.write(audioToPlay); 
-  audioToPlay = AUDIO_NONE; //set to none
+    
+  _data[2] = audioToPlay; 
+  audioToPlay = AUDIO_NONE; 
   
-  /// ---- rf power level
-  Serial.write(Sys.rfPower);
+  /// ---- failsafe and channel data
+  if(sendFailsafe) 
+  {
+    for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
+    {
+      if(Model.Failsafe[i] == -101) //failsafe not specified, send 1023
+      {
+        _data[3 + i*2] = 0x03;
+        _data[4 + i*2] = 0xFF;
+      }
+      else //failsafe specified
+      {
+        int fsf = 5 * Model.Failsafe[i];
+        fsf = constrain(fsf, 5 * Model.EndpointL[i], 5 * Model.EndpointR[i]);
+        uint16_t val = (fsf + 500) & 0xFFFF;
+        _data[3 + i*2] = (val >> 8) & 0xFF;
+        _data[4 + i*2] = val & 0xFF;
+      }
+    }
+  }
+  else
+  {
+    for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
+    {
+      uint16_t val = (ChOut[i] + 500) & 0xFFFF; 
+      _data[3 + i*2] = (val >> 8) & 0xFF;
+      _data[4 + i*2] = val & 0xFF;
+    }
+  }
   
-  /// ---- end of message
-  Serial.write(0xDD); 
+  _data[19] = crc8Maxim(_data, 19);
+  
+  Serial.write(_data, 20);
 }
 
-void serialWrite14bit(uint16_t value)
+//==================================================================================================
+
+void getSerialData()
 {
-  // The data is sent as a "14 bit" value (Two bytes) as 0b0LLLLLLL 0b0HHHHHHH
-  Serial.write(value & 0x7f);
-  Serial.write((value >> 7) & 0x7f);
+  /** Slave to Master mcu serial communication
+  Byte0   Bits 3 to 2 --> Bind status, Bits 1 to 0 --> 3pos switch state
+  Byte1   Transmitter packet rate
+  Byte2   Packet rate at receiver side
+  Byte3-4 Voltage telemetry
+  Byte5   CRC8
+  */
+  
+  const uint8_t msgLength = 6;
+  if (Serial.available() < msgLength)
+  {
+    return;
+  }
+  
+  uint8_t _data[msgLength]; 
+  memset(_data, 0, msgLength);
+
+  uint8_t cntr = 0;
+  while (Serial.available() > 0)
+  {
+    if (cntr < msgLength) 
+    {
+      _data[cntr] = Serial.read();
+      cntr++;
+    }
+    else //Discard any extra data
+      Serial.read();
+  }
+  
+  //Check if valid
+  if(_data[msgLength - 1] == crc8Maxim(_data, msgLength - 1))
+  {
+    //------- Extract ------
+    bindStatus = (_data[0] >> 2) & 0x03;
+    SwCState = _data[0] & 0x03;
+    transmitterPacketRate = _data[1];
+    receiverPacketRate = _data[2];
+    telem_volts = joinBytes(_data[3], _data[4]);
+  }
 }
 
 //--------------------------------------------------------------------------------------------------
+
+uint16_t joinBytes(uint8_t _highByte, uint8_t _lowByte)
+{
+  uint16_t rslt;
+  rslt = (uint16_t) _highByte;
+  rslt <<= 8;
+  rslt |= (uint16_t) _lowByte;
+  return rslt;
+}
+
+//==================================================================================================
 
 void checkBattery()
 {
