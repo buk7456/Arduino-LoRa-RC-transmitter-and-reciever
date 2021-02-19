@@ -9,7 +9,7 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
 void changeToScreen(int8_t _theScrn);
 void resetTimer1();
 void drawHeader();
-void printVolts(int _milliVolts);
+void printVolts(uint16_t _milliVolts, uint8_t _prec);
 void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY);
 void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
@@ -22,7 +22,7 @@ bool isDefaultModelName(char* _nameBuff, uint8_t _lenBuff);
 int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val);
 
 enum {WRAP = true, NOWRAP = false};
-enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2}; 
+enum {PRESSED_ONLY = 0, PRESSED_OR_HELD = 1, SLOW_CHANGE = 2, FAST_CHANGE}; 
 int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap, uint8_t _state);
 
 bool hasEnoughSlots(uint8_t _startIdx, uint8_t _numRequired);
@@ -34,13 +34,12 @@ void loadMix(uint8_t _mixNo,
 ///================================================================================================
 
 //-- Boot popup menu strings. Max 15 characters per string
-#define NUM_ITEMS_BOOT_POPUP 4
+#define NUM_ITEMS_BOOT_POPUP 3
 char const bootStr0[] PROGMEM = "Calibrte sticks"; 
-char const bootStr1[] PROGMEM = "Show Pkts/sec"; 
-char const bootStr2[] PROGMEM = "Format EEPROM"; 
-char const bootStr3[] PROGMEM = "Cancel";
+char const bootStr1[] PROGMEM = "Format EEPROM"; 
+char const bootStr2[] PROGMEM = "Cancel";
 const char* const bootMenu[] PROGMEM = { //table to refer to the strings
-  bootStr0, bootStr1, bootStr2, bootStr3
+  bootStr0, bootStr1, bootStr2
 };
 
 //-- Main menu strings. Max 16 characters per string
@@ -81,6 +80,7 @@ enum
   POPUP_COPY_MIX,
   POPUP_TEMPLATES_MENU,
   MODE_CALIB,
+  MODE_CHANNEL_MONITOR,
   
   CONFIRMATION_MODEL_COPY,
   CONFIRMATION_MODEL_RESET,
@@ -334,17 +334,12 @@ void HandleBootUI()
       changeToScreen(MODE_CALIB);
       return; //exit
     }
-    else if(_selection == 2) 
-    {
-      showPktsPerSec = true;
-      return; //exit
-    }
-    else if(_selection == 3)
+    else if(_selection == 2)
     {
       EEPROM.write(EE_INITFLAG_ADDR, ~EEPROM.read(EE_INITFLAG_ADDR)); //clear flag
       return; //exit
     }
-    else if(_selection == 4 || heldButton == SELECT_KEY) 
+    else if(_selection == 3 || heldButton == SELECT_KEY) 
     {
       return; //exit
     }
@@ -357,6 +352,13 @@ void HandleBootUI()
 
 void HandleMainUI()
 {
+  ///--------------- INACTIVITY ALARM ---------------------
+  if(Sys.inactivityMinutes > 0 && ((millis() - inputsLastMoved) > (Sys.inactivityMinutes * 60000UL)))
+  {
+    if(thisLoopNum % (15000 / fixedLoopTime) == 1) //repeat every 15 secs
+      audioToPlay = AUDIO_INACTIVITY;
+  }
+
   ///--------------- GENERIC STOPWATCH --------------------
   if(stopwatchIsPaused == false) //run
     stopwatchElapsedTime = stopwatchLastElapsedTime + millis() - stopwatchLastPaused;
@@ -374,15 +376,53 @@ void HandleMainUI()
     if((timer1ElapsedTime - _initMillis) < 500) //only play sound within this timeframe
       audioToPlay = AUDIO_TIMERELAPSED;
   }
+  
+  /// --------------- TELEMETRY WARN ----------------------
+  
+  static uint8_t _tCounter = 0;
+  static uint32_t _tWarnEntryLoopNum = 0;
+  static bool _tWarnStarted = false;
+  
+  if(Sys.telemAlarmEnabled && receiverPacketRate > 0)
+  {
+    //check and increment or decrement counter
+    if(telem_volts < Sys.Telem_VoltsThresh && telem_volts != 0x0FFF)
+    {
+      if(_tWarnStarted == false) 
+        ++_tCounter;
+    }
+    else
+    {
+      if(_tCounter > 0) --_tCounter;
+      if(_tCounter == 0) _tWarnStarted = false;
+    }
+    
+    //if more than 4 seconds, trigger alarm
+    if(_tCounter > (4000 / fixedLoopTime) && _tWarnStarted == false) 
+    {
+      _tWarnStarted = true;
+      _tWarnEntryLoopNum = thisLoopNum;
+    }
+    
+    if(_tWarnStarted && ((thisLoopNum - _tWarnEntryLoopNum) % (5000 / fixedLoopTime) == 1))
+      audioToPlay = AUDIO_TELEMWARN;
+  }
+  
+  if(Sys.rfOutputEnabled == false)
+  {
+    _tCounter = 0;
+    _tWarnStarted = false;
+  }
+  
 
-  /// -------------- LOW BATTERY WARN ----------------------
+  /// --------------- TX LOW BATTERY WARN -----------------
   if(battState == BATTLOW)
   {
     if(battWarnDismissed == false)
     {
       //show warning
       display.clearDisplay();
-      FullScreenMsg(PSTR("Battery Low"));
+      FullScreenMsg(PSTR("Battery low"));
       display.display();
       
       audioToPlay = AUDIO_BATTERYWARN; 
@@ -395,7 +435,7 @@ void HandleMainUI()
       }
       return; 
     }
-    //remind low battery
+    //remind low battery every 10 minutes
     if(battWarnDismissed == true && (millis() - battWarnMillisQQ > 600000UL)) 
     {
       battWarnDismissed = false;
@@ -405,6 +445,12 @@ void HandleMainUI()
   else
     battWarnMillisQQ = millis();
 
+  /// ---------------- BIND STATUS-----------------------------------
+  if(bindStatus == 1)
+    makeToast(F("Bind success"), 3000);
+  else if(bindStatus == 2)
+    makeToast(F("Bind fail"), 3000);
+  
   
   ///----------------- MAIN STATE MACHINE ---------------------------
   switch (theScreen)
@@ -435,14 +481,14 @@ void HandleMainUI()
 
         //---------show dualrate icon --------
         if (SwBEngaged && Model.DualRate > 0)
-          display.drawBitmap(79, 1, dualrate_icon, 13, 6, 1);
+          display.drawBitmap(66, 1, dualrate_icon, 13, 6, 1);
         
         //--------show rf icon and tx power level ----
-        if (Sys.rfOutputEnabled == true)
+        if (Sys.rfOutputEnabled)
         {
-          display.drawBitmap(95, 0, rf_icon, 7, 7, 1);
+          display.drawBitmap(85, 0, rf_icon, 7, 7, 1);
           for(int i = 0; i < Sys.rfPower + 2; i++)
-            display.drawVLine(101 + i, 6 - i, i + 1, BLACK);
+            display.drawVLine(91 + i, 6 - i, i + 1, BLACK);
         }
         
         //--------show mute icon------------
@@ -562,6 +608,8 @@ void HandleMainUI()
         
         if (homeScreenMode == NORMALMODE && clickedButton == SELECT_KEY)
           changeToScreen(MAIN_MENU);
+        else if (homeScreenMode == NORMALMODE && clickedButton == UP_KEY)
+          changeToScreen(MODE_CHANNEL_MONITOR);
         else if (homeScreenMode != TRIMMODE && clickedButton == DOWN_KEY)
           changeToScreen(POPUP_TIMER_MENU);
         else if(homeScreenMode != TRIMMODE && heldButton == DOWN_KEY)
@@ -680,6 +728,29 @@ void HandleMainUI()
         }
       }
       break;
+      
+    case MODE_CHANNEL_MONITOR:
+      {
+        strlcpy_P(txtBuff, PSTR("Outputs"), sizeof(txtBuff));
+        drawHeader();
+        
+        for(int i = 0; i < NUM_PRP_CHANNLES && i < 8; i++)
+        {
+          if(i < 4)
+            display.setCursor(11, 16 + i * 10);
+          else
+            display.setCursor(71, 16 + (i - 4) * 10);
+          
+          display.print(F("Ch"));          
+          display.print(1 + i);  
+          display.print(F(":"));          
+          display.print(ChOut[i] / 5);
+        }
+        
+        if(clickedButton == UP_KEY || heldButton == SELECT_KEY)
+          changeToScreen(HOME_SCREEN);
+      }
+      break;
 
     case MAIN_MENU:
       {
@@ -747,8 +818,8 @@ void HandleMainUI()
           {
             if(_thisMdl_ == Sys.activeModel)
             {
-              makeToast(F("Already loaded"), 2000);
-              changeToScreen(HOME_SCREEN);
+              makeToast(F("Already active"), 2000);
+              changeToScreen(MODE_MODEL);
             }
             else
             {
@@ -777,7 +848,7 @@ void HandleMainUI()
             if(_thisMdl_ == Sys.activeModel)
             {
               makeToast(F("Nothing to copy"), 2000);
-              changeToScreen(HOME_SCREEN);
+              changeToScreen(MODE_MODEL);
             }
             else
               changeToScreen(CONFIRMATION_MODEL_COPY);
@@ -888,7 +959,7 @@ void HandleMainUI()
         else if(thisChar >= 45 && thisChar <= 57) thisChar += 8;
         
         //adjust 
-        thisChar = incDecOnUpDown(thisChar, 0, 65, NOWRAP, SLOW_CHANGE);
+        thisChar = incDecOnUpDown(thisChar, 65, 0, NOWRAP, SLOW_CHANGE);
 
         //map back
         if(thisChar <= 25) thisChar = 90 - thisChar;
@@ -1375,7 +1446,7 @@ void HandleMainUI()
         display.print(F("Ch"));
         
         // Graph mixer outputs
-        for (int i = 0; i < NUM_PRP_CHANNLES; i++)
+        for (int i = 0; i < NUM_PRP_CHANNLES && i < 8; i++)
         {
           int _outVal = mixerChOutGraphVals[i] / 5;
           int _xOffset = i*13;
@@ -1673,38 +1744,60 @@ void HandleMainUI()
         drawHeader();
 
         display.setCursor(0, 10);
+        display.print(F("RF outpt:  "));
+        drawCheckbox(66, 10, Sys.rfOutputEnabled);
+        
+        display.setCursor(0, 19);
+        display.print(F("RF power:  "));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(rfPowerStr[Sys.rfPower])), sizeof(txtBuff));
+        display.print(txtBuff);
+
+        display.setCursor(0, 28);
         display.print(F("Backlght:  "));
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(backlightModeStr[Sys.backlightMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
-        display.setCursor(0, 19);
+        display.setCursor(0, 37);
         display.print(F("Sounds  :  "));
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(soundModeStr[Sys.soundMode])), sizeof(txtBuff));
         display.print(txtBuff);
         
-        display.setCursor(0, 28);
-        display.print(F("RF outpt:  "));
-        drawCheckbox(66, 28, Sys.rfOutputEnabled);
+        display.setCursor(0, 46);
+        display.print(F("Inactvty:  "));
+        if(Sys.inactivityMinutes == 0)
+          display.print(F("Off"));
+        else
+        {
+          display.print(Sys.inactivityMinutes);
+          display.print(F("min"));
+        }
+
+        display.setCursor(0, 55);
+        display.print(F("Receiver:  [Bind]"));
         
-        display.setCursor(0, 37);
-        display.print(F("RF power:  "));
-        strlcpy_P(txtBuff, (char *)pgm_read_word(&(rfPowerStr[Sys.rfPower])), sizeof(txtBuff));
-        display.print(txtBuff);
-         
-        changeFocusOnUPDOWN(4);
+        changeFocusOnUPDOWN(6);
         toggleEditModeOnSelectClicked();
         drawCursor(58, 10 + (focusedItem - 1) * 9);
         
         //edit values
         if (focusedItem == 1)
-          Sys.backlightMode = incDecOnUpDown(Sys.backlightMode, 0, BACKLIGHT_LAST, NOWRAP, PRESSED_ONLY);
-        else if (focusedItem == 2)
-          Sys.soundMode = incDecOnUpDown(Sys.soundMode, 0, SOUND_LAST, NOWRAP, PRESSED_ONLY);
-        else if (focusedItem == 3)
           Sys.rfOutputEnabled = incDecOnUpDown(Sys.rfOutputEnabled, 0, 1, WRAP, PRESSED_ONLY);
-        else if (focusedItem == 4) //adjust rf power
+        else if (focusedItem == 2)
           Sys.rfPower = incDecOnUpDown(Sys.rfPower, 0, RFPOWER_LAST, NOWRAP, PRESSED_ONLY);
-
+        else if (focusedItem == 3)
+          Sys.backlightMode = incDecOnUpDown(Sys.backlightMode, 0, BACKLIGHT_LAST, NOWRAP, PRESSED_ONLY);
+        else if (focusedItem == 4)
+          Sys.soundMode = incDecOnUpDown(Sys.soundMode, 0, SOUND_LAST, NOWRAP, PRESSED_ONLY);
+        else if (focusedItem == 5)
+          Sys.inactivityMinutes = incDecOnUpDown(Sys.inactivityMinutes, 0, 30, NOWRAP, PRESSED_OR_HELD);
+        else if (focusedItem == 6 && isEditMode)
+        {
+          bindActivated = true;
+          makeToast(F("Sending bind.."), 5000);
+          eeSaveSysConfig();
+          changeToScreen(HOME_SCREEN);
+        }
+        
         //go back to main menu
         if (heldButton == SELECT_KEY)
         {
@@ -1713,41 +1806,51 @@ void HandleMainUI()
         }
       }
       break;
-      
+
     case MODE_RECEIVER:
       {
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_RECEIVER])), sizeof(txtBuff));
         drawHeader();
         
-        display.setCursor(0, 10);
-        display.print(F("Ch3 Mode:  "));
-        if(Sys.PWM_Mode_Ch3 == 1) 
-          display.print(F("ServoPWM"));
-        else  
-          display.print(F("PWM"));
+        display.setCursor(8, 9);
+        strlcpy_P(txtBuff, PSTR("Ext volts"), sizeof(txtBuff));
+        display.print(txtBuff);
+        display.drawHLine(8, 17, strlen(txtBuff) * 6, BLACK);
         
-        display.setCursor(0, 19);
-        display.print(F("Receiver:  [Bind]"));
+        display.setCursor(20, 20);
+        display.print(F("Alarm:  "));
+        drawCheckbox(68, 20, Sys.telemAlarmEnabled);
         
-        changeFocusOnUPDOWN(2);
+        display.setCursor(20, 29);
+        display.print(F("V low:  "));
+        printVolts(Sys.Telem_VoltsThresh * 10, 2);
+        
+        //Show the voltage
+        display.setCursor(68, 40);
+        bool _showVal = true;
+        if(telem_volts == 0x0FFF)
+        {
+          display.print(F("No data"));
+          _showVal = false;
+        }
+        else if((telem_volts < Sys.Telem_VoltsThresh) && (millis() % 1000 > 600))
+          _showVal = false;
+        if(_showVal)
+        {
+          printVolts(telem_volts * 10, 2);
+          display.drawRect(66, 38, 39, 11, BLACK);
+        }
+
+        changeFocusOnUPDOWN(3);
         toggleEditModeOnSelectClicked();
-        drawCursor(58, 10 + (focusedItem - 1) * 9);
+        if(focusedItem == 1) drawCursor(0, 9);
+        else drawCursor(60, 20 + (focusedItem - 2) * 9);
         
-        if (focusedItem == 1)
-        {
-          Sys.PWM_Mode_Ch3 = incDecOnUpDown(Sys.PWM_Mode_Ch3, 0, 1, WRAP, PRESSED_ONLY);
-          if(isEditMode && (pressedButton == UP_KEY || pressedButton == DOWN_KEY))
-            makeToast(F("Restart receiver"), 2000, 500);
-        }
-        else if (focusedItem == 2 && isEditMode)
-        {
-          bindActivated = true;
-          makeToast(F("Sending bind.."), 3000);
-          eeSaveSysConfig();
-          changeToScreen(HOME_SCREEN);
-        }
-        
-        //go back to main menu
+        if(focusedItem == 2)
+          Sys.telemAlarmEnabled = incDecOnUpDown(Sys.telemAlarmEnabled, 0, 1, WRAP, PRESSED_ONLY);
+        else if(focusedItem == 3)
+          Sys.Telem_VoltsThresh = incDecOnUpDown(Sys.Telem_VoltsThresh, 0, 4000, NOWRAP, FAST_CHANGE);
+
         if (heldButton == SELECT_KEY)
         {
           eeSaveSysConfig();
@@ -1874,20 +1977,27 @@ void HandleMainUI()
         //Show battery voltage
         display.setCursor(0,10);
         display.print(F("Battery: "));
-        printVolts(battVoltsNow);
+        printVolts(battVoltsNow, 2);
         
         //Show uptime
         display.setCursor(0,19);
         display.print(F("Uptime:  "));
-        printHHMMSS(millis(), 54, 19);
+        printHHMMSS(millis(), display.getCursorX(), display.getCursorY());
+        
+        //Show packet rate
+        display.setCursor(0, 28);
+        display.print(F("PktRate: "));
+        display.print(transmitterPacketRate);
+        display.print(F("-"));
+        display.print(receiverPacketRate);
         
         //show version
-        display.setCursor(0, 28);
+        display.setCursor(0, 37);
         display.print(F("FW ver:  "));
         display.print(F(_SKETCHVERSION));
         
         //Show author
-        display.setCursor(0, 37);
+        display.setCursor(0, 46);
         display.print(F("Devlpr:  buk7456"));
 
         if (heldButton == SELECT_KEY)
@@ -1904,17 +2014,6 @@ void HandleMainUI()
   ///----------------- TOAST ----------------------------------
   drawToast();
   
-  ///----------------- Pkts per second ------------------------
-  if(showPktsPerSec == true)
-  {
-    display.fillRect(116,57,12,7,WHITE);
-    display.setCursor(117,57);
-    uint8_t pktRate = returnedByte & 0x3F;
-    if(pktRate < 10)
-      display.print(F(" "));
-    display.print(pktRate);
-  }
-
   ///----------------- SHOW ON PHYSICAL LCD -------------------
   display.display(); //show on physical lcd
   display.clearDisplay(); //clear graphics buffer
@@ -1958,15 +2057,23 @@ void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
 
 //--------------------------------------------------------------------------------------------------
 
-void printVolts(int _milliVolts)
+void printVolts(uint16_t _milliVolts, uint8_t _prec)
 {
-  int val = _milliVolts / 10;
+  if(_prec > 2) _prec = 2;
+  
+  uint16_t val = _milliVolts / 10;
   display.print(val / 100);
-  display.print(F("."));
-  val = val % 100;
-  if (val < 10) 
-    display.print(F("0"));
-  display.print(val);
+  if(_prec > 0)
+    display.print(F("."));
+  if(_prec == 1)
+    display.print((val/10)% 10);
+  else if(_prec == 2)
+  {
+    val = val % 100;
+    if (val < 10) 
+      display.print(F("0"));
+    display.print(val);
+  }
   display.print(F("V"));
 }
 
@@ -1983,7 +2090,7 @@ int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap,
   }
 
   uint8_t _heldBtn = 0;
-  if(_state == PRESSED_OR_HELD) 
+  if(_state == PRESSED_OR_HELD || _state == FAST_CHANGE) 
     _heldBtn = heldButton;
   else if(_state == SLOW_CHANGE && thisLoopNum % (100 / fixedLoopTime) == 1) 
     _heldBtn = heldButton;
@@ -2004,11 +2111,11 @@ int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap,
   }
    
   int delta = 1;
-  if(_heldBtn > 0 && ((millis() - buttonStartTime) > (LONGPRESSTIME + 1000UL)))
-  {
-    if(_state != SLOW_CHANGE) delta = 2; //speed up increment
-  }
-  
+  if(_heldBtn > 0 && (millis() - buttonStartTime > (LONGPRESSTIME + 1000UL)) && _state != SLOW_CHANGE)
+    delta = 2; //speed up increment
+  if(_heldBtn > 0 && (millis() - buttonStartTime > (LONGPRESSTIME + 3000UL)) && _state == FAST_CHANGE)
+    delta = 20;
+
   //inc dec
   if (pressedButton == incrKey || _heldBtn == incrKey)
   {
