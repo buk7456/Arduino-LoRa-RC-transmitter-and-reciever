@@ -46,8 +46,7 @@ void readSwitchesAndButtons()
   SwAEngaged = _swa;
   SwBEngaged = _swb;
   SwDEngaged = _swd;
-  //SwCState gotten from slave mcu.
-  SwCState = (returnedByte >> 6) & 0x03;
+  //SwCState returned from slave mcu.
 
   //-- assign buttonCode --
   if(_selectKey) buttonCode = SELECT_KEY;
@@ -55,12 +54,18 @@ void readSwitchesAndButtons()
   else if(_downKey) buttonCode = DOWN_KEY;
   else buttonCode = 0;
   
+  if(buttonCode != 0)
+    inputsLastMoved = millis();
+  
   //-- play audio when switches are moved --
   uint8_t switchesSum = SwAEngaged + SwBEngaged + SwCState + SwDEngaged;
   static uint8_t lastSwitchesSum = switchesSum;
   if(switchesSum != lastSwitchesSum)
+  {
     audioToPlay = AUDIO_SWITCHMOVED;
-  lastSwitchesSum = switchesSum;
+    lastSwitchesSum = switchesSum;
+    inputsLastMoved = millis();
+  }
 }
 
 //==================================================================================================
@@ -152,6 +157,16 @@ void readSticks()
   }
   else if(knobIn > 25) _knobRegion = _POS_SIDE;
   else if(knobIn < -25) _knobRegion = _NEG_SIDE;
+  
+  //detect inactivity
+  static int16_t _lastSticksAvg = 0;
+  int16_t _sticksAvg = (rollIn + pitchIn + throttleIn + yawIn + knobIn) / 5;
+  if(abs(_sticksAvg - _lastSticksAvg) > 6) //3% of 1000 is 30, divide by 5
+  {
+    _lastSticksAvg = _sticksAvg;
+    inputsLastMoved = millis();
+  }
+
 }
 
 //==================================================================================================
