@@ -12,12 +12,13 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - Dual rates and expo for Ail, Ele, Rud
 - Throttle curve and a custom curve with 5 points
 - Flexible mixer with 10 mixer slots per model
-- Adaptable timer plus a stopwatch
+- Adaptable timer and a stopwatch
 - 5 model memory
 - Sticks calibration
-- Audio tones
+- Alarms, warnings
 - Receiver binding
-- Frequency hopping 
+- Frequency hopping
+- External voltage telemetry
 
 ## License
 MIT license
@@ -49,14 +50,14 @@ neccessary to edit the frequency lists in the stx.ino and rx.ino files.
 - Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
 - Holding the Down key on home screen accesses the extra digital channels A and B.
 - Holding the Select key on home screen accesses the trims.
-- Holding the Select key while powering opens the boot menu (for stick recalibration, format eeprom, etc.)
+- Holding the Select key when swithing on opens the boot menu (for stick recalibration, format eeprom, etc.)
 
 <p align="center">
-<img src="img2.png" width="828" height="1036"/>
+<img src="img2.png" width="808" height="976"/>
 </p>
 
 ## Binding
-To bind the receiver and transmitter, use the bind option in the receiver setup screen. 
+To bind the receiver and transmitter, use the bind option in the system setup screen. 
 Select bind option and restart the receiver. The LED in receiver blinks on successful bind.
 
 ## Mixing
@@ -84,7 +85,3 @@ I have done several tests on this system and found it reliable enough.
 <br>I have also tested the frequency hopping feature and it is stable enough. 
 <br>The transmitter to receiver update rate is about 40 frames a second which is sufficient to control an RC model. 
 There are no issues experienced with the servo control either. 
-
-## Limitations
-1. No basic telemetry support. 
-2. No dedicated trim buttons. However we can access trim from the home screen by holding the select key.
