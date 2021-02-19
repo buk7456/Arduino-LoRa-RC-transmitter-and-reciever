@@ -1,3 +1,9 @@
+/* Adapted by BUK7456 from Sandeep Mistry's LoRa library
+ Changes made:
+  - isTransmitting() made public
+ 
+*/
+
 // Copyright (c) Sandeep Mistry. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
@@ -40,6 +46,8 @@ public:
   int beginPacket(int implicitHeader = false);
   int endPacket(bool async = false);
 
+  bool isTransmitting(); 
+  
   int parsePacket(int size = 0);
   int packetRssi();
   float packetSnr();
@@ -95,7 +103,6 @@ private:
   void implicitHeaderMode();
 
   void handleDio0Rise();
-  bool isTransmitting();
 
   int getSpreadingFactor();
   long getSignalBandwidth();
