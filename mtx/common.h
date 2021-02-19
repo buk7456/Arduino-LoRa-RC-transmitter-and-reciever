@@ -35,20 +35,27 @@ enum {
 /* Structure for system parameters
 */
 struct sysParams {
+  
   uint8_t activeModel = 1; //The current model
   
   bool rfOutputEnabled = false;
   uint8_t rfPower = RFPOWER_10dBm;
   
+  uint8_t inactivityMinutes = 10;
+  
   uint8_t soundMode = SOUND_ALL; 
+  bool telemAlarmEnabled = true;
   uint8_t backlightMode = BACKLIGHT_60S;
-  uint8_t PWM_Mode_Ch3 = 1; //1 is servo pwm, 0 is ordinary pwm
 
   int rollMax  = 1023, rollMin  = 0, rollCenterVal = 512;
   int yawMax   = 1023, yawMin   = 0, yawCenterVal = 512;
   int pitchMax = 1023, pitchMin = 0, pitchCenterVal = 512;
   int thrtlMax = 1023, thrtlMin = 0;
   uint8_t deadZonePerc = 5; //in percentage of stick range
+  
+  //voltage telemetry
+  uint16_t Telem_VoltsThresh = 0; //as 10mV
+  
 } Sys;
 
 //------------------- MODEL PARAMS -----------------------------------------------------------------
@@ -93,6 +100,9 @@ struct modelParams {
   uint8_t Timer1Operator;
   int8_t  Timer1Value;      //-100 to 100
   uint8_t Timer1InitMins;   //if 0, timer will count up, else count down
+  
+  
+
   
   //------- mixer params ---------
   
@@ -223,6 +233,7 @@ void setDefaultModelBasicParams()
   Model.Timer1Operator = GREATER_THAN;
   Model.Timer1Value = 0;
   Model.Timer1InitMins = 0;
+
 }
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
@@ -279,21 +290,21 @@ enum {
   DOWN_KEY,
 };
 
+uint32_t buttonStartTime = 0;
+uint32_t buttonReleaseTime = 0;
+
 //Button events
 #define LONGPRESSTIME 350
 uint8_t pressedButton = 0; //triggered once when the button goes down
 uint8_t clickedButton = 0; //triggered when the button is released before heldButton event
 uint8_t heldButton = 0;    //triggered when button is held down long enough
 
-uint32_t buttonStartTime = 0;
-uint32_t buttonReleaseTime = 0;
-
 //Model timers
 uint32_t timer1ElapsedTime = 0;
 uint32_t timer1LastElapsedTime = 0;
 uint32_t timer1LastPaused = 0;
 
-//---Battery---
+//---Transmitter Battery---
 int battVoltsNow; //millivolts
 enum{BATTLOW = 0, BATTHEALTY};
 uint8_t battState = BATTHEALTY;
@@ -301,23 +312,28 @@ uint8_t battState = BATTHEALTY;
 //---Audio----
 enum{  
   AUDIO_NONE = 0, 
-  AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED,
+  AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED, AUDIO_INACTIVITY, AUDIO_TELEMWARN,
   AUDIO_SWITCHMOVED, AUDIO_TRIM_AIL, AUDIO_TRIM_ELE, AUDIO_TRIM_THR, AUDIO_TRIM_RUD,
   AUDIO_KEYTONE
 };
 uint8_t audioToPlay = AUDIO_NONE;
 
-//------------
-bool bindActivated = false;
-
 //---etc------
 
-uint8_t returnedByte; //got from slave mcu
+bool bindActivated = false;
+uint8_t bindStatus = 0;  //1 on success, 2 on fail
 
-bool showPktsPerSec = false;
+uint32_t inputsLastMoved = 0; //inactivity detection
 
-const uint8_t fixedLoopTime = 25; /*in milliseconds. This should be made greater than the time it 
-takes for the radio module to transmit the entire packet or else the window is missed resulting in
-much less throughput*/
+uint8_t transmitterPacketRate = 0;
+uint8_t receiverPacketRate = 0;
 
-uint32_t thisLoopNum = 0; //main loop counter. For timing certain things
+//Telemetry
+uint16_t telem_volts = 0x0FFF;     // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
+
+//Main loop control
+const uint8_t fixedLoopTime = 25; /*in milliseconds. Min 25, Max 30. Should be greater than 
+the time taken by radio module to transmit the entire packet or else the window is missed 
+resulting in much less throughput. It should also be atleast the time taken to draw the UI, else 
+or else the timing becomes inconsistent*/
+uint32_t thisLoopNum = 0; //main loop counter
