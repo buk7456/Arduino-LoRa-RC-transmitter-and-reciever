@@ -7,58 +7,28 @@
 * Sketch should compile without warnings even with -WALL
 ***************************************************************************************************/
 
-//Comment to disable serial print out
-// #define DEBUG
-
 #include <SPI.h>
 #include "LoRa.h"
 #include "crc8.h"
 #include <EEPROM.h>
 
-//----------------------------------------------
-//Pins
-#define CH1PIN 2
-#define CH2PIN 5
-#define CH3PIN 3
-#define CH4PIN 4
-#define CH5PIN A5
-#define CH6PIN A4
-#define CH7PIN A3
-#define CH8PIN A2
-#define CH9PIN A1
-#define CH10PIN A0
-#define GREEN_LED_PIN 7
-#define ORANGE_LED_PIN 6
-
-//-----------------------------------------------
-#define SERVO_PULSE_RANGE 1000
-#define SERVO_MAX_ANGLE 100 
-
 #include <Servo.h>
 Servo servoCh1, servoCh2, servoCh3, servoCh4, servoCh5, servoCh6, servoCh7, servoCh8;
 
-long lowerLimMicroSec, upperLimMicroSec;
+//Pins
+#define PIN_CH1    2
+#define PIN_CH2    5
+#define PIN_CH3    3
+#define PIN_CH4    4
+#define PIN_CH5    A5
+#define PIN_CH6    A4
+#define PIN_CH7    A3
+#define PIN_CH8    A2
+#define PIN_CH9    A1
+#define PIN_CH10   A0
 
-//--------------------------------------------------
-enum{PWM_SERVO = 1, PWM_NORM = 0};
-uint8_t PWM_Mode_Ch3 = PWM_SERVO;
-
-unsigned long lastValidPacketMillis = 0;
-
-uint8_t msgBuff[20]; //buffer for incoming message bytes
-
-long ch1to8Vals[8] = {0,0,0,0,0,0,0,0};
-uint8_t digitalChVal[2] = {0,0}; 
-
-long ch1to8Failsafes[8] = {0,0,0,0,0,0,0,0};
-bool failsafeReceived = false;
-
-long validPacketCount = 0; //debug
-int rssi = 0; //debug
-
-uint8_t transmitterID = 0xFF; //settable during bind
-
-#define BIND_TIMEOUT  100 //in ms. Should be low to enable fast startup after a brownout in flight
+#define PIN_LED_GREEN  7
+#define PIN_LED_ORANGE 6
 
 //--------------- Freq allocation --------------------
 
@@ -81,19 +51,43 @@ uint8_t ptr_fhss_schema = 0;
 
 #define MAX_LISTEN_TIME_ON_HOP_CHANNEL 100 //in ms. If no packet received within this time, we hop 
 
+//--------------------------------------------------
+
+uint16_t telem_volts = 1200;     // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
+
+unsigned long lastValidPacketMillis = 0;
+
+int ch1to8Vals[8] = {0,0,0,0,0,0,0,0};
+uint8_t digitalChVal[2] = {0,0}; 
+
+long ch1to8Failsafes[8] = {0,0,0,0,0,0,0,0};
+bool failsafeReceived = false;
+
+long validPacketCount = 0;
+int rssi = 0;
+
+bool telemetryRequest = false;
+
+uint8_t transmitterID = 0xFF; //settable during bind
+uint8_t receiverID = 128; //randomly generated on bind
+
+uint8_t rfPowerLevel = 0;
+
 //-------------- EEprom stuff --------------------
-#define EE_INITFLAG         0xBA 
+
+#define EE_INITFLAG         0xBB 
 #define EE_ADR_INIT_FLAG    0
 #define EE_ADR_TX_ID        1
-#define EE_ADR_FHSS_SCHEMA  2
+#define EE_ADR_RX_ID        2
+#define EE_ADR_FHSS_SCHEMA  3
 
 //--------------- Function Declarations ----------
 
 void readBindPacket();
 void readFlyModePacket();
 void hop();
+void sendTelemetry();
 void writeOutputs();
-void printDebugData();
 
 //==================================================================================================
 void setup()
@@ -102,32 +96,23 @@ void setup()
   if (EEPROM.read(EE_ADR_INIT_FLAG) != EE_INITFLAG)
   {
     EEPROM.write(EE_ADR_TX_ID, transmitterID);
+    EEPROM.write(EE_ADR_RX_ID, receiverID);
     EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
     EEPROM.write(EE_ADR_INIT_FLAG, EE_INITFLAG);
   }
   
   // Read from EEPROM
   transmitterID = EEPROM.read(EE_ADR_TX_ID);
+  receiverID = EEPROM.read(EE_ADR_RX_ID);
   EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
   // setup pins
-  pinMode(GREEN_LED_PIN, OUTPUT);
-  digitalWrite(GREEN_LED_PIN, HIGH);
-  pinMode(ORANGE_LED_PIN, OUTPUT);
-  pinMode(CH9PIN, OUTPUT);
-  pinMode(CH10PIN, OUTPUT);
+  pinMode(PIN_LED_GREEN, OUTPUT);
+  digitalWrite(PIN_LED_GREEN, HIGH);
+  pinMode(PIN_LED_ORANGE, OUTPUT);
+  pinMode(PIN_CH9, OUTPUT);
+  pinMode(PIN_CH10, OUTPUT);
   
-  //calc servo ranges
-  long _microsec = SERVO_PULSE_RANGE / 2;
-  _microsec *= SERVO_MAX_ANGLE;
-  _microsec /= 90;
-  lowerLimMicroSec = 1500 - _microsec;  
-  upperLimMicroSec = 1500 + _microsec;
-  
-#if defined (DEBUG)
-  Serial.begin(115200);
-#endif
-
   delay(100);
   
   //setup lora module
@@ -135,9 +120,7 @@ void setup()
   if (LoRa.begin(freqList[0]))
   {
     LoRa.setSpreadingFactor(7);
-    
     LoRa.setCodingRate4(5);
-  
     LoRa.setSignalBandwidth(250E3);
   }
   else //failed to init. Perhaps module isn't plugged in
@@ -146,15 +129,15 @@ void setup()
     bool ledState = HIGH;
     while(1)
     {
-      digitalWrite(GREEN_LED_PIN, ledState);
-      digitalWrite(ORANGE_LED_PIN,ledState);
+      digitalWrite(PIN_LED_GREEN, ledState);
+      digitalWrite(PIN_LED_ORANGE,ledState);
       ledState = !ledState;
       delay(500);
     }
   }
   
   //listen for bind
-  readBindPacket(); //blocking
+  readBindPacket();
   
   //Wait for failsafe transimission before proceeding
   while(failsafeReceived == false)
@@ -164,21 +147,33 @@ void setup()
   }
 
   //Attach servos
-  servoCh1.attach(CH1PIN);
-  servoCh2.attach(CH2PIN);
-  if(PWM_Mode_Ch3 == PWM_SERVO)
-    servoCh3.attach(CH3PIN);
-  servoCh4.attach(CH4PIN);
-  servoCh5.attach(CH5PIN);
-  servoCh6.attach(CH6PIN);
-  servoCh7.attach(CH7PIN);
-  servoCh8.attach(CH8PIN);
+  servoCh1.attach(PIN_CH1);
+  servoCh2.attach(PIN_CH2);
+  servoCh3.attach(PIN_CH3);
+  servoCh4.attach(PIN_CH4);
+  servoCh5.attach(PIN_CH5);
+  servoCh6.attach(PIN_CH6);
+  servoCh7.attach(PIN_CH7);
+  servoCh8.attach(PIN_CH8);
 }
 
 //====================================== MAIN LOOP =================================================
 void loop()
 {
   readFlyModePacket();
+  
+  sendTelemetry();
+
+  //set power level
+  static uint8_t lastPowerLevel = 0xFF;
+  if(rfPowerLevel != lastPowerLevel && !LoRa.isTransmitting())
+  {
+    lastPowerLevel = rfPowerLevel;
+    uint8_t power_dBm[5] = {3, 7, 10, 14, 17}; //2mW, 5mW, 10mW, 25mW, 50mW
+    LoRa.sleep();
+    LoRa.setTxPower(power_dBm[rfPowerLevel]);
+    LoRa.idle();
+  }
   
   //Handle failsafe 
   if(millis() - lastValidPacketMillis > 1500)
@@ -194,27 +189,40 @@ void loop()
   
   writeOutputs();
 
-#if defined (DEBUG)
-  printDebugData();
-#endif
 }
 
 //==================================================================================================
 void readBindPacket()
 {
-  /*Air protocol Format  
-    Byte0 - bit 7 to 1 transmitterID, bit 0 packet type 0 for bind, 
-    Byte1toByteN<12 - hop channels, 
-    Byte12 - crc8
+  /** Bind protocol Format 
+  
+    Transmitter to receiver
+    -----------------------   
+    Byte0     bit 7 to 1 transmitterID, bit0 is 0 for bind, 
+    Byte1-11  hop channels, each channel 1 byte. If less channels, the rest of the bytes are 0 
+    Byte12    CRC
+    
+    Receiver reply
+    --------------
+    Byte0     receiverID (allowed ID range 128 to 255 inclusive)
+    Byte1-5   reserved
+    Byte6     CRC
   */
   
   LoRa.sleep();
   LoRa.setFrequency(freqList[0]);
   LoRa.idle();
   
-  //listen for bind
+  uint8_t msgBuff[20]; 
+  
+  const uint16_t BIND_LISTEN_TIMEOUT = 300;
+  const uint16_t BIND_ACK_TIMEOUT = 100;  
+  
+  //---- listen for bind -----
+  
   bool receivedBind = false;
-  uint32_t stopTime = millis() + BIND_TIMEOUT;
+
+  uint32_t stopTime = millis() + BIND_LISTEN_TIMEOUT;
   while(millis() < stopTime)
   {
     int packetSize = LoRa.parsePacket();
@@ -252,30 +260,53 @@ void readBindPacket()
     hop(); //set to operating frequencies
     return; //bail out
   }
-
-  //get transmitterID
-  transmitterID = (msgBuff[0] >> 1) & 0xFF;
   
-  //get hop channels
+  //-----------------------------
+
+  //get transmitterID and hop channels
+  transmitterID = (msgBuff[0] >> 1) & 0xFF;
   for(uint8_t k = 0; k < (sizeof(fhss_schema)/sizeof(fhss_schema[0])); k++)
   {
     if(msgBuff[1 + k] < (sizeof(freqList)/sizeof(freqList[0]))) //prevents invalid references
       fhss_schema[k] = msgBuff[1 + k];
   }
-  
   //save to eeprom
   EEPROM.write(EE_ADR_TX_ID, transmitterID);
   EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
   
+  //---- send reply 
+  
+  uint8_t dataToTransmit[7]; 
+  memset(dataToTransmit, 0, sizeof(dataToTransmit));
+  
+  //generate random receiverID
+  randomSeed(millis()); //Seed PRNG
+  receiverID = random(128, 255) & 0xFF; //allowed IDs 128 to 255
+  EEPROM.write(EE_ADR_RX_ID, receiverID);
+  
+  dataToTransmit[0] = receiverID;
+  dataToTransmit[6] = crc8Maxim(dataToTransmit, 6);
+  
+  unsigned long bindAckExitTime = millis() + BIND_ACK_TIMEOUT;
+  while(millis() < bindAckExitTime)
+  {
+    if(LoRa.beginPacket())
+    {
+      LoRa.write(dataToTransmit, 7);
+      LoRa.endPacket(); //blocking
+    }
+    delay(5);
+  }
+
   //set to fly mode freq
   hop();
   
-  //indicate a successful bind
+  //indicate we received bind
   for(int i = 0; i < 3; i++) //flash led 3 times
   {
-    digitalWrite(ORANGE_LED_PIN, HIGH);
+    digitalWrite(PIN_LED_ORANGE, HIGH);
     delay(200);
-    digitalWrite(ORANGE_LED_PIN, LOW);
+    digitalWrite(PIN_LED_ORANGE, LOW);
     delay(200);
   }
 }
@@ -300,34 +331,35 @@ void hop()
 //==================================================================================================
 void readFlyModePacket()
 {
-  /* Air protocol format
-  
-    ------------------------------------------------
-    Byte0  
-    bits 7 to 1 is TransmiterID, 
-    bit0 is 1 for servo data
-    ------------------------------------------------
-    Byte1     Byte2     Byte3     Byte4     Byte5       
-    11111111  11222222  22223333  33333344  44444444 
-    ------------------------------------------------
-    Byte6     Byte7     Byte8     Byte9     Byte10
-    55555555  55666666  66667777  77777788  88888888
-    ------------------------------------------------
-    Byte11    Byte12
-    abpf0000  CCCCCCCC
-    ------------------------------------------------
-    
-    Servo Chs 1 to 8 encoded as 10 bits      
-    a is digital chA bit
-    b is digital ChB bit 
-    p is PWM mode bit for ch3
-    f is failsafe flag
-    C is the CRC
+  /** Transmitter to receiver message format
+  ------------------------------------------------
+  Byte0  
+  bits 7 to 1 is TransmiterID, 
+  bit0 is 1 for servo data
+  ------------------------------------------------
+  Byte1     Byte2     Byte3     Byte4     Byte5       
+  11111111  11222222  22223333  33333344  44444444 
+  ------------------------------------------------
+  Byte6     Byte7     Byte8     Byte9     Byte10
+  55555555  55666666  66667777  77777788  88888888
+  ------------------------------------------------
+  Byte11    Byte12
+  0abftddd  CCCCCCCC
+  ------------------------------------------------
+  Servo Chs 1 to 8 encoded as 10 bits      
+  a is digital chA bit
+  b is digital ChB bit 
+  f is failsafe flag
+  t is telemetry request flag. 
+  ddd is the current tx rf power level (3bits)
+  CCCCCCCC is the 8 bit CRC xored with receiverID
   */
   
   static uint32_t timeOfLastPacket = millis();
   
   bool hasValidPacket = false;
+ 
+  uint8_t msgBuff[20]; 
   
   int packetSize = LoRa.parsePacket();
   if (packetSize > 0) //received a packet
@@ -358,9 +390,9 @@ void readFlyModePacket()
     
     /// Check if the received data is valid based on crc and transmitterID
     uint8_t crcQQ = msgBuff[12];
-    uint8_t computedCRC = crc8Maxim(msgBuff, 12);
-    uint8_t receivedID = (msgBuff[0] >> 1) & 0xFF;
-    if(crcQQ == computedCRC && receivedID == transmitterID && (msgBuff[0] & 0x01) == 1)
+    uint8_t computedCRC = crc8Maxim(msgBuff, 12) ^ receiverID;
+    uint8_t txID = (msgBuff[0] >> 1) & 0xFF;
+    if(crcQQ == computedCRC && txID == transmitterID && (msgBuff[0] & 0x01) == 1)
     {
       hasValidPacket = true;
       validPacketCount++;
@@ -369,16 +401,14 @@ void readFlyModePacket()
   }
   else if(millis() - timeOfLastPacket > MAX_LISTEN_TIME_ON_HOP_CHANNEL)
   {
-    //reset
     timeOfLastPacket = millis();
-    //hop
     hop();
   }
   
   
   if(hasValidPacket)
   {
-    digitalWrite(ORANGE_LED_PIN, HIGH);
+    digitalWrite(PIN_LED_ORANGE, HIGH);
     
     //-------- Decode ----------
     //Proportional channels
@@ -393,8 +423,8 @@ void readFlyModePacket()
     _ch1to8Tmp[7] = ((uint16_t)msgBuff[9] << 8 & 0x300) | ((uint16_t)msgBuff[10]     & 0xff); //ch8
     
     //digital channels
-    digitalChVal[0] = (msgBuff[11] & 0x80) >> 7;
-    digitalChVal[1] = (msgBuff[11] & 0x40) >> 6;
+    digitalChVal[0] = (msgBuff[11] & 0x40) >> 6;
+    digitalChVal[1] = (msgBuff[11] & 0x20) >> 5;
     
     //Check if failsafe data. If so, dont modify outputs
     if((msgBuff[11] & 0x10) == 0x10) //failsafe values
@@ -409,87 +439,93 @@ void readFlyModePacket()
         ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
     }
     
-    //get pwm mode for Ch3. Only set once. If changed in transmitter, receiver should be restarted
-    static bool _pwmModeInitialised = false;
-    if(_pwmModeInitialised == false)
-    {
-      PWM_Mode_Ch3 = (msgBuff[11] & 0x20) >> 5;
-      _pwmModeInitialised = true;
-    }
+    //telemetry request
+    telemetryRequest = (msgBuff[11] >> 3) & 0x01;
+    
+    //rf power level
+    rfPowerLevel = msgBuff[11] & 0x07;
   }
-  else
+  
+  if(!hasValidPacket && (millis() - lastValidPacketMillis > 100))
   {
     //turn off orange LED
-    if(millis() - lastValidPacketMillis > 50) 
-      digitalWrite(ORANGE_LED_PIN, LOW);
+    digitalWrite(PIN_LED_ORANGE, LOW);
   }
 }
 
 //==================================================================================================
-void writeOutputs()
-{ 
-  int16_t ch1to8MicroSec[8];
-  for(uint8_t i = 0; i<8; i++)
-  {
-    ch1to8MicroSec[i] = map(ch1to8Vals[i],-500,500,lowerLimMicroSec, upperLimMicroSec);
-  }
-  servoCh1.writeMicroseconds(ch1to8MicroSec[0]);
-  servoCh2.writeMicroseconds(ch1to8MicroSec[1]);
-  
-  if(PWM_Mode_Ch3 == PWM_SERVO)
-    servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
-  else if(PWM_Mode_Ch3 == PWM_NORM)
-  {
-    long qq = map(ch1to8Vals[2], -500, 500, 0, 255);
-    uint8_t val = qq & 0xFF;
-    analogWrite(CH3PIN, val);
-  }
-  
-  servoCh4.writeMicroseconds(ch1to8MicroSec[3]);
-  servoCh5.writeMicroseconds(ch1to8MicroSec[4]);
-  servoCh6.writeMicroseconds(ch1to8MicroSec[5]);
-  servoCh7.writeMicroseconds(ch1to8MicroSec[6]);
-  servoCh8.writeMicroseconds(ch1to8MicroSec[7]);
-  
-  digitalWrite(CH9PIN,  digitalChVal[0]);
-  digitalWrite(CH10PIN, digitalChVal[1]);
-}
 
-//=========================== DEBUG ================================================================
-void printDebugData()
+void sendTelemetry()
 {
+  /** Receiver to Transmitter message format
+  ------------------------------------------
+  Byte0    Receiver ID
+  Byte1    Average packet rate
+  
+  Byte2       Byte3
+  vvvvvvvv    vvvv0000
+  (v - voltage)
+  
+  Byte4    CRC8 XOR transmitterID
+  */
+  
+  if(!telemetryRequest)
+    return;
+  
+  telemetryRequest = false;
+  
   //Calculate packets per second
   static unsigned long prevValidPacketCount = 0; 
   static unsigned long ttPrevMillis = 0;
-  uint8_t validPacketsPerSecond; 
+  static uint8_t validPacketsPerSecond = 0; 
   unsigned long ttElapsed = millis() - ttPrevMillis;
   if (ttElapsed >= 1000)
   {
     ttPrevMillis = millis();
     unsigned long _validPPS = (validPacketCount - prevValidPacketCount) * 1000;
     _validPPS /= ttElapsed;
-    validPacketsPerSecond = uint8_t(_validPPS);
+    validPacketsPerSecond = _validPPS & 0xFF;
     prevValidPacketCount = validPacketCount;
   }
+  if(millis() - lastValidPacketMillis > 1000)
+    validPacketsPerSecond = 0;
   
-  //print to serial
-  static uint32_t serialLastPrintTT = millis();
-  if(millis() - serialLastPrintTT >= 40)
+  //prepare data
+  uint8_t payload[5];
+  memset(payload, 0, sizeof(payload));
+  payload[0] = receiverID;
+  payload[1] = validPacketsPerSecond;
+  payload[2] = (telem_volts >> 4) & 0xFF;
+  payload[3] = ((telem_volts << 4) & 0xF0);
+  payload[4] = crc8Maxim(payload, 4) ^ transmitterID;
+  
+  // transmit
+  delay(1);
+  if(LoRa.beginPacket())
   {
-    serialLastPrintTT = millis();
-    Serial.print("RSSI:");
-    Serial.print(rssi);
-    Serial.print(" PPS:");
-    Serial.print(validPacketsPerSecond);
-    Serial.print(" Ch: ");
-    for(uint8_t i = 0; i < 8; i++)
-    {
-      Serial.print(ch1to8Vals[i]/5); 
-      Serial.print(F(" "));
-    }
-    Serial.print(digitalChVal[0]);  //Ch9
-    Serial.print(F(" "));
-    Serial.print(digitalChVal[1]);  //Ch10
-    Serial.println();
+    LoRa.write(payload, 7);
+    LoRa.endPacket(); //block until done transmitting
+    hop();
   }
+}
+
+//==================================================================================================
+
+void writeOutputs()
+{ 
+  int16_t ch1to8MicroSec[8];
+  for(uint8_t i = 0; i<8; i++)
+    ch1to8MicroSec[i] = map(ch1to8Vals[i], -500, 500, 1000, 2000);
+
+  servoCh1.writeMicroseconds(ch1to8MicroSec[0]);
+  servoCh2.writeMicroseconds(ch1to8MicroSec[1]);
+  servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
+  servoCh4.writeMicroseconds(ch1to8MicroSec[3]);
+  servoCh5.writeMicroseconds(ch1to8MicroSec[4]);
+  servoCh6.writeMicroseconds(ch1to8MicroSec[5]);
+  servoCh7.writeMicroseconds(ch1to8MicroSec[6]);
+  servoCh8.writeMicroseconds(ch1to8MicroSec[7]);
+  
+  digitalWrite(PIN_CH9,  digitalChVal[0]);
+  digitalWrite(PIN_CH10, digitalChVal[1]);
 }
