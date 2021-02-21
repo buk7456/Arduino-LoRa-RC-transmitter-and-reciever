@@ -59,10 +59,11 @@ void readSwitchesAndButtons()
   
   //-- play audio when switches are moved --
   uint8_t switchesSum = SwAEngaged + SwBEngaged + SwCState + SwDEngaged;
-  static uint8_t lastSwitchesSum = switchesSum;
+  static uint8_t lastSwitchesSum = 0;
   if(switchesSum != lastSwitchesSum)
   {
-    audioToPlay = AUDIO_SWITCHMOVED;
+    if(thisLoopNum > 10UL) //prevent unneccesary beep on startup due to SwC
+      audioToPlay = AUDIO_SWITCHMOVED;
     lastSwitchesSum = switchesSum;
     inputsLastMoved = millis();
   }
@@ -261,7 +262,6 @@ void computeChannelOutputs()
   MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, curve1SrcVal);
   
   ///--Mix source Slow1
-  
   static int _valueNow = MixSources[IDX_SLOW1];
   MixSources[IDX_SLOW1] = applySlow(_valueNow, MixSources[Model.Slow1Src], Model.Slow1Up, Model.Slow1Down);
   _valueNow = MixSources[IDX_SLOW1];
