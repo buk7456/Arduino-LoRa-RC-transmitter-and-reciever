@@ -50,7 +50,7 @@ neccessary to edit the frequency lists in the stx.ino and rx.ino files.
 - Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
 - Holding the Down key on home screen accesses the extra digital channels A and B.
 - Holding the Select key on home screen accesses the trims.
-- Holding the Select key when swithing on opens the boot menu (for stick recalibration, format eeprom, etc.)
+- Holding the Select key when swithing on opens the startup menu (for stick recalibration, format eeprom, etc.)
 
 <p align="center">
 <img src="img2.png" width="808" height="976"/>
