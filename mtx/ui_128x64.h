@@ -1,4 +1,4 @@
-//==================================================================================================
+
 void HandleMainUI(); 
 void HandleBootUI(); 
 void FullScreenMsg(const char* str);
@@ -10,11 +10,10 @@ void changeToScreen(int8_t _theScrn);
 void resetTimer1();
 void drawHeader();
 void printVolts(uint16_t _milliVolts, uint8_t _prec);
-void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY);
+void printHHMMSS(uint32_t _milliSecs, int _cursorX, int _cursorY);
 void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
-void makeToast(const __FlashStringHelper* text, unsigned long _duration);
-void makeToast(const __FlashStringHelper* text, unsigned long _duration, unsigned long _delay);
+void makeToast(const __FlashStringHelper* text, uint16_t _duration, uint16_t _delay);
 void drawToast();
 void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
@@ -31,7 +30,7 @@ void loadMix(uint8_t _mixNo,
              uint8_t _in2, int8_t _weight2, int8_t _diff2, int8_t _offset2, 
              uint8_t _operator, uint8_t _sw, uint8_t _out);
 
-///================================================================================================
+//==================================================================================================
 
 //-- Boot popup menu strings. Max 15 characters per string
 #define NUM_ITEMS_BOOT_POPUP 3
@@ -447,9 +446,9 @@ void HandleMainUI()
 
   /// ---------------- BIND STATUS-----------------------------------
   if(bindStatus == 1)
-    makeToast(F("Bind success"), 3000);
+    makeToast(F("Bind success"), 3000, 0);
   else if(bindStatus == 2)
-    makeToast(F("Bind fail"), 3000);
+    makeToast(F("Bind fail"), 3000, 0);
   
   
   ///----------------- MAIN STATE MACHINE ---------------------------
@@ -818,7 +817,7 @@ void HandleMainUI()
           {
             if(_thisMdl_ == Sys.activeModel)
             {
-              makeToast(F("Already active"), 2000);
+              makeToast(F("Already active"), 2000, 0);
               changeToScreen(MODE_MODEL);
             }
             else
@@ -835,7 +834,7 @@ void HandleMainUI()
               Sys.rfOutputEnabled = false;
               eeSaveSysConfig();
               
-              makeToast(F("Loaded"), 2000);
+              makeToast(F("Loaded"), 2000, 0);
               changeToScreen(HOME_SCREEN);
             }
             
@@ -847,7 +846,7 @@ void HandleMainUI()
           {
             if(_thisMdl_ == Sys.activeModel)
             {
-              makeToast(F("Nothing to copy"), 2000);
+              makeToast(F("Nothing to copy"), 2000, 0);
               changeToScreen(MODE_MODEL);
             }
             else
@@ -891,7 +890,7 @@ void HandleMainUI()
           _action_ = LOADMODEL; //reinit
           _thisMdl_ = Sys.activeModel; //reinit
           
-          makeToast(F("Copied"), 2000);
+          makeToast(F("Copied"), 2000, 0);
           changeToScreen(HOME_SCREEN);
         }
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
@@ -921,7 +920,7 @@ void HandleMainUI()
           _action_ = LOADMODEL; //reinit
           _thisMdl_ = Sys.activeModel; //reinit
           
-          makeToast(F("Data cleared"), 2000);
+          makeToast(F("Data cleared"), 2000, 0);
           changeToScreen(HOME_SCREEN);
         }
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
@@ -988,7 +987,7 @@ void HandleMainUI()
           charPos = 0;
           eeSaveModelData(Sys.activeModel);
           changeToScreen(HOME_SCREEN); 
-          makeToast(F("Done"), 2000);
+          makeToast(F("Done"), 2000, 0);
         }
       }
       break;
@@ -1427,7 +1426,7 @@ void HandleMainUI()
           thisMixNum = 0;
           destMixNum = 0;
 
-          makeToast(F("All mixes reset"), 2000);
+          makeToast(F("All mixes reset"), 2000, 0);
           changeToScreen(MODE_MIXER);
         }
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
@@ -1793,7 +1792,7 @@ void HandleMainUI()
         else if (focusedItem == 6 && isEditMode)
         {
           bindActivated = true;
-          makeToast(F("Sending bind.."), 5000);
+          makeToast(F("Sending bind.."), 5000, 0);
           eeSaveSysConfig();
           changeToScreen(HOME_SCREEN);
         }
@@ -1963,7 +1962,7 @@ void HandleMainUI()
             calibStage = STICKS_MOVE;
             eeSaveSysConfig();
             changeToScreen(HOME_SCREEN);
-            makeToast(F("Calibrated"), 2000);
+            makeToast(F("Calibrated"), 2000, 0);
           }
         }
       }
@@ -2284,14 +2283,7 @@ void resetTimer1()
 
 //--------------------------------------------------------------------------------------------------
 
-void makeToast(const __FlashStringHelper* text, unsigned long _duration)
-{
-  toastText = text;
-  toastStartTime = millis();
-  toastExpireTime = toastStartTime + _duration;
-}
-
-void makeToast(const __FlashStringHelper* text, unsigned long _duration, unsigned long _delay)
+void makeToast(const __FlashStringHelper* text, uint16_t _duration, uint16_t _delay)
 {
   toastText = text;
   toastStartTime = millis() + _delay;
@@ -2394,7 +2386,7 @@ bool hasEnoughSlots(uint8_t _startIdx, uint8_t _numRequired)
 {
   if((_startIdx + _numRequired) > NUM_MIXSLOTS)
   {
-    makeToast(F("Can't load here!"), 2000);
+    makeToast(F("Can't load here!"), 2000, 0);
     return false;
   }
   else 
