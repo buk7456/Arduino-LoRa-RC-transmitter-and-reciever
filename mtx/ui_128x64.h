@@ -1,6 +1,6 @@
 
 void HandleMainUI(); 
-void HandleBootUI(); 
+void HandleStartupMenu(); 
 void FullScreenMsg(const char* str);
 //---helpers
 
@@ -32,13 +32,13 @@ void loadMix(uint8_t _mixNo,
 
 //==================================================================================================
 
-//-- Boot popup menu strings. Max 15 characters per string
-#define NUM_ITEMS_BOOT_POPUP 3
-char const bootStr0[] PROGMEM = "Calibrte sticks"; 
-char const bootStr1[] PROGMEM = "Format EEPROM"; 
-char const bootStr2[] PROGMEM = "Cancel";
-const char* const bootMenu[] PROGMEM = { //table to refer to the strings
-  bootStr0, bootStr1, bootStr2
+//-- Startup menu strings. Max 15 characters per string
+#define NUM_ITEMS_STARTUP_MENU 3
+char const startupStr0[] PROGMEM = "Calibrte sticks"; 
+char const startupStr1[] PROGMEM = "Format EEPROM"; 
+char const startupStr2[] PROGMEM = "Cancel";
+const char* const startupMenu[] PROGMEM = { //table to refer to the strings
+  startupStr0, startupStr1, startupStr2
 };
 
 //-- Main menu strings. Max 16 characters per string
@@ -298,13 +298,13 @@ void FullScreenMsg(const char* str)
 }
 
 ///=================================================================================================
-///                                BOOT UI
+///                                Startup menu
 ///=================================================================================================
 
-void HandleBootUI()
+void HandleStartupMenu()
 {
   display.clearDisplay();
-  drawPopupMenu(bootMenu, NUM_ITEMS_BOOT_POPUP);
+  drawPopupMenu(startupMenu, NUM_ITEMS_STARTUP_MENU);
   display.display();
   while (buttonCode != 0)  //wait for button release to prevent false trigger
   {
@@ -320,8 +320,8 @@ void HandleBootUI()
     
     display.clearDisplay();
     
-    changeFocusOnUPDOWN(NUM_ITEMS_BOOT_POPUP);
-    drawPopupMenu(bootMenu, NUM_ITEMS_BOOT_POPUP);
+    changeFocusOnUPDOWN(NUM_ITEMS_STARTUP_MENU);
+    drawPopupMenu(startupMenu, NUM_ITEMS_STARTUP_MENU);
     
     display.display();
     
