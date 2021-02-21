@@ -61,11 +61,11 @@ void setup()
   setDefaultModelBasicParams();
   setDefaultModelMixerParams();
   
-  //Boot UI
+  //Startup menu
   readSwitchesAndButtons();
   if(buttonCode == SELECT_KEY)
   {
-    HandleBootUI(); //blocking
+    HandleStartupMenu(); //blocking
   }
   
   //compute eeprom start address for model data and number of possible models
@@ -179,12 +179,19 @@ void setup()
     Sys.rfOutputEnabled = _rfState; //restore
   }
 
-  ///--------- Init timers -------------
+  ///--------- Init timers ---------------------
   timer1LastPaused = millis(); 
   
-  ///--------- other initialisations ----
+  ///--------- other initialisations -----------
+  //initialise battery volts
+  for(uint8_t i = 0; i < 30; i++)
+  {
+    checkBattery();
+    delay(5);
+  }
+ 
   _thisMdl_ = Sys.activeModel;
-  
+
 }
 
 //===================================== main =======================================================
@@ -387,10 +394,11 @@ void checkBattery()
   https://www.megunolink.com/articles/coding/3-methods-filter-noisy-arduino-measurements/
   It works by subtracting out the mean each time, and adding in a new point. */
   
-  enum { _NUM_SAMPLES = 30 };
   /*_NUM_SAMPLES parameter defines number of samples to average over. Higher value results in slower
   response.
   Formula x = x - x/n + a/n  */
+  
+  const int _NUM_SAMPLES = 20;
   
   long anaRd = ((long)analogRead(PIN_BATTVOLTS) * battVfactor) / 100;
   long battV = ((long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd) / _NUM_SAMPLES; 
