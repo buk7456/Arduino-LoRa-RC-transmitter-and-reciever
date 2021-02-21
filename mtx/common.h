@@ -100,10 +100,7 @@ struct modelParams {
   uint8_t Timer1Operator;
   int8_t  Timer1Value;      //-100 to 100
   uint8_t Timer1InitMins;   //if 0, timer will count up, else count down
-  
-  
 
-  
   //------- mixer params ---------
   
   uint8_t MixIn1[NUM_MIXSLOTS];  //index in mix sources array
