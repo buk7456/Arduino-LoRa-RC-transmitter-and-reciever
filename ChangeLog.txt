@@ -1,3 +1,11 @@
+1.7.0
+-----
+Feb2021
+ - Added External voltage telemetry.
+ - Slight modification to receiver schematic to enable measuring external voltage.
+ - Improved model management.
+ - Other subtle code optimisations
+
 1.6.0
 -----
 31Jan2021
