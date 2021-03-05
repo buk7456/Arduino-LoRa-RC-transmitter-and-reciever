@@ -11,9 +11,9 @@ An Arduino powered long range radio controller for use with rc planes, cars, boa
 - Reverse, subrim, Endpoints, Failsafe
 - Dual rates and expo for Ail, Ele, Rud
 - Throttle curve and a custom curve with 5 points
-- Flexible mixer with 10 mixer slots per model
+- Flexible mixer sytem
 - Adaptable timer and a stopwatch
-- 5 model memory
+- Model memory
 - Sticks calibration
 - Alarms, warnings
 - Receiver binding
