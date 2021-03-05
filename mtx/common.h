@@ -167,7 +167,7 @@ enum { //possible values in MixSwitch array
 
 void setDefaultModelName()
 {
-  uint8_t len = sizeof(Model.modelName)/sizeof(Model.modelName[0]);
+  uint8_t len = sizeof(Model.modelName);
   for(uint8_t i = 0; i < len - 1; i++) 
     Model.modelName[i] = ' ';
   Model.modelName[len - 1] = '\0';
