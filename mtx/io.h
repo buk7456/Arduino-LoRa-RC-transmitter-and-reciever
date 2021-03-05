@@ -8,7 +8,7 @@ void computeChannelOutputs();
 //Helpers
 int deadzoneAndMap(int _input, int _minVal, int _centerVal, int _maxVal, int _deadzn, int _mapMin, int _mapMax);
 int calcRateExpo(int _input, int _rate, int _expo);
-int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX);
+int linearInterpolate(int xValues[], int yValues[], uint8_t numValues, int pointX);
 int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fallTime);
 long weightAndOffset(int _input, int _weight, int _diff, int _offset);
 bool mixSwitchIsActive(uint8_t _mixNum);
@@ -181,8 +181,7 @@ void computeChannelOutputs()
 
   ///Declare mix source array, init it to zero, then populate it afterwards 
   int MixSources[NUM_MIXSOURCES]; 
-  for(int i = 0; i < NUM_MIXSOURCES; i++) 
-    MixSources[i] = 0;
+  memset(MixSources, 0, sizeof(MixSources));
 
   ///--Mix source sticks
   MixSources[IDX_ROLL] = rollIn;
@@ -249,7 +248,7 @@ void computeChannelOutputs()
   //Thr
   int xpoints[5] = {-500, -250, 0, 250, 500};
   int ypoints[5];
-  for(int i = 0; i < 5; i++)
+  for(uint8_t i = 0; i < 5; i++)
     ypoints[i] = 5 * Model.ThrottlePts[i];
   MixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
   MixSources[IDX_THRTL_CURV] += 5 * Model.Trim[2];
@@ -257,7 +256,7 @@ void computeChannelOutputs()
   
   //custom curve 1
   curve1SrcVal = MixSources[Model.Curve1Src];
-  for(int i = 0; i < 5; i++)
+  for(uint8_t i = 0; i < 5; i++)
     ypoints[i] = 5 * Model.Curve1Pts[i];
   MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, curve1SrcVal);
   
@@ -274,7 +273,7 @@ void computeChannelOutputs()
   MixSources[IDX_CH4] = MixSources[IDX_RUD];  //Send Rud  to Ch4
   
   ///--FREE MIXER
-  for(int _mixNum = 0; _mixNum < NUM_MIXSLOTS; _mixNum++)
+  for(uint8_t _mixNum = 0; _mixNum < NUM_MIXSLOTS; _mixNum++)
   {
     if(Model.MixOut[_mixNum] == IDX_NONE) //skip to next iteration
       continue;
@@ -322,7 +321,7 @@ void computeChannelOutputs()
   }
 
   ///WRITE TO CHANNELS
-  for(int i = 0; i < NUM_PRP_CHANNLES; i++)
+  for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
   {
     ChOut[i] = MixSources[IDX_CH1 + i];
     
@@ -491,7 +490,7 @@ long weightAndOffset(int _input, int _weight, int _diff, int _offset)
 
 //--------------------------------------------------------------------------------------------------
 
-int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
+int linearInterpolate(int xValues[], int yValues[], uint8_t numValues, int pointX)
 {
   //Implementation of linear Interpolation using integers
   //Formula used is y = ((x - x0)*(y1 - y0))/(x1 - x0) + y0;
@@ -502,14 +501,14 @@ int linearInterpolate(int xValues[], int yValues[], int numValues, int pointX)
     y = yValues[numValues - 1];
   else  //point is in range, interpolate
   { 
-    for(int i = 0; i < numValues - 1; i++)
+    for(uint8_t i = 0; i < numValues - 1; i++)
     {
-      if(pointX >= xValues[i] && pointX <= xValues[i+1])
+      if(pointX >= xValues[i] && pointX <= xValues[i + 1])
       {
         long x0 = xValues[i];
-        long x1 = xValues[i+1];
+        long x1 = xValues[i + 1];
         long y0 = yValues[i];
-        long y1 = yValues[i+1];
+        long y1 = yValues[i + 1];
         long x = pointX;
         y = (((x - x0) * (y1 - y0)) + (y0 * (x1 - x0))) / (x1 - x0);
         break;
