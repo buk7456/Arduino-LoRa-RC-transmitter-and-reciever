@@ -25,7 +25,9 @@ Servo servoCh1, servoCh2, servoCh3, servoCh4, servoCh5, servoCh6, servoCh7, serv
 #define PIN_CH7    A3
 #define PIN_CH8    A2
 #define PIN_CH9    A1
-#define PIN_CH10   A0
+#define PIN_CH10   9
+
+#define PIN_EXTV_SENSE A0
 
 #define PIN_LED_GREEN  7
 #define PIN_LED_ORANGE 6
@@ -53,7 +55,9 @@ uint8_t ptr_fhss_schema = 0;
 
 //--------------------------------------------------
 
-uint16_t telem_volts = 1200;     // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
+uint16_t telem_volts = 0x0FFF;     // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
+
+uint16_t externalVolts = 0; //in millivolts
 
 unsigned long lastValidPacketMillis = 0;
 
@@ -88,6 +92,7 @@ void readFlyModePacket();
 void hop();
 void sendTelemetry();
 void writeOutputs();
+void getExternalVoltage();
 
 //==================================================================================================
 void setup()
@@ -113,9 +118,11 @@ void setup()
   pinMode(PIN_CH9, OUTPUT);
   pinMode(PIN_CH10, OUTPUT);
   
-  delay(100);
+  //use analog reference internal 1.1V
+  analogReference(INTERNAL);
   
   //setup lora module
+  delay(100);
   LoRa.setPins(10, 8);
   if (LoRa.begin(freqList[0]))
   {
@@ -160,6 +167,8 @@ void setup()
 //====================================== MAIN LOOP =================================================
 void loop()
 {
+  getExternalVoltage();
+  
   readFlyModePacket();
   
   sendTelemetry();
@@ -490,16 +499,25 @@ void sendTelemetry()
   if(millis() - lastValidPacketMillis > 1000)
     validPacketsPerSecond = 0;
   
-  //prepare data
+  //---- prepare data ---
+  
   uint8_t payload[5];
   memset(payload, 0, sizeof(payload));
+  
   payload[0] = receiverID;
   payload[1] = validPacketsPerSecond;
+  
+  if(externalVolts < 2000 || millis() < 5000UL)
+    telem_volts = 0x0FFF;  //no data
+  else
+    telem_volts = externalVolts / 10; //convert to 10mV scale
+  
   payload[2] = (telem_volts >> 4) & 0xFF;
   payload[3] = ((telem_volts << 4) & 0xF0);
+  
   payload[4] = crc8Maxim(payload, 4) ^ transmitterID;
   
-  // transmit
+  //---- transmit ----
   delay(1);
   if(LoRa.beginPacket())
   {
@@ -528,4 +546,31 @@ void writeOutputs()
   
   digitalWrite(PIN_CH9,  digitalChVal[0]);
   digitalWrite(PIN_CH10, digitalChVal[1]);
+}
+
+//==================================================================================================
+
+void getExternalVoltage()
+{
+  /* 
+  Apply smoothing to measurement using exponential recursive smoothing
+  It works by subtracting out the mean each time, and adding in a new point. 
+  _NUM_SAMPLES parameter defines number of samples to average over. Higher value results in slower
+  response.
+  Formula x = x - x/n + a/n  
+  */
+  static uint32_t _lastMillis = 0;
+  if(millis() - _lastMillis < 10)
+  {
+    return;
+  }
+  _lastMillis = millis();
+  
+  const int _NUM_SAMPLES = 30;
+  
+  const int VFactor = 1688; //adjust this for correction. (##TODO possibly change this on transmitter side)
+  
+  long _millivolts = ((long)analogRead(PIN_EXTV_SENSE) * VFactor) / 100;
+  _millivolts = ((long)externalVolts * (_NUM_SAMPLES - 1) + _millivolts) / _NUM_SAMPLES; 
+  externalVolts = int(_millivolts); 
 }
