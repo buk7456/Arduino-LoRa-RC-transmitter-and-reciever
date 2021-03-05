@@ -1,6 +1,4 @@
-# Arduino Lora based Radio Controller
-
-An Arduino powered long range radio controller for use with rc planes, cars, boats, etc.
+# Arduino Lora based RC system
 
 <p align="center">
 <img src="img1.jpg" width="712" height="648"/>
