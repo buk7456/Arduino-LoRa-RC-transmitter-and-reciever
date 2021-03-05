@@ -56,7 +56,7 @@ void setup()
   display.begin();
   display.setTextWrap(false);
   
-  //initialise with safe values. Will be overridden by reading from eeprom
+  //initialise model data with safe values. Will be overridden by reading from eeprom
   setDefaultModelName();
   setDefaultModelBasicParams();
   setDefaultModelMixerParams();
@@ -75,6 +75,8 @@ void setup()
   ///------------- EEPROM Check ------------------
   
   uint8_t eeInitFlag = crc8Maxim((uint8_t *) &Sys, sizeof(Sys)) ^ crc8Maxim((uint8_t *) &Model, sizeof(Model));
+  
+  bool formatEE = false;
  
   /// Check signature. If its not matching, then assume it's a fresh mcu and format the eeprom
   uint16_t fileSignature;
@@ -91,29 +93,11 @@ void setup()
       delay(30);
     }
     
-    display.clearDisplay();
-    FullScreenMsg(PSTR("Formatting.."));
-    display.display();
-    delay(500);
-    
-    //write system data
-    eeSaveSysConfig();
-    //write model data
-    for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
-      eeSaveModelData(mdlNo);
-    //write flag
-    EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
-    //write signature
-    fileSignature = 0xE7D9;
-    EEPROM.put(EE_FILE_SIGNATURE_ADDR, fileSignature);
-    
     buttonCode = 0; 
-    changeToScreen(MODE_CALIB);
-    skipThrottleCheck = true;
+    formatEE = true;
   }
-
   ///Check flag. Signature may match but not the data structs
-  if(EEPROM.read(EE_INITFLAG_ADDR) != eeInitFlag)
+  else if(EEPROM.read(EE_INITFLAG_ADDR) != eeInitFlag)
   {
     display.clearDisplay();
     FullScreenMsg(PSTR("Format EEPROM?\n\nYes [Up]  \nNo  [Down]"));
@@ -126,23 +110,36 @@ void setup()
     }
     
     if(buttonCode == UP_KEY) //format
-    {
-      display.clearDisplay();
-      FullScreenMsg(PSTR("Formatting.."));
-      display.display();
-      delay(500);
-      //write system data
-      eeSaveSysConfig();
-      //write model data
-      for (uint8_t mdlNo = 1; mdlNo <= numOfModels; mdlNo++)
-        eeSaveModelData(mdlNo);
-      
-      changeToScreen(MODE_CALIB); 
-      skipThrottleCheck = true;
-    }
+      formatEE = true;
+    else if(buttonCode == DOWN_KEY)
+      EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
     
-    EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
     buttonCode = 0;
+  }
+  
+  if(formatEE)
+  {
+    display.clearDisplay();
+    FullScreenMsg(PSTR("Formatting.."));
+    display.display();
+    delay(500);
+    
+    //erase eeprom
+    eraseEEPROM();
+    
+    //write system data
+    eeSaveSysConfig();
+    //create a model in slot 1
+    eeCreateModel(1);
+    
+    //write flag
+    EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
+    //write signature
+    fileSignature = 0xE7D9;
+    EEPROM.put(EE_FILE_SIGNATURE_ADDR, fileSignature);
+    
+    changeToScreen(MODE_CALIB); 
+    skipThrottleCheck = true;
   }
   
   ///-------------------------------------------
@@ -189,8 +186,6 @@ void setup()
     checkBattery();
     delay(5);
   }
- 
-  _thisMdl_ = Sys.activeModel;
 
 }
 
