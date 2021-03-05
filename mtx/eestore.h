@@ -13,52 +13,106 @@ uint8_t numOfModels;             //determined in setup()
 
 void eeReadSysConfig();
 void eeSaveSysConfig();
-void eeReadModelData(uint8_t _mdlNO); 
-void eeSaveModelData(uint8_t _mdlNO);
-void eeCopyModelName(uint8_t _mdlNO, char* _buff);
+void eeReadModelData(uint8_t _mdlNo); 
+void eeSaveModelData(uint8_t _mdlNo);
+void eeCopyModelName(char* _buff, uint8_t _mdlNo);
+
+void eeCreateModel(uint8_t _mdlNo);
+void eeDeleteModel(uint8_t _mdlNo);
+
+void eraseEEPROM();
 
 //helpers
-int getModelDataOffsetAddr(uint8_t _mdlNO);
+uint16_t getModelDataOffsetAddr(uint8_t _mdlNo);
 
-//--------------------------------------------------------------------------------------------------
+
+//==================================================================================================
 
 void eeReadSysConfig()
 {
   EEPROM.get(eeSysDataStartAddress, Sys);
 }
 
+//==================================================================================================
+
 void eeSaveSysConfig()
 {
   EEPROM.put(eeSysDataStartAddress, Sys);
 }
 
-//--------------------------------------------------------------------------------------------------
+//==================================================================================================
 
-void eeReadModelData(uint8_t _mdlNO)
+void eeReadModelData(uint8_t _mdlNo)
 {
-  int _mdlOffset_ = getModelDataOffsetAddr(_mdlNO);
+  uint16_t _mdlOffset_ = getModelDataOffsetAddr(_mdlNo);
   EEPROM.get(eeModelDataStartAddress + _mdlOffset_, Model);
 }
 
-void eeSaveModelData(uint8_t _mdlNO)
+//==================================================================================================
+
+void eeSaveModelData(uint8_t _mdlNo)
 {
-  int _mdlOffset_ = getModelDataOffsetAddr(_mdlNO);
+  uint16_t _mdlOffset_ = getModelDataOffsetAddr(_mdlNo);
   EEPROM.put(eeModelDataStartAddress + _mdlOffset_, Model);
 }
 
-//Copies modelName into specified buffer 
-void eeCopyModelName(uint8_t _mdlNO, char* _buff)
+//==================================================================================================
+
+void eeCopyModelName(char* _buff, uint8_t _mdlNo)
 {
-  int _mdlOffset_ = getModelDataOffsetAddr(_mdlNO);
-  
+  //Copies modelName into specified buffer 
+  uint16_t _mdlOffset_ = getModelDataOffsetAddr(_mdlNo);
   for(uint8_t i = 0; i < (sizeof(Model.modelName)/sizeof(Model.modelName[0])); i++) 
   {
     *(_buff + i) = EEPROM.read(eeModelDataStartAddress + _mdlOffset_ + i);
   }
 }
 
-//--------------------------------------------------------------------------------------------------
-int getModelDataOffsetAddr(uint8_t _mdlNO)
+//==================================================================================================
+
+void eeCreateModel(uint8_t _mdlNo)
 {
-  return (sizeof(Model) * (_mdlNO - 1));
+  //save active model as we are going to use ram as sketchpad
+  eeSaveModelData(Sys.activeModel);
+  
+  //set defaults
+  setDefaultModelBasicParams();
+  setDefaultModelMixerParams();
+  setDefaultModelName();
+  //save to eeprom
+  eeSaveModelData(_mdlNo);
+  
+  //Read back active model
+  eeReadModelData(Sys.activeModel);
+}
+
+//==================================================================================================
+
+void eeDeleteModel(uint8_t _mdlNo)
+{
+  //simply remove name setting by all characters in name to ascii 127
+  
+  uint16_t _mdlOffset_ = getModelDataOffsetAddr(_mdlNo);
+  
+  uint8_t len = sizeof(Model.modelName)/sizeof(Model.modelName[0]);
+  for(uint8_t i = 0; i < len - 1; i++) 
+  {
+    EEPROM.update(eeModelDataStartAddress + _mdlOffset_ + i, 0xFF);
+  }
+  EEPROM.update(eeModelDataStartAddress + _mdlOffset_ + len - 1, '\0'); //write termination char
+}
+
+//==================================================================================================
+
+uint16_t getModelDataOffsetAddr(uint8_t _mdlNo)
+{
+  return (sizeof(Model) * (_mdlNo - 1));
+}
+
+//==================================================================================================
+
+void eraseEEPROM()
+{
+  for(uint16_t i = 0; i < EEPROM.length(); i++)
+    EEPROM.update(i, 0xFF);
 }
