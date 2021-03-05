@@ -2,7 +2,8 @@
 void HandleMainUI(); 
 void HandleStartupMenu(); 
 void FullScreenMsg(const char* str);
-//---helpers
+
+//--- helpers ----
 
 void toggleEditModeOnSelectClicked();
 void drawAndNavMenu(const char *const list[], int8_t _numMenuItems);
@@ -10,14 +11,15 @@ void changeToScreen(int8_t _theScrn);
 void resetTimer1();
 void drawHeader();
 void printVolts(uint16_t _milliVolts, uint8_t _prec);
-void printHHMMSS(uint32_t _milliSecs, int _cursorX, int _cursorY);
+void printHHMMSS(uint32_t _milliSecs);
 void changeFocusOnUPDOWN(uint8_t _maxItemNo);
 void drawCursor(int16_t _xpos, int16_t _ypos);
 void makeToast(const __FlashStringHelper* text, uint16_t _duration, uint16_t _delay);
 void drawToast();
 void drawPopupMenu(const char *const list[], int8_t _numItems);
 void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val);
-bool isDefaultModelName(char* _nameBuff, uint8_t _lenBuff);
+bool modelIsfree(uint8_t _mdlNo);
+void printModelName(char* _buff, uint8_t _lenBuff, uint8_t _mdlNo);
 int8_t adjustTrim(int8_t _lowerLimit, int8_t _upperLimit, int8_t _val);
 
 enum {WRAP = true, NOWRAP = false};
@@ -39,51 +41,6 @@ char const startupStr1[] PROGMEM = "Format EEPROM";
 char const startupStr2[] PROGMEM = "Cancel";
 const char* const startupMenu[] PROGMEM = { //table to refer to the strings
   startupStr0, startupStr1, startupStr2
-};
-
-//-- Main menu strings. Max 16 characters per string
-#define NUM_ITEMS_MAIN_MENU 8
-char const main0[] PROGMEM = "Main menu"; //heading
-char const main1[] PROGMEM = "Model";
-char const main2[] PROGMEM = "Inputs";
-char const main3[] PROGMEM = "Mixer";
-char const main4[] PROGMEM = "Outputs";
-char const main5[] PROGMEM = "System";
-char const main6[] PROGMEM = "Receiver";
-char const main7[] PROGMEM = "About";
-const char* const mainMenu[] PROGMEM = { //table to refer to the strings
-  main0, main1, main2, main3, main4, main5, main6, main7
-};
-
-//Assign indices for ui states
-enum
-{
-  //Same order as in the main menu 
-  MAIN_MENU = 0,
-  MODE_MODEL,
-  MODE_INPUTS,
-  MODE_MIXER,
-  MODE_OUTPUTS,
-  MODE_SYSTEM,
-  MODE_RECEIVER,
-  MODE_ABOUT,
-  
-  //others
-  HOME_SCREEN,
-  POPUP_TIMER_MENU,
-  MODE_TIMER_SETUP,
-  POPUP_RENAME_MODEL,
-  MODE_MIXER_OUTPUT,
-  POPUP_MIXER_MENU,
-  POPUP_MOVE_MIX,
-  POPUP_COPY_MIX,
-  POPUP_TEMPLATES_MENU,
-  MODE_CALIB,
-  MODE_CHANNEL_MONITOR,
-  
-  CONFIRMATION_MODEL_COPY,
-  CONFIRMATION_MODEL_RESET,
-  CONFIRMATION_MIXES_RESET
 };
 
 //-- Timer popup menu strings. Max 15 characters per string
@@ -184,13 +141,24 @@ const char* const soundModeStr[] PROGMEM = {
   soundModeStr0, soundModeStr1, soundModeStr2, soundModeStr3
 };
   
-//Model action strings. Max 9 characters
-char const modelActionStr0[] PROGMEM = "Load";
-char const modelActionStr1[] PROGMEM = "Copy from";
-char const modelActionStr2[] PROGMEM = "Rename";
-char const modelActionStr3[] PROGMEM = "Reset";
-const char* const modelActionStr[] PROGMEM = { 
-  modelActionStr0, modelActionStr1, modelActionStr2, modelActionStr3
+//Model popup menus. Max 15 characters
+char const modelLoadStr[] PROGMEM    = "Load model";
+char const modelCopyStr[] PROGMEM    = "Copy data from";
+char const modelRenameStr[] PROGMEM  = "Rename model";
+char const modelDeleteStr[] PROGMEM  = "Delete model";
+char const modelCreateStr[] PROGMEM  = "Create model";
+
+#define NUM_ITEMS_ACTIVE_MODEL_MENU  2
+const char* const activeModelMenu[] PROGMEM = { 
+  modelRenameStr, modelCopyStr
+};
+#define NUM_ITEMS_INACTIVE_MODEL_MENU  2
+const char* const inactiveModelMenu[] PROGMEM = { 
+  modelLoadStr, modelDeleteStr
+};
+#define NUM_ITEMS_FREE_MODEL_MENU  1
+const char* const freeModelMenu[] PROGMEM = {
+  modelCreateStr
 };
 
 //Backlight mode strings
@@ -222,6 +190,62 @@ const char* const tmrOperatorStr[] PROGMEM = {
   tmrOperatorStr0, tmrOperatorStr1, tmrOperatorStr2, tmrOperatorStr3
 };
 
+//-- Main menu strings. Max 16 characters per string
+#define NUM_ITEMS_MAIN_MENU 8
+char const main0[] PROGMEM = "Main menu"; //heading
+char const main1[] PROGMEM = "Model";
+char const main2[] PROGMEM = "Inputs";
+char const main3[] PROGMEM = "Mixer";
+char const main4[] PROGMEM = "Outputs";
+char const main5[] PROGMEM = "System";
+char const main6[] PROGMEM = "Receiver";
+char const main7[] PROGMEM = "About";
+const char* const mainMenu[] PROGMEM = { //table to refer to the strings
+  main0, main1, main2, main3, main4, main5, main6, main7
+};
+
+//Assign indices for ui states
+enum
+{
+  //Same order as in the main menu 
+  MAIN_MENU = 0,
+  MODE_MODEL,
+  MODE_INPUTS,
+  MODE_MIXER,
+  MODE_OUTPUTS,
+  MODE_SYSTEM,
+  MODE_RECEIVER,
+  MODE_ABOUT,
+  
+  //others
+  
+  HOME_SCREEN,
+  
+  MODE_CALIB,
+  
+  MODE_CHANNEL_MONITOR,
+  
+  POPUP_TIMER_MENU,
+  MODE_TIMER_SETUP,
+  
+  MODE_MIXER_OUTPUT,
+  POPUP_MIXER_MENU,
+  POPUP_MOVE_MIX,
+  POPUP_COPY_MIX,
+  POPUP_TEMPLATES_MENU,
+  CONFIRMATION_MIXES_RESET,
+  
+  POPUP_ACTIVE_MODEL_MENU,
+  POPUP_INACTIVE_MODEL_MENU,
+  POPUP_FREE_MODEL_MENU,
+  
+  POPUP_RENAME_MODEL,
+  POPUP_COPYFROM_MODEL,
+  
+  CONFIRMATION_MODEL_COPY,
+  CONFIRMATION_MODEL_DELETE,
+};
+
 // ---------------- Globals ------------------
 
 char txtBuff[22]; //generic buffer for working with strings
@@ -230,13 +254,10 @@ uint8_t theScreen = HOME_SCREEN;
 uint8_t focusedItem = 1; //The item that currently has focus in MODE Screens or popups
 bool isEditMode = false;
 
-//Dont use unsigned types for these!!!
-int8_t topItem = 1;         //in main menu
-int8_t highlightedItem = 1; //in main menu
+uint8_t menuTopItem = 1;
+uint8_t menuHighlightedItem = 1;
 
 //Model
-enum {LOADMODEL = 0, COPYFROMMODEL, RENAMEMODEL, RESETMODEL};
-uint8_t _action_ = LOADMODEL;
 uint8_t _thisMdl_;
 
 //mixer
@@ -413,7 +434,6 @@ void HandleMainUI()
     _tWarnStarted = false;
   }
   
-
   /// --------------- TX LOW BATTERY WARN -----------------
   if(battState == BATTLOW)
   {
@@ -449,7 +469,7 @@ void HandleMainUI()
     makeToast(F("Bind success"), 3000, 0);
   else if(bindStatus == 2)
     makeToast(F("Bind fail"), 3000, 0);
-  
+  bindStatus = 0;
   
   ///----------------- MAIN STATE MACHINE ---------------------------
   switch (theScreen)
@@ -474,7 +494,7 @@ void HandleMainUI()
           if (numOfBars > lastNumOfBars && numOfBars - lastNumOfBars < 2) //prevent jitter at boundaries
             numOfBars = lastNumOfBars;
           for(int8_t i = 0; i < (numOfBars/4 + 1); i++)
-            display.fillRect(2 + i*3, 2, 2, 3, BLACK);
+            display.fillRect(2 + i * 3, 2, 2, 3, BLACK);
           lastNumOfBars = numOfBars;
         }
 
@@ -496,27 +516,22 @@ void HandleMainUI()
 
         //------show model name-----------
         display.setCursor(20, 16);
-        if(isDefaultModelName(Model.modelName, sizeof(Model.modelName)/sizeof(Model.modelName[0])))
-        {
-          display.print(F("MODEL"));
-          display.print(Sys.activeModel);
-        }
-        else
-          display.print(Model.modelName);
-        
+        printModelName(Model.modelName, sizeof(Model.modelName), Sys.activeModel);
+
         // draw separator
         display.drawHLine(20,27,84,BLACK);
 
         //----show timer 1 ---------
+        display.setCursor(20, 32);
         if(Model.Timer1InitMins == 0) //a countup timer
-          printHHMMSS(timer1ElapsedTime, 20, 32);
+          printHHMMSS(timer1ElapsedTime);
         else //a count down timer
         {
           uint32_t _initMillis = Model.Timer1InitMins * 60000UL;
           if(timer1ElapsedTime < _initMillis)
           {
             uint32_t ttqq = _initMillis - timer1ElapsedTime;
-            printHHMMSS(ttqq + 999, 20, 32); //add 999ms so the displayed time doesnt 
+            printHHMMSS(ttqq + 999); //add 999ms so the displayed time doesnt 
             //change immediately upon running the timer
           }
           else
@@ -524,17 +539,17 @@ void HandleMainUI()
             uint32_t ttqq = timer1ElapsedTime - _initMillis;
             if(ttqq >= 1000) //prevents displaying -00:00
             { 
-              display.setCursor(20, 32);
               display.print(F("-"));
-              printHHMMSS(ttqq, 26, 32);
+              printHHMMSS(ttqq);
             }
             else
-              printHHMMSS(ttqq, 20, 32);
+              printHHMMSS(ttqq);
           }
         }
 
         //------- Show generic timer ------------
-        printHHMMSS(stopwatchElapsedTime, 20, 45);
+        display.setCursor(20, 45);
+        printHHMMSS(stopwatchElapsedTime);
 
         //---------------------------------------
         
@@ -706,10 +721,7 @@ void HandleMainUI()
           while(Model.Timer1ControlSrc == IDX_100PERC 
                 || (Model.Timer1ControlSrc >= IDX_SLOW1 && Model.Timer1ControlSrc <= IDX_RUD))
           {
-            if(buttonCode == UP_KEY) 
-              ++Model.Timer1ControlSrc;
-            else if(buttonCode == DOWN_KEY) 
-              --Model.Timer1ControlSrc;
+            Model.Timer1ControlSrc = incDecOnUpDown(Model.Timer1ControlSrc, 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
           }
         }
         else if(focusedItem == 2)
@@ -755,12 +767,12 @@ void HandleMainUI()
       {
         drawAndNavMenu(mainMenu, NUM_ITEMS_MAIN_MENU);
         if (clickedButton == SELECT_KEY)
-          changeToScreen(highlightedItem);
+          changeToScreen(menuHighlightedItem);
         else if (heldButton == SELECT_KEY)
         {
           // reset menu
-          // highlightedItem = 1;
-          // topItem = 1;
+          // menuHighlightedItem = 1;
+          // menuTopItem = 1;
           
           changeToScreen(HOME_SCREEN);
         }
@@ -771,162 +783,156 @@ void HandleMainUI()
       {
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_MODEL])), sizeof(txtBuff));
         drawHeader();
-
-        //-- show action
-        display.setCursor(49, 12);
-        strlcpy_P(txtBuff, (char *)pgm_read_word(&(modelActionStr[_action_])), sizeof(txtBuff));
-        display.print(txtBuff);
-
-        //-- show model name
         
-        if(_action_ > COPYFROMMODEL)
-          _thisMdl_ = Sys.activeModel; //reinit
+        //------ scrollable list of models ----------
         
-        display.setCursor(49, 22);
-        
-        eeCopyModelName(_thisMdl_, txtBuff); //copy model name into temporary buffer
-        if(isDefaultModelName(txtBuff, sizeof(txtBuff)))
-        { 
-          display.print(F("MODEL"));
-          display.print(_thisMdl_);
-        }
-        else
-          display.print(txtBuff);
-        
-        //-- show confirmation
-        display.setCursor(49, 32);
-        display.print(F("Confirm"));
-
-
-        changeFocusOnUPDOWN(3);
-        toggleEditModeOnSelectClicked();
-        drawCursor(41, (focusedItem * 10) + 2);
-        
-        if (focusedItem == 1) 
-          _action_ = incDecOnUpDown(_action_, 0, 3, WRAP, SLOW_CHANGE);
-        
-        else if (focusedItem == 2 && (_action_ == LOADMODEL || _action_ == COPYFROMMODEL))
-          _thisMdl_ = incDecOnUpDown(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
-        
-        else if (focusedItem == 3 && isEditMode) //confirm action
+        static uint8_t _top;
+        static bool _viewInitialised = false;
+        if(!_viewInitialised)
         {
-          if(_action_ == RENAMEMODEL)
-            changeToScreen(POPUP_RENAME_MODEL);
+          _thisMdl_ = Sys.activeModel;
+          if(Sys.activeModel > 6) _top = Sys.activeModel - 5;
+          else _top = 1;
+          _viewInitialised = true;
+        }
+        
+        // handle navigation
+        isEditMode = true;
+        _thisMdl_ = incDecOnUpDown(_thisMdl_, numOfModels, 1, WRAP, SLOW_CHANGE);
+        if(_thisMdl_ < _top || _thisMdl_ >= (_top + 6))
+          _top = incDecOnUpDown(_top, numOfModels - 5, 1, WRAP, SLOW_CHANGE);
+        isEditMode = false;
+        
+        // fill list
+        for(uint8_t i = 1; i <= 6 && i <= numOfModels; i++)
+        {
+          uint8_t _mdlNo = _top - 1 + i;
           
-          else if(_action_ == LOADMODEL)
+          if((_mdlNo) == Sys.activeModel) //indicate it is active
           {
-            if(_thisMdl_ == Sys.activeModel)
-            {
-              makeToast(F("Already active"), 2000, 0);
-              changeToScreen(MODE_MODEL);
-            }
-            else
-            {
-              //Save the active model before changing to another model
-              eeSaveModelData(Sys.activeModel);
-              //load into ram
-              eeReadModelData(_thisMdl_);
-              //set as active model
-              Sys.activeModel = _thisMdl_; 
-              
-              //reset other stuff
-              resetTimer1();
-              Sys.rfOutputEnabled = false;
-              eeSaveSysConfig();
-              
-              makeToast(F("Loaded"), 2000, 0);
-              changeToScreen(HOME_SCREEN);
-            }
-            
-            _action_ = LOADMODEL; //reinit
-            _thisMdl_ = Sys.activeModel; //reinit
+            // display.fillRect(25, 9 * i + 3, 3, 3, BLACK);
+            display.setCursor(23, 9 * i + 1);
+            display.print(F("*"));
           }
           
-          else if(_action_ == COPYFROMMODEL)
+          if(_thisMdl_ == _mdlNo) //highlight
           {
-            if(_thisMdl_ == Sys.activeModel)
-            {
-              makeToast(F("Nothing to copy"), 2000, 0);
-              changeToScreen(MODE_MODEL);
-            }
-            else
-              changeToScreen(CONFIRMATION_MODEL_COPY);
+            if(_mdlNo < 10) display.fillRect(30, 9 * i, 7, 9, BLACK);
+            else display.fillRect(30, 9 * i, 14, 9, BLACK);
+            display.setTextColor(WHITE);
           }
+          display.setCursor(31, 9 * i + 1);
+          display.print(_mdlNo);
+          display.setTextColor(BLACK);
           
-          else if (_action_ == RESETMODEL)
-            changeToScreen(CONFIRMATION_MODEL_RESET);
+          display.setCursor(46, 9 * i + 1);
+          if(!modelIsfree(_mdlNo))
+          {
+            //print name
+            eeCopyModelName(txtBuff, _mdlNo);
+            printModelName(txtBuff, sizeof(txtBuff), _mdlNo);
+          }
+        }
+
+        //----- end of list ----------------------
+        
+        if(clickedButton == SELECT_KEY)
+        {
+          if(_thisMdl_ == Sys.activeModel)
+            changeToScreen(POPUP_ACTIVE_MODEL_MENU);
+          else if(!modelIsfree(_thisMdl_))
+            changeToScreen(POPUP_INACTIVE_MODEL_MENU);
+          else if(modelIsfree(_thisMdl_))
+            changeToScreen(POPUP_FREE_MODEL_MENU);
         }
 
         if (heldButton == SELECT_KEY)
         {
-          //reinit
-          _action_ = LOADMODEL;
-          _thisMdl_ = Sys.activeModel;
-          
+          _viewInitialised = false;//reset view
           changeToScreen(MAIN_MENU);
         }
       }
       break;
       
-    case CONFIRMATION_MODEL_COPY:
+    case POPUP_ACTIVE_MODEL_MENU:
       {
-        FullScreenMsg(PSTR("Model data will\nbe overwritten.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
-        if(clickedButton == UP_KEY)
-        {
-          //temporarily store model name as we shall maintain it 
-          strlcpy(txtBuff, Model.modelName, sizeof(txtBuff));
-          //load source model into ram
-          eeReadModelData(_thisMdl_);
-          //restore model name
-          strlcpy(Model.modelName, txtBuff, sizeof(Model.modelName));
-          //save
-          eeSaveModelData(Sys.activeModel);
-          
-          //reset other stuff
-          resetTimer1();
-          Sys.rfOutputEnabled = false;
-          eeSaveSysConfig();
-          
-          _action_ = LOADMODEL; //reinit
-          _thisMdl_ = Sys.activeModel; //reinit
-          
-          makeToast(F("Copied"), 2000, 0);
-          changeToScreen(HOME_SCREEN);
-        }
-        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
-        {
+        changeFocusOnUPDOWN(NUM_ITEMS_ACTIVE_MODEL_MENU);
+        drawPopupMenu(activeModelMenu, NUM_ITEMS_ACTIVE_MODEL_MENU);
+        
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
+        
+        if(_selection == 1) //rename model
+          changeToScreen(POPUP_RENAME_MODEL);
+        else if(_selection == 2) //copy from model
+          changeToScreen(POPUP_COPYFROM_MODEL);
+        
+        if(heldButton == SELECT_KEY) //exit
           changeToScreen(MODE_MODEL);
-        }
       }
       break;
       
-    case CONFIRMATION_MODEL_RESET:
+    case POPUP_INACTIVE_MODEL_MENU:
       {
-        FullScreenMsg(PSTR("Model data will\nbe cleared.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
-        if(clickedButton == UP_KEY)
+        changeFocusOnUPDOWN(NUM_ITEMS_INACTIVE_MODEL_MENU);
+        drawPopupMenu(inactiveModelMenu, NUM_ITEMS_INACTIVE_MODEL_MENU);
+        
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
+        
+        if(_selection == 1) //load model
         {
-          //set defaults
-          setDefaultModelBasicParams();
-          setDefaultModelMixerParams();
-          setDefaultModelName();
-          //save
+          //Save the active model before changing to another model
           eeSaveModelData(Sys.activeModel);
+          //load into ram
+          eeReadModelData(_thisMdl_);
+          //set as active model
+          Sys.activeModel = _thisMdl_; 
           
           //reset other stuff
           resetTimer1();
           Sys.rfOutputEnabled = false;
+          //save system
           eeSaveSysConfig();
           
-          _action_ = LOADMODEL; //reinit
-          _thisMdl_ = Sys.activeModel; //reinit
-          
-          makeToast(F("Data cleared"), 2000, 0);
-          changeToScreen(HOME_SCREEN);
-        }
-        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
-        {
           changeToScreen(MODE_MODEL);
         }
+        else if(_selection == 2) //delete model
+          changeToScreen(CONFIRMATION_MODEL_DELETE);
+
+        if(heldButton == SELECT_KEY) //exit
+          changeToScreen(MODE_MODEL);
+      }
+      break;
+      
+    case POPUP_FREE_MODEL_MENU:
+      {
+        changeFocusOnUPDOWN(NUM_ITEMS_FREE_MODEL_MENU);
+        drawPopupMenu(freeModelMenu, NUM_ITEMS_FREE_MODEL_MENU);
+        
+        uint8_t _selection = clickedButton == SELECT_KEY ? focusedItem : 0;
+        
+        if(_selection == 1) //create model
+        {
+          //Save the current active model first
+          eeSaveModelData(Sys.activeModel);
+          
+          //reset timer1 and disable rf output
+          resetTimer1();
+          Sys.rfOutputEnabled = false;
+          //save system
+          eeSaveSysConfig();
+          
+          //create model and set it active
+          eeCreateModel(_thisMdl_);
+          eeReadModelData(_thisMdl_);
+          Sys.activeModel = _thisMdl_;
+          //save system
+          eeSaveSysConfig();
+          
+          changeToScreen(MODE_MODEL);
+        }
+
+        if(heldButton == SELECT_KEY) //exit
+          changeToScreen(MODE_MODEL);
       }
       break;
       
@@ -982,16 +988,105 @@ void HandleMainUI()
           heldButton = 0; //override. prevents false triggers
         }
           
-        if(charPos == (sizeof(Model.modelName)/sizeof(Model.modelName[0])) - 1) //done renaming. Exit
+        if(charPos == (sizeof(Model.modelName) - 1)) //done renaming. Exit
         {
           charPos = 0;
           eeSaveModelData(Sys.activeModel);
-          changeToScreen(HOME_SCREEN); 
-          makeToast(F("Done"), 2000, 0);
+          changeToScreen(MODE_MODEL); 
         }
       }
       break;
+      
+    case POPUP_COPYFROM_MODEL:
+      {
+        //change source model
+        isEditMode = true;
+        _thisMdl_ = incDecOnUpDown(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
+        //validate
+        while(modelIsfree(_thisMdl_))
+        {
+          _thisMdl_ = incDecOnUpDown(_thisMdl_, 1, numOfModels, WRAP, SLOW_CHANGE);
+        }
+        
+        display.drawRect(15,11,97,40,BLACK); //draw bounding box
+        
+        display.setCursor(19,14);
+        display.print(F("Copy data"));
+        display.setCursor(19,23);
+        display.print(F("from:  "));
+        //print name
+        eeCopyModelName(txtBuff, _thisMdl_); 
+        printModelName(txtBuff, sizeof(txtBuff), _thisMdl_);
 
+        drawCursor(53, 23);
+
+        if(clickedButton == SELECT_KEY)
+        {
+          if(_thisMdl_ == Sys.activeModel)
+          {
+            makeToast(F("Nothing to copy"), 2000, 0);
+            changeToScreen(MODE_MODEL);
+          }
+          else
+          {
+            changeToScreen(CONFIRMATION_MODEL_COPY);
+          }
+        }
+        else if(heldButton == SELECT_KEY) //go back
+        {
+          _thisMdl_ = Sys.activeModel;
+          changeToScreen(MODE_MODEL);
+        }
+      }
+      break;
+      
+    case CONFIRMATION_MODEL_COPY:
+      {
+        FullScreenMsg(PSTR("Model data will\nbe overwritten.\nAre you sure?\n\nYes [Up]  \nNo  [Down]"));
+        if(clickedButton == UP_KEY)
+        {
+          //temporarily store model name as we shall maintain it 
+          strlcpy(txtBuff, Model.modelName, sizeof(txtBuff));
+          //load source model into ram
+          eeReadModelData(_thisMdl_);
+          //restore model name
+          strlcpy(Model.modelName, txtBuff, sizeof(Model.modelName));
+          //save
+          eeSaveModelData(Sys.activeModel);
+          
+          //reset other stuff
+          resetTimer1();
+          Sys.rfOutputEnabled = false;
+          eeSaveSysConfig();
+          
+          _thisMdl_ = Sys.activeModel; //reinit
+          
+          makeToast(F("Copied"), 2000, 0);
+          changeToScreen(MODE_MODEL);
+        }
+        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
+        {
+          _thisMdl_ = Sys.activeModel;
+          changeToScreen(MODE_MODEL);
+        }
+      }
+      break;
+      
+    case CONFIRMATION_MODEL_DELETE:
+      {
+        FullScreenMsg(PSTR("Delete model?\n\nYes [Up]  \nNo  [Down]"));
+        if(clickedButton == UP_KEY)
+        {
+          eeDeleteModel(_thisMdl_);
+          changeToScreen(MODE_MODEL);
+        }
+        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
+        {
+          changeToScreen(MODE_MODEL);
+        }
+      }
+      break;
+      
     case MODE_INPUTS:
       {
         strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_INPUTS])), sizeof(txtBuff));
@@ -1208,17 +1303,17 @@ void HandleMainUI()
           int _stickVal[5] = {rollIn, pitchIn, throttleIn, yawIn, knobIn}; //order as in source names
           for(int i = 0; i < 5; i++)
           {
-            display.setCursor(14, 21 + i*9);
+            display.setCursor(14, 21 + i * 9);
             strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_ROLL + i])), sizeof(txtBuff));
             display.print(txtBuff);
-            display.setCursor(42, 21 + i*9);
+            display.setCursor(42, 21 + i * 9);
             display.print(_stickVal[i]/5);
           }
           //show switches
           uint8_t _swState[4] = {SwAEngaged, SwBEngaged, SwCState, SwDEngaged}; //order as in source names
           for(int i = 0; i < 4; i++)
           {
-            int16_t _ycord = 21 + i*9;
+            int16_t _ycord = 21 + i * 9;
             display.setCursor(83, _ycord);
             strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_SWA + i])), sizeof(txtBuff));
             display.print(txtBuff);
@@ -1263,7 +1358,7 @@ void HandleMainUI()
         uint8_t _inName[2] = {Model.MixIn1[thisMixNum], Model.MixIn2[thisMixNum]};
         for(uint8_t i = 0; i < 2; i++)
         {
-          display.setCursor(54 + i*43, 24);
+          display.setCursor(54 + i * 43, 24);
           if(_inName[i] == IDX_SLOW1) 
           {
             strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[Model.Slow1Src])), sizeof(txtBuff));
@@ -1419,7 +1514,7 @@ void HandleMainUI()
       
     case CONFIRMATION_MIXES_RESET:
       {
-        FullScreenMsg(PSTR("All mixes will\nbe reset.\nProceed?\n\nYes [Up]  \nNo  [Down]"));
+        FullScreenMsg(PSTR("Reset all mixes?\n\nYes [Up]  \nNo  [Down]"));
         if(clickedButton == UP_KEY)
         {
           setDefaultModelMixerParams();
@@ -1448,7 +1543,7 @@ void HandleMainUI()
         for (int i = 0; i < NUM_PRP_CHANNLES && i < 8; i++)
         {
           int _outVal = mixerChOutGraphVals[i] / 5;
-          int _xOffset = i*13;
+          int _xOffset = i * 13;
           if (_outVal > 0)
             display.fillRect(17 + _xOffset, 33 - _outVal, 3, _outVal , BLACK);
           else if (_outVal < 0)
@@ -1463,7 +1558,7 @@ void HandleMainUI()
           display.drawHLine(8, 33, 112, BLACK);
           //Show channel numbers
           display.setCursor(16 + _xOffset,56);
-          display.print(i+1);
+          display.print(i + 1);
         }
 
         if(heldButton == SELECT_KEY || clickedButton == SELECT_KEY)
@@ -1650,11 +1745,11 @@ void HandleMainUI()
           {
             loadMix(thisMixNum,     IDX_THRTL_CURV, 100, 0, 0, IDX_YAW,  40, 0, 0,  MIX_ADD, SWD_DOWN, IDX_CH3);
             loadMix(thisMixNum + 1, IDX_THRTL_CURV, 100, 0, 0, IDX_YAW, -40, 0, 0, MIX_ADD, SWD_DOWN, IDX_CH7);
-            makeToast(F("Set failsafe!"), 2500, 750);
+            makeToast(F("Set failsafe!"), 2500, 500);
           }
           changeToScreen(MODE_MIXER);
         }
-        else if(heldButton == SELECT_KEY) //exit
+        else if(heldButton == SELECT_KEY)
           changeToScreen(MODE_MIXER);
       }
       break;
@@ -1797,7 +1892,6 @@ void HandleMainUI()
           changeToScreen(HOME_SCREEN);
         }
         
-        //go back to main menu
         if (heldButton == SELECT_KEY)
         {
           eeSaveSysConfig();
@@ -1981,7 +2075,7 @@ void HandleMainUI()
         //Show uptime
         display.setCursor(0,19);
         display.print(F("Uptime:  "));
-        printHHMMSS(millis(), display.getCursorX(), display.getCursorY());
+        printHHMMSS(millis());
         
         //Show packet rate
         display.setCursor(0, 28);
@@ -2029,7 +2123,7 @@ void toggleEditModeOnSelectClicked()
 
 //--------------------------------------------------------------------------------------------------
 
-void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
+void printHHMMSS(unsigned long _milliSecs)
 {
   //Prints the time as mm:ss or hh:mm:ss at the specified screen cordinates
   
@@ -2039,7 +2133,7 @@ void printHHMMSS(unsigned long _milliSecs, int _cursorX, int _cursorY)
   ss = ss - hh * 3600;
   mm = ss / 60;
   ss = ss - mm * 60;
-  display.setCursor(_cursorX, _cursorY);
+
   if (hh > 0)
   {
     display.print(hh);
@@ -2091,7 +2185,7 @@ int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap,
   uint8_t _heldBtn = 0;
   if(_state == PRESSED_OR_HELD || _state == FAST_CHANGE) 
     _heldBtn = heldButton;
-  else if(_state == SLOW_CHANGE && thisLoopNum % (100 / fixedLoopTime) == 1) 
+  else if(_state == SLOW_CHANGE && thisLoopNum % (125 / fixedLoopTime) == 1) 
     _heldBtn = heldButton;
 
   //Default -- UP_KEY increments, DOWN_KEY decrements
@@ -2145,22 +2239,9 @@ void changeFocusOnUPDOWN(uint8_t _maxItemNo)
   if(isEditMode == true)
     return;
   
-  uint8_t _heldBtn = 0;
-  if(thisLoopNum % (200 / fixedLoopTime) == 1) 
-    _heldBtn = heldButton;
-  
-  if(pressedButton == UP_KEY || _heldBtn == UP_KEY)
-  {
-    focusedItem--;
-    if(focusedItem == 0)
-      focusedItem = _maxItemNo;
-  }
-  else if(pressedButton == DOWN_KEY || _heldBtn == DOWN_KEY)
-  {
-    focusedItem++;
-    if(focusedItem > _maxItemNo)
-      focusedItem = 1;
-  }
+  isEditMode = true;
+  focusedItem = incDecOnUpDown(focusedItem, _maxItemNo, 1, WRAP, SLOW_CHANGE);
+  isEditMode = false;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2205,42 +2286,14 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
 {
   _numMenuItems -= 1; //exclude menu heading in count
   
-  uint8_t _heldBtn = 0;
-  if(thisLoopNum % (200 / fixedLoopTime) == 1) _heldBtn = heldButton;
+  //------handle navigation
+  isEditMode = true;
+  menuHighlightedItem = incDecOnUpDown(menuHighlightedItem, _numMenuItems, 1, WRAP, SLOW_CHANGE);
+  if (menuHighlightedItem < menuTopItem || menuHighlightedItem >= (menuTopItem + 4))
+    menuTopItem = incDecOnUpDown(menuTopItem, _numMenuItems - 3, 1, WRAP, SLOW_CHANGE);
+  isEditMode = false;
   
-  //------handle menu navigation (up and down keys)------
-  if (pressedButton == DOWN_KEY || _heldBtn == DOWN_KEY)
-  {
-    highlightedItem += 1; //highlight next item
-    if (highlightedItem > _numMenuItems)
-      highlightedItem = 1; //wrap to first item
-    if ((highlightedItem - topItem) >= 4 || (highlightedItem - topItem) <= 0)
-    {
-      //Move one step down. If at bottom of list, wrap to top
-      topItem += 1;
-      if (topItem > (_numMenuItems - 3))
-        topItem = 1;
-    }
-  }
-  else if (pressedButton == UP_KEY || _heldBtn == UP_KEY)
-  {
-    highlightedItem -= 1; //highlight next item
-    if (highlightedItem == 0)
-      highlightedItem = _numMenuItems; //wrap to last item
-    if ((highlightedItem - topItem) < 0 || (highlightedItem - topItem) >= 4)
-    {
-      //Move one step up .If at very top of list, wrapup to bottom
-      topItem -= 1;
-      if (topItem == 0)
-      {
-        topItem = highlightedItem - 3;
-        if (_numMenuItems <= 4)
-          topItem = 1;
-      }
-    }
-  }
-
-  //------show heading------
+  //------show heading
   strlcpy_P(txtBuff, (char *)pgm_read_word(&list[0]), sizeof(txtBuff));
   int _txtWidthPix = strlen(txtBuff) * 6;
   int headingX_offset = (display.width() - _txtWidthPix) / 2; //middle align heading
@@ -2248,28 +2301,31 @@ void drawAndNavMenu(const char *const list[], int8_t _numMenuItems)
   display.println(txtBuff);
   display.drawHLine(0, 11, 128, BLACK);
 
-  //------fill menu slots----
+  //------fill menu slots
   for (int i = 0; i < 4 && i < _numMenuItems; i++) //4 item slots
   {
-    strlcpy_P(txtBuff, (char *)pgm_read_word(&list[topItem + i]), sizeof(txtBuff));
-    if (highlightedItem == (topItem + i)) //highlight selection
+    strlcpy_P(txtBuff, (char *)pgm_read_word(&list[menuTopItem + i]), sizeof(txtBuff));
+    if (menuHighlightedItem == (menuTopItem + i)) //highlight selection
     {
       display.fillRect(6, 13 + i * 13, 116, 11, BLACK);
       display.setTextColor(WHITE);
     }
-    display.setCursor(14, 15 + i*13);
+    display.setCursor(14, 15 + i * 13);
     display.println(txtBuff);
     display.setTextColor(BLACK);
   }
 
-  //------draw a simple scroll bar ----
-  const int viewPortHeight = 52; //4*13
-  int contentHeight = _numMenuItems * 13;
-  int contentY = (topItem - 1) * 13;
-  int barSize = (viewPortHeight * viewPortHeight) / contentHeight;
-  barSize += 1; //Add 1 to compensate for truncation error
-  int barYPostn = (viewPortHeight * contentY) / contentHeight;
-  display.drawVLine(125 , 12 + barYPostn, barSize, BLACK);
+  //------draw a simple scroll bar
+  if(_numMenuItems > 4)
+  {
+    const int viewPortHeight = 52; //4*13
+    int contentHeight = _numMenuItems * 13;
+    int contentY = (menuTopItem - 1) * 13;
+    int barSize = (viewPortHeight * viewPortHeight) / contentHeight;
+    barSize += 1; //Add 1 to compensate for truncation error
+    int barYPostn = (viewPortHeight * contentY) / contentHeight;
+    display.drawVLine(125 , 12 + barYPostn, barSize, BLACK);
+  }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2315,7 +2371,7 @@ void drawPopupMenu(const char *const list[], int8_t _numItems)
   _yOffsetStr0 += 1;
   
   //draw bounding box
-  display.drawRect(15, _yOffsetStr0 - 3, 97, _numItems*9 + 4, BLACK);  
+  display.drawRect(15, _yOffsetStr0 - 3, 97, _numItems * 9 + 4, BLACK);  
   
   //fill menu
   for (int i = 0; i < _numItems; i++)
@@ -2323,10 +2379,10 @@ void drawPopupMenu(const char *const list[], int8_t _numItems)
     strlcpy_P(txtBuff, (char *)pgm_read_word(&list[i]), sizeof(txtBuff));
     if(i == (focusedItem - 1))
     {
-      display.fillRect(17, (_yOffsetStr0 - 1)+ i*9, 93, 9, BLACK);
+      display.fillRect(17, (_yOffsetStr0 - 1) + i * 9, 93, 9, BLACK);
       display.setTextColor(WHITE);
     }
-    display.setCursor(19, _yOffsetStr0 + i*9);
+    display.setCursor(19, _yOffsetStr0 + i * 9);
     display.print(txtBuff);
     display.setTextColor(BLACK);
   }
@@ -2340,20 +2396,6 @@ void drawCheckbox(int16_t _xcord, int16_t _ycord, bool _val)
     display.drawBitmap(_xcord, _ycord, checkbox_checked, 7, 7, 1);
   else
     display.drawBitmap(_xcord, _ycord, checkbox_unchecked, 7, 7, 1);
-}
-
-//--------------------------------------------------------------------------------------------------
-
-bool isDefaultModelName(char* _nameBuff, uint8_t _lenBuff)
-{
-  uint8_t _nameLen = sizeof(Model.modelName)/sizeof(Model.modelName[0]) - 1;
-  
-  for(uint8_t i = 0; i < _nameLen && i < _lenBuff - 1; i++)
-  {
-    if(*(_nameBuff + i) != ' ') //check if it isn't a space character
-      return false;
-  }
-  return true;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2416,4 +2458,44 @@ void loadMix(uint8_t _mixNo,
   Model.MixOperator[_mixNo]   = _operator; 
   Model.MixSwitch[_mixNo]     = _sw;
   Model.MixOut[_mixNo]        = _out;
+}
+
+//--------------------------------------------------------------------------------------------------
+
+bool modelIsfree(uint8_t _mdlNo)
+{
+  eeCopyModelName(txtBuff, _mdlNo);
+  
+  uint8_t _nameLen = sizeof(Model.modelName);
+  
+  //if all characters in name are 0xFF, then model slot is free
+  for(uint8_t i = 0; i < _nameLen - 1; i++)
+  {
+    if((uint8_t) *(txtBuff + i) != 0xFF)
+      return false;
+  }
+  return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void printModelName(char* _buff, uint8_t _lenBuff, uint8_t _mdlNo)
+{
+  uint8_t _nameLen = sizeof(Model.modelName) - 1;
+  bool isDefaultName = true;
+  for(uint8_t i = 0; i < _nameLen && i < _lenBuff - 1; i++)
+  {
+    if(*(_buff + i) != ' ') //check if it isn't a space character
+    {
+      isDefaultName = false;
+      break;
+    }
+  }
+  if(isDefaultName)
+  {
+    display.print(F("MODEL"));
+    display.print(_mdlNo);
+  }
+  else
+    display.print(_buff);
 }
