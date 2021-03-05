@@ -1,7 +1,8 @@
 1.7.0
 -----
 Feb2021
- - Added External voltage telemetry.
+ - Added External voltage telemetry. Useful for knowing model battery voltage so know when to land, instead of 
+   relying on a timer.
  - Slight modification to receiver schematic to enable measuring external voltage.
  - Improved model management.
  - Other subtle code optimisations
