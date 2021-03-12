@@ -356,15 +356,25 @@ void getSerialData()
       Serial.read();
   }
   
-  //Check if valid
+  //Check if valid and extract
   if(_data[msgLength - 1] == crc8Maxim(_data, msgLength - 1))
   {
-    //------- Extract ------
     bindStatus = (_data[0] >> 2) & 0x03;
     SwCState = _data[0] & 0x03;
     transmitterPacketRate = _data[1];
     receiverPacketRate = _data[2];
+    
+    //-- telemetry voltage --
     telem_volts = joinBytes(_data[3], _data[4]);
+    //apply offset
+    if(telem_volts != 0x0FFF)
+    {
+      long _volts = telem_volts;
+      _volts += (long)Sys.telemVoltsOffset;
+      if(_volts < 0)
+        _volts = 0;
+      telem_volts = _volts & 0xFFFF;
+    }
   }
 }
 
