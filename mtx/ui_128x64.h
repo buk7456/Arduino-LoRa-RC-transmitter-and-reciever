@@ -198,7 +198,7 @@ char const main2[] PROGMEM = "Inputs";
 char const main3[] PROGMEM = "Mixer";
 char const main4[] PROGMEM = "Outputs";
 char const main5[] PROGMEM = "System";
-char const main6[] PROGMEM = "Receiver";
+char const main6[] PROGMEM = "Telemetry";
 char const main7[] PROGMEM = "About";
 const char* const mainMenu[] PROGMEM = { //table to refer to the strings
   main0, main1, main2, main3, main4, main5, main6, main7
@@ -214,7 +214,7 @@ enum
   MODE_MIXER,
   MODE_OUTPUTS,
   MODE_SYSTEM,
-  MODE_RECEIVER,
+  MODE_TELEMETRY,
   MODE_ABOUT,
   
   //others
@@ -406,7 +406,7 @@ void HandleMainUI()
   if(Sys.telemAlarmEnabled && receiverPacketRate > 0)
   {
     //check and increment or decrement counter
-    if(telem_volts < Sys.Telem_VoltsThresh && telem_volts != 0x0FFF)
+    if(telem_volts < Sys.telemVoltsThresh && telem_volts != 0x0FFF)
     {
       if(_tWarnStarted == false) 
         ++_tCounter;
@@ -1900,9 +1900,9 @@ void HandleMainUI()
       }
       break;
 
-    case MODE_RECEIVER:
+    case MODE_TELEMETRY:
       {
-        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_RECEIVER])), sizeof(txtBuff));
+        strlcpy_P(txtBuff, (char *)pgm_read_word(&(mainMenu[MODE_TELEMETRY])), sizeof(txtBuff));
         drawHeader();
         
         display.setCursor(8, 9);
@@ -1916,25 +1916,31 @@ void HandleMainUI()
         
         display.setCursor(20, 29);
         display.print(F("V low:  "));
-        printVolts(Sys.Telem_VoltsThresh * 10, 2);
+        printVolts(Sys.telemVoltsThresh * 10, 2);
+        
+        display.setCursor(20, 38);
+        display.print(F("Offst:  "));
+        if(Sys.telemVoltsOffset < 0)
+          display.print(F("-"));
+        printVolts(abs(Sys.telemVoltsOffset) * 10, 2);
         
         //Show the voltage
-        display.setCursor(68, 40);
+        display.setCursor(68, 49);
         bool _showVal = true;
         if(telem_volts == 0x0FFF)
         {
           display.print(F("No data"));
           _showVal = false;
         }
-        else if((telem_volts < Sys.Telem_VoltsThresh) && (millis() % 1000 > 600))
+        else if((telem_volts < Sys.telemVoltsThresh) && (millis() % 1000 > 700))
           _showVal = false;
         if(_showVal)
         {
           printVolts(telem_volts * 10, 2);
-          display.drawRect(66, 38, 39, 11, BLACK);
+          display.drawRect(66, 47, 39, 11, BLACK);
         }
 
-        changeFocusOnUPDOWN(3);
+        changeFocusOnUPDOWN(4);
         toggleEditModeOnSelectClicked();
         if(focusedItem == 1) drawCursor(0, 9);
         else drawCursor(60, 20 + (focusedItem - 2) * 9);
@@ -1942,7 +1948,9 @@ void HandleMainUI()
         if(focusedItem == 2)
           Sys.telemAlarmEnabled = incDecOnUpDown(Sys.telemAlarmEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 3)
-          Sys.Telem_VoltsThresh = incDecOnUpDown(Sys.Telem_VoltsThresh, 0, 4000, NOWRAP, FAST_CHANGE);
+          Sys.telemVoltsThresh = incDecOnUpDown(Sys.telemVoltsThresh, 0, 4000, NOWRAP, FAST_CHANGE);
+        else if(focusedItem == 4)
+          Sys.telemVoltsOffset = incDecOnUpDown(Sys.telemVoltsOffset, -50, 50, NOWRAP, PRESSED_OR_HELD);
 
         if (heldButton == SELECT_KEY)
         {
