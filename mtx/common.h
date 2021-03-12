@@ -54,7 +54,8 @@ struct sysParams {
   uint8_t deadZonePerc = 5; //in percentage of stick range
   
   //voltage telemetry
-  uint16_t Telem_VoltsThresh = 0; //as 10mV
+  uint16_t telemVoltsThresh = 0; //as 10mV
+  int8_t telemVoltsOffset = 0;   //as 10mV
   
 } Sys;
 
