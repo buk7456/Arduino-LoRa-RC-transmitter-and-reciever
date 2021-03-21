@@ -1,5 +1,8 @@
 1.7.0
 -----
+21Mar2021
+ - Bound receiver is remembered if bind is initiated but fails, for instance if we uintentionally enter bind in transmitter.
+ 
 Feb2021
  - Added External voltage telemetry. Useful for knowing model battery voltage so know when to land, instead of 
    relying on a timer.
