@@ -446,7 +446,7 @@ void bind()
   
   static bool isListeningForAck = false;
   
-  const uint16_t BIND_MODE_TIMEOUT = 5000; 
+  const uint16_t BIND_MODE_TIMEOUT = 4000; 
   const uint16_t BIND_ACK_TIMEOUT  = 100; //Max time waiting for receiver's ack before retransmission
   
   /// INITIALISE BIND DATA
@@ -461,7 +461,6 @@ void bind()
     randomSeed(millis()); //Seed PRNG
     //transmitterID
     transmitterID = random(1, 127) & 0x7F; //allowed IDs 1 through 126 
-    EEPROM.write(EE_ADR_TX_ID, transmitterID);
     //fhss_schema
     uint8_t idx = 0;
     while (idx < sizeof(fhss_schema)/sizeof(fhss_schema[0]))
@@ -483,8 +482,7 @@ void bind()
         idx++; //increment index
       }
     }
-    EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
-    
+
     //prepare data
     memset(dataToTransmit, 0, sizeof(dataToTransmit));
     dataToTransmit[0] = transmitterID << 1;
@@ -544,16 +542,22 @@ void bind()
       uint8_t rxID = msgBuff[0];
       if(crcQQ == computedCRC && rxID > 127) //have a valid message from a valid receiver
       {
-        //Extract data
+        bindStatus = 1; //bind success
         receiverID = rxID;
+        
+        //Save to eeprom
+        EEPROM.write(EE_ADR_TX_ID, transmitterID);
         EEPROM.write(EE_ADR_RX_ID, receiverID);
-        //Exit bind
-        bindStatus = 1;
+        EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
+        
+        //clear flags
         bindInitialised = false;
         isListeningForAck = false;
         transmitInitiated = false;
+        
         hop();
         operatingMode = MODE_SERVO_DATA;
+        return;
       }
     }
     
@@ -568,10 +572,17 @@ void bind()
   //Timeout of bind
   if((millis() - bindModeEntryTime > BIND_MODE_TIMEOUT) && !LoRa.isTransmitting())
   {
-    bindStatus = 2;
+    bindStatus = 2; //bind failed
+    //restore so that we don't unintentionally unbind a bound receiver
+    transmitterID = EEPROM.read(EE_ADR_TX_ID);
+    receiverID = EEPROM.read(EE_ADR_RX_ID);
+    EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
+    
+    //clear flags
     bindInitialised = false;
     isListeningForAck = false;
     transmitInitiated = false;
+    
     hop();
     operatingMode = MODE_SERVO_DATA;
   }
