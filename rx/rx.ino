@@ -568,7 +568,7 @@ void getExternalVoltage()
   
   const int _NUM_SAMPLES = 30;
   
-  const int VFactor = 1688; //adjust this for correction. (##TODO possibly change this on transmitter side)
+  const int VFactor = 1627; //adjust this for correction. (##TODO possibly change this on transmitter side)
   
   long _millivolts = ((long)analogRead(PIN_EXTV_SENSE) * VFactor) / 100;
   _millivolts = ((long)externalVolts * (_NUM_SAMPLES - 1) + _millivolts) / _NUM_SAMPLES; 
