@@ -143,14 +143,15 @@ const char* const soundModeStr[] PROGMEM = {
   
 //Model popup menus. Max 15 characters
 char const modelLoadStr[] PROGMEM    = "Load model";
-char const modelCopyStr[] PROGMEM    = "Copy data from";
+char const modelCopyStr[] PROGMEM    = "Copy from";
 char const modelRenameStr[] PROGMEM  = "Rename model";
+char const modelResetStr[] PROGMEM   = "Reset model";
 char const modelDeleteStr[] PROGMEM  = "Delete model";
 char const modelCreateStr[] PROGMEM  = "Create model";
 
-#define NUM_ITEMS_ACTIVE_MODEL_MENU  2
+#define NUM_ITEMS_ACTIVE_MODEL_MENU  3
 const char* const activeModelMenu[] PROGMEM = { 
-  modelRenameStr, modelCopyStr
+  modelRenameStr, modelCopyStr, modelResetStr
 };
 #define NUM_ITEMS_INACTIVE_MODEL_MENU  2
 const char* const inactiveModelMenu[] PROGMEM = { 
@@ -244,6 +245,7 @@ enum
   
   CONFIRMATION_MODEL_COPY,
   CONFIRMATION_MODEL_DELETE,
+  CONFIRMATION_MODEL_RESET
 };
 
 // ---------------- Globals ------------------
@@ -468,7 +470,7 @@ void HandleMainUI()
   if(bindStatus == 1)
     makeToast(F("Bind success"), 3000, 0);
   else if(bindStatus == 2)
-    makeToast(F("Bind fail"), 3000, 0);
+    makeToast(F("Bind failed"), 3000, 0);
   bindStatus = 0;
   
   ///----------------- MAIN STATE MACHINE ---------------------------
@@ -476,8 +478,8 @@ void HandleMainUI()
   {
     case HOME_SCREEN:
       {
-        enum {NORMALMODE = 0, DIGCHMODE, TRIMMODE };
-        static uint8_t homeScreenMode = NORMALMODE;
+        enum {DEFAULTHOME = 0, DIGCHMODE, TRIMMODE };
+        static uint8_t homeScreenMode = DEFAULTHOME;
         static uint8_t selectedTrim = 0; //AIL, ELE, THR, RUD
         static bool trimIsPendingSave = false;
         
@@ -620,24 +622,24 @@ void HandleMainUI()
           trimIsPendingSave = false;
         }
         
-        if (homeScreenMode == NORMALMODE && clickedButton == SELECT_KEY)
+        if (homeScreenMode == DEFAULTHOME && clickedButton == SELECT_KEY)
           changeToScreen(MAIN_MENU);
-        else if (homeScreenMode == NORMALMODE && clickedButton == UP_KEY)
+        else if (homeScreenMode == DEFAULTHOME && clickedButton == UP_KEY)
           changeToScreen(MODE_CHANNEL_MONITOR);
         else if (homeScreenMode != TRIMMODE && clickedButton == DOWN_KEY)
           changeToScreen(POPUP_TIMER_MENU);
         else if(homeScreenMode != TRIMMODE && heldButton == DOWN_KEY)
         {
           audioToPlay = AUDIO_KEYTONE;
-          if(homeScreenMode == NORMALMODE) homeScreenMode = DIGCHMODE;
-          else if(homeScreenMode == DIGCHMODE) homeScreenMode = NORMALMODE;
+          if(homeScreenMode == DEFAULTHOME) homeScreenMode = DIGCHMODE;
+          else if(homeScreenMode == DIGCHMODE) homeScreenMode = DEFAULTHOME;
           heldButton = 0;
         }
         else if(homeScreenMode != DIGCHMODE && heldButton == SELECT_KEY)
         {
           audioToPlay = AUDIO_SWITCHMOVED;
-          if(homeScreenMode == NORMALMODE) homeScreenMode = TRIMMODE;
-          else if(homeScreenMode == TRIMMODE) homeScreenMode = NORMALMODE;
+          if(homeScreenMode == DEFAULTHOME) homeScreenMode = TRIMMODE;
+          else if(homeScreenMode == TRIMMODE) homeScreenMode = DEFAULTHOME;
           heldButton = 0;
         }
         
@@ -758,7 +760,7 @@ void HandleMainUI()
           display.print(ChOut[i] / 5);
         }
         
-        if(clickedButton == UP_KEY || heldButton == SELECT_KEY)
+        if(heldButton == SELECT_KEY)
           changeToScreen(HOME_SCREEN);
       }
       break;
@@ -865,6 +867,8 @@ void HandleMainUI()
           changeToScreen(POPUP_RENAME_MODEL);
         else if(_selection == 2) //copy from model
           changeToScreen(POPUP_COPYFROM_MODEL);
+        else if(_selection == 3) //reset model
+          changeToScreen(CONFIRMATION_MODEL_RESET);
         
         if(heldButton == SELECT_KEY) //exit
           changeToScreen(MODE_MODEL);
@@ -952,6 +956,8 @@ void HandleMainUI()
         static uint8_t charPos = 0;
         uint8_t thisChar = Model.modelName[charPos] ;
         
+        static uint8_t cntr_clearName = 0;
+        
         //----mapping characters---
         //Z to A (ascii 90 to 65) --> 0 to 25
         //space  (ascii 32) --> 26
@@ -987,16 +993,38 @@ void HandleMainUI()
           charPos--;
           heldButton = 0; //override. prevents false triggers
         }
-          
-        if(charPos == (sizeof(Model.modelName) - 1)) //done renaming. Exit
+
+        //--- clear model name ----
+        if(charPos == 0 && heldButton == SELECT_KEY && cntr_clearName < 2)
+        {
+          makeToast(F("Hold again to clear"), 2000, 0);
+          ++cntr_clearName;
+          heldButton = 0;
+        }
+        if(millis() > (toastExpireTime + 1000) || charPos > 0)
+          cntr_clearName = 0; //reset the counter
+        if(cntr_clearName == 2)
+        {
+          //clear model name
+          setDefaultModelName();
+          heldButton = 0;
+          //dismiss the toast message
+          toastExpireTime = millis();
+          //reset counter
+          cntr_clearName = 0;
+        }
+
+        //--- done renaming, exit --- 
+        if(charPos == (sizeof(Model.modelName) - 1))
         {
           charPos = 0;
+          cntr_clearName = 0;
           eeSaveModelData(Sys.activeModel);
           changeToScreen(MODE_MODEL); 
         }
       }
       break;
-      
+
     case POPUP_COPYFROM_MODEL:
       {
         //change source model
@@ -1067,6 +1095,30 @@ void HandleMainUI()
         else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
         {
           _thisMdl_ = Sys.activeModel;
+          changeToScreen(MODE_MODEL);
+        }
+      }
+      break;
+      
+    case CONFIRMATION_MODEL_RESET:
+      {
+        FullScreenMsg(PSTR("Reset model?\n\nYes [Up]  \nNo  [Down]"));
+        if(clickedButton == UP_KEY)
+        {
+          setDefaultModelBasicParams();
+          setDefaultModelMixerParams();
+          eeSaveModelData(Sys.activeModel);
+          
+          //reset other stuff
+          resetTimer1();
+          Sys.rfOutputEnabled = false;
+          eeSaveSysConfig();
+          
+          makeToast(F("Model reset"), 2000, 0);
+          changeToScreen(MODE_MODEL);
+        }
+        else if(clickedButton == DOWN_KEY || heldButton == SELECT_KEY)
+        {
           changeToScreen(MODE_MODEL);
         }
       }
@@ -1561,7 +1613,7 @@ void HandleMainUI()
           display.print(i + 1);
         }
 
-        if(heldButton == SELECT_KEY || clickedButton == SELECT_KEY)
+        if(heldButton == SELECT_KEY)
           changeToScreen(MODE_MIXER);
       }
       break;
@@ -1883,7 +1935,7 @@ void HandleMainUI()
         else if (focusedItem == 4)
           Sys.soundMode = incDecOnUpDown(Sys.soundMode, 0, SOUND_LAST, NOWRAP, PRESSED_ONLY);
         else if (focusedItem == 5)
-          Sys.inactivityMinutes = incDecOnUpDown(Sys.inactivityMinutes, 0, 30, NOWRAP, PRESSED_OR_HELD);
+          Sys.inactivityMinutes = incDecOnUpDown(Sys.inactivityMinutes, 0, 20, NOWRAP, SLOW_CHANGE);
         else if (focusedItem == 6 && isEditMode)
         {
           bindActivated = true;
@@ -1948,7 +2000,7 @@ void HandleMainUI()
         if(focusedItem == 2)
           Sys.telemAlarmEnabled = incDecOnUpDown(Sys.telemAlarmEnabled, 0, 1, WRAP, PRESSED_ONLY);
         else if(focusedItem == 3)
-          Sys.telemVoltsThresh = incDecOnUpDown(Sys.telemVoltsThresh, 0, 4000, NOWRAP, FAST_CHANGE);
+          Sys.telemVoltsThresh = incDecOnUpDown(Sys.telemVoltsThresh, 0, 2500, NOWRAP, FAST_CHANGE);
         else if(focusedItem == 4)
           Sys.telemVoltsOffset = incDecOnUpDown(Sys.telemVoltsOffset, -50, 50, NOWRAP, PRESSED_OR_HELD);
 
@@ -2215,7 +2267,7 @@ int incDecOnUpDown(int _val, int _lowerLimit, int _upperLimit, bool _enableWrap,
   if(_heldBtn > 0 && (millis() - buttonStartTime > (LONGPRESSTIME + 1000UL)) && _state != SLOW_CHANGE)
     delta = 2; //speed up increment
   if(_heldBtn > 0 && (millis() - buttonStartTime > (LONGPRESSTIME + 3000UL)) && _state == FAST_CHANGE)
-    delta = 20;
+    delta = 10;
 
   //inc dec
   if (pressedButton == incrKey || _heldBtn == incrKey)
@@ -2436,7 +2488,7 @@ bool hasEnoughSlots(uint8_t _startIdx, uint8_t _numRequired)
 {
   if((_startIdx + _numRequired) > NUM_MIXSLOTS)
   {
-    makeToast(F("Can't load here!"), 2000, 0);
+    makeToast(F("Can't load here"), 2000, 0);
     return false;
   }
   else 
