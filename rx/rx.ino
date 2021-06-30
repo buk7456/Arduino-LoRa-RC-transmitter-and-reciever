@@ -13,7 +13,6 @@
 #include <EEPROM.h>
 
 #include <Servo.h>
-Servo servoCh1, servoCh2, servoCh3, servoCh4, servoCh5, servoCh6, servoCh7, servoCh8;
 
 //Pins
 #define PIN_CH1    2
@@ -25,7 +24,6 @@ Servo servoCh1, servoCh2, servoCh3, servoCh4, servoCh5, servoCh6, servoCh7, serv
 #define PIN_CH7    A3
 #define PIN_CH8    A2
 #define PIN_CH9    A1
-#define PIN_CH10   9
 
 #define PIN_EXTV_SENSE A0
 
@@ -41,7 +39,7 @@ All our communications have to occur on any of these 69 channels.
 */
 
 /* Frequency list to pick from. The separation here is 300kHz (250kHz total lora bw + 
-25kHz headroom on each sides.*/
+50kHz guard band.*/
 uint32_t freqList[] = {433175000, 433475000, 433775000, 434075000, 434375000, 434675000};
 //bind is also transmitted on freqList[0]
 
@@ -49,54 +47,89 @@ uint8_t fhss_schema[3] = {0, 1, 2}; /* Index in freqList. Frequencies to use for
 These are changed when we receive a bind command from the transmitter. This schema also gets stored 
 to eeprom so we don't have to rebind each time we power on. */
 
-uint8_t ptr_fhss_schema = 0; 
+uint8_t idx_fhss_schema = 0; 
 
-#define MAX_LISTEN_TIME_ON_HOP_CHANNEL 100 //in ms. If no packet received within this time, we hop 
+#define MAX_LISTEN_TIME_ON_HOP_CHANNEL 112 //in ms. If no packet received within this time, we hop 
 
 //--------------------------------------------------
 
+uint8_t transmitterID = 0; //settable during bind
+uint8_t receiverID = 0;    //randomly generated on bind
+
+uint8_t idxRFPowerLevel = 0;
+
+#define MAX_PACKET_SIZE  19
+uint8_t Packet[MAX_PACKET_SIZE];
+
+enum{
+  PAC_BIND                   = 0x0,
+  PAC_ACK_BIND               = 0x1,
+  PAC_READ_OUTPUT_CH_CONFIG  = 0x2,
+  PAC_SET_OUTPUT_CH_CONFIG   = 0x3,
+  PAC_ACK_OUTPUT_CH_CONFIG   = 0x4,
+  PAC_RC_DATA                = 0x5,
+  PAC_TELEMETRY              = 0x6,
+};
+
+
+bool isRequestingTelemetry = false;
+uint16_t externalVolts = 0; //in millivolts
 uint16_t telem_volts = 0x0FFF;     // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
 
-uint16_t externalVolts = 0; //in millivolts
+bool failsafeEverBeenReceived = false;
 
-unsigned long lastValidPacketMillis = 0;
+uint32_t rcPacketCount = 0;
+uint32_t lastRCPacketMillis = 0;
 
-int ch1to8Vals[8] = {0,0,0,0,0,0,0,0};
-uint8_t digitalChVal[2] = {0,0}; 
+int ch1to9Vals[9];
+int ch1to9Failsafes[9];
 
-long ch1to8Failsafes[8] = {0,0,0,0,0,0,0,0};
-bool failsafeReceived = false;
+uint8_t OutputChConfig[9]; //0 digital, 1 Servo, 2 PWM
 
-long validPacketCount = 0;
-int rssi = 0;
+uint8_t maxOutputChConfig[9];
 
-bool telemetryRequest = false;
+//Declare an array of servo objects
+Servo myServo[9];
 
-uint8_t transmitterID = 0xFF; //settable during bind
-uint8_t receiverID = 128; //randomly generated on bind
-
-uint8_t rfPowerLevel = 0;
+//Declare an output pins array
+int myOutputPins[9] = {PIN_CH1, PIN_CH2, PIN_CH3, PIN_CH4, PIN_CH5, PIN_CH6, PIN_CH7, PIN_CH8, PIN_CH9};
 
 //-------------- EEprom stuff --------------------
 
 #define EE_INITFLAG         0xBB 
+
 #define EE_ADR_INIT_FLAG    0
 #define EE_ADR_TX_ID        1
 #define EE_ADR_RX_ID        2
 #define EE_ADR_FHSS_SCHEMA  3
+#define EE_ADR_RX_CH_CONFIG 20
+
 
 //--------------- Function Declarations ----------
 
-void readBindPacket();
-void readFlyModePacket();
+void bind();
 void hop();
 void sendTelemetry();
 void writeOutputs();
 void getExternalVoltage();
+uint8_t buildPacket(uint8_t srcID, uint8_t destID, uint8_t dataIdentifier, uint8_t *dataBuff, uint8_t dataLen);
+bool checkPacket(uint8_t srcID, uint8_t destID, uint8_t dataIdentifier, uint8_t *packetBuff, uint8_t packetSize);
+uint8_t getMaxOutputChConfig(int pin);
 
 //==================================================================================================
+
 void setup()
 { 
+  // initialise values
+  for(uint8_t i = 0; i < 9; ++i)
+  {
+    ch1to9Vals[i] = 0;
+    ch1to9Failsafes[i] = 0;
+    
+    OutputChConfig[i] = 1;
+    maxOutputChConfig[i] = getMaxOutputChConfig(myOutputPins[i]);
+  }
+
   // EEPROM init
   if (EEPROM.read(EE_ADR_INIT_FLAG) != EE_INITFLAG)
   {
@@ -104,20 +137,20 @@ void setup()
     EEPROM.write(EE_ADR_RX_ID, receiverID);
     EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
     EEPROM.write(EE_ADR_INIT_FLAG, EE_INITFLAG);
+    EEPROM.put(EE_ADR_RX_CH_CONFIG, OutputChConfig);
   }
   
   // Read from EEPROM
   transmitterID = EEPROM.read(EE_ADR_TX_ID);
   receiverID = EEPROM.read(EE_ADR_RX_ID);
   EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
+  EEPROM.get(EE_ADR_RX_CH_CONFIG, OutputChConfig);
   
   // setup pins
   pinMode(PIN_LED_GREEN, OUTPUT);
   digitalWrite(PIN_LED_GREEN, HIGH);
   pinMode(PIN_LED_ORANGE, OUTPUT);
-  pinMode(PIN_CH9, OUTPUT);
-  pinMode(PIN_CH10, OUTPUT);
-  
+
   //use analog reference internal 1.1V
   analogReference(INTERNAL);
   
@@ -143,89 +176,229 @@ void setup()
     }
   }
   
-  //listen for bind
-  readBindPacket();
+  //bind
+  bind();
   
-  //Wait for failsafe transimission before proceeding
-  while(failsafeReceived == false)
-  {
-    readFlyModePacket();
-    delay(2);
-  }
-
-  //Attach servos
-  servoCh1.attach(PIN_CH1);
-  servoCh2.attach(PIN_CH2);
-  servoCh3.attach(PIN_CH3);
-  servoCh4.attach(PIN_CH4);
-  servoCh5.attach(PIN_CH5);
-  servoCh6.attach(PIN_CH6);
-  servoCh7.attach(PIN_CH7);
-  servoCh8.attach(PIN_CH8);
 }
 
 //====================================== MAIN LOOP =================================================
 void loop()
 {
-  getExternalVoltage();
+  //---------- READ INCOMING PACKET (NONBIND PACKETS) ---------- 
   
-  readFlyModePacket();
-  
-  sendTelemetry();
-
-  //set power level
-  static uint8_t lastPowerLevel = 0xFF;
-  if(rfPowerLevel != lastPowerLevel && !LoRa.isTransmitting())
+  static uint32_t timeOfLastPacket = millis();
+  if(millis() - timeOfLastPacket > MAX_LISTEN_TIME_ON_HOP_CHANNEL)
   {
-    lastPowerLevel = rfPowerLevel;
+    timeOfLastPacket = millis();
+    hop();
+  }
+  
+  bool hasValidPacket = false;
+  uint8_t packetType = 0xFF;
+  uint8_t dataBuff[32];
+  memset(dataBuff, 0, sizeof(dataBuff));
+  
+  int packetSize = LoRa.parsePacket();
+  if (packetSize > 0) //received a packet
+  {
+    timeOfLastPacket = millis();
+    
+    //read into temporary buffer
+    uint8_t msgBuff[30];
+    memset(msgBuff, 0, sizeof(msgBuff));
+    uint8_t cntr = 0;
+    while (LoRa.available() > 0) 
+    {
+      if(cntr < (sizeof(msgBuff)/sizeof(msgBuff[0])))
+      {
+        msgBuff[cntr] = LoRa.read();
+        cntr++;
+      }
+      else // discard any extra data
+        LoRa.read(); 
+    }
+    
+    //hop frequency regardless
+    hop();
+    
+    //check packet 
+    if(checkPacket(transmitterID, receiverID, PAC_RC_DATA, msgBuff, packetSize))
+    {
+      if((msgBuff[2] & 0x0F) == 12)
+      {
+        hasValidPacket = true;
+        packetType = PAC_RC_DATA;
+        memcpy(dataBuff, msgBuff + 3, 12);
+      }
+    }
+    else if(checkPacket(transmitterID, receiverID, PAC_READ_OUTPUT_CH_CONFIG, msgBuff, packetSize))
+    {
+      hasValidPacket = true;
+      packetType = PAC_READ_OUTPUT_CH_CONFIG;
+    }
+    else if(checkPacket(transmitterID, receiverID, PAC_SET_OUTPUT_CH_CONFIG, msgBuff, packetSize))
+    {
+      if((msgBuff[2] & 0x0F) == 9)
+      {
+        hasValidPacket = true;
+        packetType = PAC_SET_OUTPUT_CH_CONFIG;
+        memcpy(dataBuff, msgBuff + 3, 9);
+      }
+    }
+  }
+  
+  if(hasValidPacket)
+  {
+    hasValidPacket = false;
+    
+    switch(packetType)
+    {
+      case PAC_RC_DATA:
+        {
+          ++rcPacketCount;
+          
+          lastRCPacketMillis = millis();
+          digitalWrite(PIN_LED_ORANGE, HIGH);
+    
+          //Decode
+          int ch1to9Tmp[9];
+          ch1to9Tmp[0] = ((uint16_t)dataBuff[0] << 2 & 0x3fc) |  ((uint16_t)dataBuff[1] >> 6 & 0x03); //ch1
+          ch1to9Tmp[1] = ((uint16_t)dataBuff[1] << 4 & 0x3f0) |  ((uint16_t)dataBuff[2] >> 4 & 0x0f); //ch2
+          ch1to9Tmp[2] = ((uint16_t)dataBuff[2] << 6 & 0x3c0) |  ((uint16_t)dataBuff[3] >> 2 & 0x3f); //ch3
+          ch1to9Tmp[3] = ((uint16_t)dataBuff[3] << 8 & 0x300) |  ((uint16_t)dataBuff[4]      & 0xff); //ch4
+          ch1to9Tmp[4] = ((uint16_t)dataBuff[5] << 2 & 0x3fc) |  ((uint16_t)dataBuff[6] >> 6 & 0x03); //ch5
+          ch1to9Tmp[5] = ((uint16_t)dataBuff[6] << 4 & 0x3f0) |  ((uint16_t)dataBuff[7] >> 4 & 0x0f); //ch6
+          ch1to9Tmp[6] = ((uint16_t)dataBuff[7] << 6 & 0x3c0) |  ((uint16_t)dataBuff[8] >> 2 & 0x3f); //ch7
+          ch1to9Tmp[7] = ((uint16_t)dataBuff[8] << 8 & 0x300) |  ((uint16_t)dataBuff[9]     & 0xff);  //ch8
+          ch1to9Tmp[8] = ((uint16_t)dataBuff[10] << 2 & 0x3fc) | ((uint16_t)dataBuff[11] >> 6 & 0x03); //ch9
+          
+          //Check if failsafe data. If so, dont modify outputs
+          if((dataBuff[11] >> 4) & 0x01) //failsafe values
+          {
+            failsafeEverBeenReceived = true;
+            for(int i = 0; i < 9; i++)
+              ch1to9Failsafes[i] = ch1to9Tmp[i] - 500; //Center at 0 so range is -500 to 500
+          }
+          else //normal channel values
+          {
+            for(int i = 0; i < 9; i++)
+              ch1to9Vals[i] = ch1to9Tmp[i] - 500; //Center at 0 so range is -500 to 500
+          }
+          
+          //telemetry request
+          isRequestingTelemetry = (dataBuff[11] >> 3) & 0x01;
+          
+          //rf power level
+          idxRFPowerLevel = dataBuff[11] & 0x07;
+          
+          //if requested for receiver channel config
+          if((dataBuff[11] >> 5) & 0x01)
+          {
+            
+          }
+        }
+        break;
+        
+      case PAC_READ_OUTPUT_CH_CONFIG:
+        {
+          //reply with the configuration
+          
+          //encode as follows: high nibble --> max supported config, low nibble --> the present output config
+          uint8_t _configData[9];
+          for(uint8_t i = 0; i < 9; i++)
+            _configData[i] = (maxOutputChConfig[i] << 4) | (OutputChConfig[i] & 0x0F);
+          
+          uint8_t _packetLen = buildPacket(receiverID, transmitterID, PAC_READ_OUTPUT_CH_CONFIG, _configData, sizeof(_configData));
+          
+          delay(2);
+          if(LoRa.beginPacket())
+          {
+            LoRa.write(Packet, _packetLen);
+            LoRa.endPacket(); //block until done transmitting
+            hop();
+          }
+        }
+        break;
+      
+      case PAC_SET_OUTPUT_CH_CONFIG:
+        {
+          //save config to eeprom. Changes can only be applied on boot.
+          uint8_t _outputChannelConfig[9];
+          memcpy(_outputChannelConfig, dataBuff, 9);
+          EEPROM.put(EE_ADR_RX_CH_CONFIG, _outputChannelConfig);
+          
+          //reply 
+          delay(2);
+          uint8_t _packetLen = buildPacket(receiverID, transmitterID, PAC_ACK_OUTPUT_CH_CONFIG, NULL, 0);
+          if(LoRa.beginPacket())
+          {
+            LoRa.write(Packet, _packetLen);
+            LoRa.endPacket(); //block until done transmitting
+            hop();
+          }
+        }
+        break;
+    }
+  }
+  
+  //---------- TURN OFF LED TO INDICATE NO INCOMING RC DATA ---------- 
+  
+  if(millis() - lastRCPacketMillis > 100)
+    digitalWrite(PIN_LED_ORANGE, LOW);
+  
+  //---------- SET POWER LEVEL ----------
+  
+  static uint8_t prevIdxRFPowerLevel = 0xFF;
+  if(idxRFPowerLevel != prevIdxRFPowerLevel)
+  {
+    prevIdxRFPowerLevel = idxRFPowerLevel;
     uint8_t power_dBm[5] = {3, 7, 10, 14, 17}; //2mW, 5mW, 10mW, 25mW, 50mW
     LoRa.sleep();
-    LoRa.setTxPower(power_dBm[rfPowerLevel]);
+    LoRa.setTxPower(power_dBm[idxRFPowerLevel]);
     LoRa.idle();
   }
+
+  //---------- FAILSAFE ----------
   
-  //Handle failsafe 
-  if(millis() - lastValidPacketMillis > 1500)
+  if(millis() - lastRCPacketMillis > 1500)
   {
-    rssi = 0;
-    for(int i= 0; i < 8; i++)
+    for(int i= 0; i < 9; i++)
     {
-      if(ch1to8Failsafes[i] != 523) //ignore channels that have failsafe turned off.
-        ch1to8Vals[i] = ch1to8Failsafes[i]; 
+      if(ch1to9Failsafes[i] != 523) //ignore channels that have failsafe turned off.
+        ch1to9Vals[i] = ch1to9Failsafes[i]; 
     }
-    digitalChVal[0] = 0; //turn off chA
   }
+
+  //---------- SEND TO OUTPUT CHANNELS ---------- 
   
   writeOutputs();
+
+  //---------- EXTERNAL VOLAGE ------------------
+  
+  getExternalVoltage();
+  
+  //---------- SEND TELEMETRY TO TRANSMITTER ---------- 
+  
+  if(isRequestingTelemetry)
+  {
+    sendTelemetry();
+    isRequestingTelemetry = false;
+  }
 
 }
 
 //==================================================================================================
-void readBindPacket()
+
+void bind()
 {
-  /** Bind protocol Format 
-  
-    Transmitter to receiver
-    -----------------------   
-    Byte0     bit 7 to 1 transmitterID, bit0 is 0 for bind, 
-    Byte1-11  hop channels, each channel 1 byte. If less channels, the rest of the bytes are 0 
-    Byte12    CRC
-    
-    Receiver reply
-    --------------
-    Byte0     receiverID (allowed ID range 128 to 255 inclusive)
-    Byte1-5   reserved
-    Byte6     CRC
-  */
-  
   LoRa.sleep();
   LoRa.setFrequency(freqList[0]);
   LoRa.idle();
   
-  uint8_t msgBuff[20]; 
-  
   const uint16_t BIND_LISTEN_TIMEOUT = 300;
-  const uint16_t BIND_ACK_TIMEOUT = 100;  
+  
+  uint8_t msgBuff[30];
+  memset(msgBuff, 0, sizeof(msgBuff));
   
   //---- listen for bind -----
   
@@ -237,86 +410,79 @@ void readBindPacket()
     int packetSize = LoRa.parsePacket();
     if (packetSize > 0) //received a packet
     {
-      /// read packet
-      uint16_t cntr = 0;
-      bool msgBuffFull = false;
+      //read into buffer
+      uint8_t cntr = 0;
       while (LoRa.available() > 0) 
       {
-        if(msgBuffFull == false) //read into msgBuff
+        if(cntr < (sizeof(msgBuff)/sizeof(msgBuff[0])))
         {
           msgBuff[cntr] = LoRa.read();
           cntr++;
-          if (cntr >= (sizeof(msgBuff)/sizeof(msgBuff[0]))) //prevent array out of bounds
-            msgBuffFull = true; 
         }
         else // discard any extra data
           LoRa.read(); 
       }
-      /// Check packet
-      uint8_t crcQQ = msgBuff[12];
-      uint8_t computedCRC = crc8Maxim(msgBuff, 12);
-      if(crcQQ == computedCRC && (msgBuff[0] & 0x01) == 0)
+      
+      // Check packet
+      if( checkPacket(msgBuff[0], 0x00, PAC_BIND, msgBuff, packetSize) && msgBuff[0] > 0x00)
       {
-        receivedBind = true;
-        break; //exit loop
+        if((msgBuff[2] & 0x0F) == sizeof(fhss_schema)/sizeof(fhss_schema[0])) //check length 
+        {
+          receivedBind = true;
+          break; //exit while loop
+        }
       }
     }
     delay(2);
   }
   
-  if(receivedBind == false)
+  if(!receivedBind)
   {
     hop(); //set to operating frequencies
     return; //bail out
   }
   
-  //-----------------------------
-
-  //get transmitterID and hop channels
-  transmitterID = (msgBuff[0] >> 1) & 0xFF;
-  for(uint8_t k = 0; k < (sizeof(fhss_schema)/sizeof(fhss_schema[0])); k++)
+  if(receivedBind)
   {
-    if(msgBuff[1 + k] < (sizeof(freqList)/sizeof(freqList[0]))) //prevents invalid references
-      fhss_schema[k] = msgBuff[1 + k];
-  }
-  //save to eeprom
-  EEPROM.write(EE_ADR_TX_ID, transmitterID);
-  EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
-  
-  //---- send reply 
-  
-  uint8_t dataToTransmit[7]; 
-  memset(dataToTransmit, 0, sizeof(dataToTransmit));
-  
-  //generate random receiverID
-  randomSeed(millis()); //Seed PRNG
-  receiverID = random(128, 255) & 0xFF; //allowed IDs 128 to 255
-  EEPROM.write(EE_ADR_RX_ID, receiverID);
-  
-  dataToTransmit[0] = receiverID;
-  dataToTransmit[6] = crc8Maxim(dataToTransmit, 6);
-  
-  unsigned long bindAckExitTime = millis() + BIND_ACK_TIMEOUT;
-  while(millis() < bindAckExitTime)
-  {
+    //get transmitterID and hop channels
+    transmitterID = msgBuff[0];
+    for(uint8_t i = 0; i < (sizeof(fhss_schema)/sizeof(fhss_schema[0])); i++)
+    {
+      if(msgBuff[3 + i] < (sizeof(freqList)/sizeof(freqList[0]))) //prevents invalid references
+        fhss_schema[i] = msgBuff[3 + i];
+    }
+    
+    //save to eeprom
+    EEPROM.write(EE_ADR_TX_ID, transmitterID);
+    EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
+    
+    //---- send reply 
+    
+    uint8_t dataToSend[1]; 
+    
+    //generate random receiverID
+    randomSeed(millis()); //Seed PRNG
+    receiverID = random(0x01, 0xFF);
+    EEPROM.write(EE_ADR_RX_ID, receiverID);
+    dataToSend[0] = receiverID;
+    delay(2);
+    uint8_t _packetLen = buildPacket(0x00, transmitterID, PAC_ACK_BIND, dataToSend, sizeof(dataToSend));
     if(LoRa.beginPacket())
     {
-      LoRa.write(dataToTransmit, 7);
+      LoRa.write(Packet, _packetLen);
       LoRa.endPacket(); //blocking
     }
-    delay(5);
-  }
 
-  //set to fly mode freq
-  hop();
-  
-  //indicate we received bind
-  for(int i = 0; i < 3; i++) //flash led 3 times
-  {
-    digitalWrite(PIN_LED_ORANGE, HIGH);
-    delay(200);
-    digitalWrite(PIN_LED_ORANGE, LOW);
-    delay(200);
+    hop();
+    
+    //indicate we received bind
+    for(int i = 0; i < 3; i++) //flash led 3 times
+    {
+      digitalWrite(PIN_LED_ORANGE, HIGH);
+      delay(200);
+      digitalWrite(PIN_LED_ORANGE, LOW);
+      delay(200);
+    }
   }
 }
 
@@ -324,11 +490,11 @@ void readBindPacket()
 
 void hop()
 {
-  ptr_fhss_schema++;
-  if(ptr_fhss_schema >= sizeof(fhss_schema)/sizeof(fhss_schema[0]))
-    ptr_fhss_schema = 0;
+  idx_fhss_schema++;
+  if(idx_fhss_schema >= sizeof(fhss_schema)/sizeof(fhss_schema[0]))
+    idx_fhss_schema = 0;
 
-  uint8_t idx_freq = fhss_schema[ptr_fhss_schema];
+  uint8_t idx_freq = fhss_schema[idx_fhss_schema];
   if(idx_freq < sizeof(freqList)/sizeof(freqList[0])) //prevents invalid references
   {
     LoRa.sleep();
@@ -338,190 +504,42 @@ void hop()
 }
 
 //==================================================================================================
-void readFlyModePacket()
-{
-  /** Transmitter to receiver message format
-  ------------------------------------------------
-  Byte0  
-  bits 7 to 1 is TransmiterID, 
-  bit0 is 1 for servo data
-  ------------------------------------------------
-  Byte1     Byte2     Byte3     Byte4     Byte5       
-  11111111  11222222  22223333  33333344  44444444 
-  ------------------------------------------------
-  Byte6     Byte7     Byte8     Byte9     Byte10
-  55555555  55666666  66667777  77777788  88888888
-  ------------------------------------------------
-  Byte11    Byte12
-  0abftddd  CCCCCCCC
-  ------------------------------------------------
-  Servo Chs 1 to 8 encoded as 10 bits      
-  a is digital chA bit
-  b is digital ChB bit 
-  f is failsafe flag
-  t is telemetry request flag. 
-  ddd is the current tx rf power level (3bits)
-  CCCCCCCC is the 8 bit CRC xored with receiverID
-  */
-  
-  static uint32_t timeOfLastPacket = millis();
-  
-  bool hasValidPacket = false;
- 
-  uint8_t msgBuff[20]; 
-  
-  int packetSize = LoRa.parsePacket();
-  if (packetSize > 0) //received a packet
-  {
-    //record time packet received
-    timeOfLastPacket = millis();
-    
-    rssi = LoRa.packetRssi();
-    
-    /// read packet
-    uint16_t cntr = 0;
-    bool msgBuffFull = false;
-    while (LoRa.available() > 0) 
-    {
-      if(msgBuffFull == false) //read into msgBuff
-      {
-        msgBuff[cntr] = LoRa.read();
-        cntr++;
-        if (cntr >= (sizeof(msgBuff)/sizeof(msgBuff[0]))) //prevent array out of bounds
-          msgBuffFull = true; 
-      }
-      else // discard any extra data
-        LoRa.read(); 
-    }
-    
-    /// hop
-    hop();
-    
-    /// Check if the received data is valid based on crc and transmitterID
-    uint8_t crcQQ = msgBuff[12];
-    uint8_t computedCRC = crc8Maxim(msgBuff, 12) ^ receiverID;
-    uint8_t txID = (msgBuff[0] >> 1) & 0xFF;
-    if(crcQQ == computedCRC && txID == transmitterID && (msgBuff[0] & 0x01) == 1)
-    {
-      hasValidPacket = true;
-      validPacketCount++;
-      lastValidPacketMillis = millis();
-    }
-  }
-  else if(millis() - timeOfLastPacket > MAX_LISTEN_TIME_ON_HOP_CHANNEL)
-  {
-    timeOfLastPacket = millis();
-    hop();
-  }
-  
-  
-  if(hasValidPacket)
-  {
-    digitalWrite(PIN_LED_ORANGE, HIGH);
-    
-    //-------- Decode ----------
-    //Proportional channels
-    long _ch1to8Tmp[8];
-    _ch1to8Tmp[0] = ((uint16_t)msgBuff[1] << 2 & 0x3fc) | ((uint16_t)msgBuff[2] >> 6 & 0x03); //ch1
-    _ch1to8Tmp[1] = ((uint16_t)msgBuff[2] << 4 & 0x3f0) | ((uint16_t)msgBuff[3] >> 4 & 0x0f); //ch2
-    _ch1to8Tmp[2] = ((uint16_t)msgBuff[3] << 6 & 0x3c0) | ((uint16_t)msgBuff[4] >> 2 & 0x3f); //ch3
-    _ch1to8Tmp[3] = ((uint16_t)msgBuff[4] << 8 & 0x300) | ((uint16_t)msgBuff[5]      & 0xff); //ch4
-    _ch1to8Tmp[4] = ((uint16_t)msgBuff[6] << 2 & 0x3fc) | ((uint16_t)msgBuff[7] >> 6 & 0x03); //ch5
-    _ch1to8Tmp[5] = ((uint16_t)msgBuff[7] << 4 & 0x3f0) | ((uint16_t)msgBuff[8] >> 4 & 0x0f); //ch6
-    _ch1to8Tmp[6] = ((uint16_t)msgBuff[8] << 6 & 0x3c0) | ((uint16_t)msgBuff[9] >> 2 & 0x3f); //ch7
-    _ch1to8Tmp[7] = ((uint16_t)msgBuff[9] << 8 & 0x300) | ((uint16_t)msgBuff[10]     & 0xff); //ch8
-    
-    //digital channels
-    digitalChVal[0] = (msgBuff[11] & 0x40) >> 6;
-    digitalChVal[1] = (msgBuff[11] & 0x20) >> 5;
-    
-    //Check if failsafe data. If so, dont modify outputs
-    if((msgBuff[11] & 0x10) == 0x10) //failsafe values
-    {
-      failsafeReceived = true;
-      for(int i=0; i<8; i++)
-        ch1to8Failsafes[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
-    }
-    else //normal channel values
-    {
-      for(int i=0; i<8; i++)
-        ch1to8Vals[i] = _ch1to8Tmp[i] - 500; //Center at 0 so range is -500 to 500
-    }
-    
-    //telemetry request
-    telemetryRequest = (msgBuff[11] >> 3) & 0x01;
-    
-    //rf power level
-    rfPowerLevel = msgBuff[11] & 0x07;
-  }
-  
-  if(!hasValidPacket && (millis() - lastValidPacketMillis > 100))
-  {
-    //turn off orange LED
-    digitalWrite(PIN_LED_ORANGE, LOW);
-  }
-}
-
-//==================================================================================================
 
 void sendTelemetry()
 {
-  /** Receiver to Transmitter message format
-  ------------------------------------------
-  Byte0    Receiver ID
-  Byte1    Average packet rate
-  
-  Byte2       Byte3
-  vvvvvvvv    vvvv0000
-  (v - voltage)
-  
-  Byte4    CRC8 XOR transmitterID
-  */
-  
-  if(!telemetryRequest)
-    return;
-  
-  telemetryRequest = false;
-  
   //Calculate packets per second
-  static unsigned long prevValidPacketCount = 0; 
-  static unsigned long ttPrevMillis = 0;
-  static uint8_t validPacketsPerSecond = 0; 
-  unsigned long ttElapsed = millis() - ttPrevMillis;
+  static uint32_t prevRCPacketCount = 0; 
+  static uint32_t ttPrevMillis = 0;
+  static uint8_t rcPacketsPerSecond = 0; 
+  uint32_t ttElapsed = millis() - ttPrevMillis;
   if (ttElapsed >= 1000)
   {
     ttPrevMillis = millis();
-    unsigned long _validPPS = (validPacketCount - prevValidPacketCount) * 1000;
-    _validPPS /= ttElapsed;
-    validPacketsPerSecond = _validPPS & 0xFF;
-    prevValidPacketCount = validPacketCount;
+    rcPacketsPerSecond = ((rcPacketCount - prevRCPacketCount) * 1000) / ttElapsed;
+    prevRCPacketCount = rcPacketCount;
   }
-  if(millis() - lastValidPacketMillis > 1000)
-    validPacketsPerSecond = 0;
+  if(millis() - lastRCPacketMillis > 1000)
+    rcPacketsPerSecond = 0;
   
-  //---- prepare data ---
+  //prepare data and transmit
   
-  uint8_t payload[5];
-  memset(payload, 0, sizeof(payload));
-  
-  payload[0] = receiverID;
-  payload[1] = validPacketsPerSecond;
+  uint8_t dataToSend[3];
+  dataToSend[0] = rcPacketsPerSecond;
   
   if(externalVolts < 2000 || millis() < 5000UL)
     telem_volts = 0x0FFF;  //no data
   else
     telem_volts = externalVolts / 10; //convert to 10mV scale
   
-  payload[2] = (telem_volts >> 4) & 0xFF;
-  payload[3] = ((telem_volts << 4) & 0xF0);
+  dataToSend[1] = (telem_volts >> 4) & 0xFF;
+  dataToSend[2] = ((telem_volts << 4) & 0xF0);
   
-  payload[4] = crc8Maxim(payload, 4) ^ transmitterID;
+  uint8_t _packetLen = buildPacket(receiverID, transmitterID, PAC_TELEMETRY, dataToSend, sizeof(dataToSend));
   
-  //---- transmit ----
   delay(1);
   if(LoRa.beginPacket())
   {
-    LoRa.write(payload, 7);
+    LoRa.write(Packet, _packetLen);
     LoRa.endPacket(); //block until done transmitting
     hop();
   }
@@ -529,23 +547,110 @@ void sendTelemetry()
 
 //==================================================================================================
 
+uint8_t buildPacket(uint8_t srcID, uint8_t destID, uint8_t dataIdentifier, uint8_t *dataBuff, uint8_t dataLen)
+{
+  // Builds Packet and returns its length
+  
+  Packet[0] = srcID;
+  Packet[1] = destID;
+  dataLen &= 0x0F; //limit
+  Packet[2] = (dataIdentifier << 4) | dataLen;
+  for(uint8_t i = 0; i < dataLen; i++)
+  {
+    Packet[3 + i] = *dataBuff;
+    ++dataBuff;
+  }
+  Packet[3 + dataLen] = crc8Maxim(Packet, 3 + dataLen);
+  return 4 + dataLen; 
+}
+
+//--------------------------------------------------------------------------------------------------
+
+bool checkPacket(uint8_t srcID, uint8_t destID, uint8_t dataIdentifier, uint8_t *packetBuff, uint8_t packetSize)
+{
+  if(packetSize < 4 || packetSize > 19) //packet may be from other Lora radios
+    return false;
+  
+  if(packetBuff[0] != srcID || packetBuff[1] != destID || (packetBuff[2] >> 4) != dataIdentifier)
+    return false;
+  
+  //check packet crc
+  uint8_t _crcQQ = packetBuff[packetSize - 1];
+  uint8_t _computedCRC = crc8Maxim(packetBuff, packetSize - 1);
+  if(_crcQQ != _computedCRC)
+    return false;
+  
+  return true;
+}
+
+//==================================================================================================
+
 void writeOutputs()
 { 
-  int16_t ch1to8MicroSec[8];
-  for(uint8_t i = 0; i<8; i++)
-    ch1to8MicroSec[i] = map(ch1to8Vals[i], -500, 500, 1000, 2000);
-
-  servoCh1.writeMicroseconds(ch1to8MicroSec[0]);
-  servoCh2.writeMicroseconds(ch1to8MicroSec[1]);
-  servoCh3.writeMicroseconds(ch1to8MicroSec[2]);
-  servoCh4.writeMicroseconds(ch1to8MicroSec[3]);
-  servoCh5.writeMicroseconds(ch1to8MicroSec[4]);
-  servoCh6.writeMicroseconds(ch1to8MicroSec[5]);
-  servoCh7.writeMicroseconds(ch1to8MicroSec[6]);
-  servoCh8.writeMicroseconds(ch1to8MicroSec[7]);
+  if(!failsafeEverBeenReceived)
+    return;
   
-  digitalWrite(PIN_CH9,  digitalChVal[0]);
-  digitalWrite(PIN_CH10, digitalChVal[1]);
+  static bool outputsInitialised = false;
+  
+  if(!outputsInitialised)
+  {
+    //setup outputs
+    for(uint8_t i = 0; i < 9; i++)
+    {
+      if(OutputChConfig[i] == 0)
+        pinMode(myOutputPins[i], OUTPUT);
+      else if(OutputChConfig[i] == 1)
+        myServo[i].attach(myOutputPins[i]);
+    }
+    outputsInitialised = true;
+  }
+  
+  for(uint8_t i = 0; i < 9; i++)
+  {
+    if(OutputChConfig[i] == 0)     //digital mode
+    {
+      //range -500 to -250 becomes LOW
+      //range -250 to 250 is ignored
+      //range 250 to 500 becomes HIGH
+      if(ch1to9Vals[i] <= -250)
+        digitalWrite(myOutputPins[i], LOW);
+      else if(ch1to9Vals[i] >= 250)
+        digitalWrite(myOutputPins[i], HIGH);
+    }
+    else if(OutputChConfig[i] == 1) //servo mode
+    {
+      int val = map(ch1to9Vals[i], -500, 500, 1000, 2000);
+      val = constrain(val, 1000, 2000);
+      myServo[i].writeMicroseconds(val);
+    }
+    else if(OutputChConfig[i] == 2) //pwm mode
+    {
+      int val = map(ch1to9Vals[i], -500, 500, 0, 255);
+      val = constrain(val, 0, 255);
+      analogWrite(myOutputPins[i], val);
+    }
+  }
+}
+
+//==================================================================================================
+
+uint8_t getMaxOutputChConfig(int pin)
+{
+  int pwmPins[] = {5, 6, 9, 10, 3, 11}; //on arduino uno
+  
+  uint8_t rslt = 1;
+  
+  //search through array
+  for(uint8_t i = 0; i < (sizeof(pwmPins)/sizeof(pwmPins[0])); i++)
+  {
+    if(pwmPins[i] == pin)
+    {
+      rslt = 2;
+      break;
+    }
+  }
+  
+  return rslt;
 }
 
 //==================================================================================================
@@ -567,9 +672,7 @@ void getExternalVoltage()
   _lastMillis = millis();
   
   const int _NUM_SAMPLES = 30;
-  
   const int VFactor = 1627; //adjust this for correction. (##TODO possibly change this on transmitter side)
-  
   long _millivolts = ((long)analogRead(PIN_EXTV_SENSE) * VFactor) / 100;
   _millivolts = ((long)externalVolts * (_NUM_SAMPLES - 1) + _millivolts) / _NUM_SAMPLES; 
   externalVolts = int(_millivolts); 
