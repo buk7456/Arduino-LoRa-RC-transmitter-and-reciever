@@ -269,46 +269,46 @@ class GFX : public Print
 {
 
 public:
-  GFX(int16_t w, int16_t h); // Constructor
+  GFX(uint8_t w, uint8_t h); // Constructor
 
   // This MUST be defined by the subclass:
-  virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0;
+  virtual void drawPixel(uint8_t x, uint8_t y, uint8_t color) = 0;
 
 
   void
-      drawVLine(int16_t x, int16_t y, int16_t h, uint16_t color),
-      drawHLine(int16_t x, int16_t y, int16_t w, uint16_t color),
-      fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color),
-      drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+      drawVLine(uint8_t x, uint8_t y, uint8_t h, uint8_t color),
+      drawHLine(uint8_t x, uint8_t y, uint8_t w, uint8_t color),
+      fillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color),
+      drawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color);
 
   // These exist only with GFX (no subclass overrides)
   void
-      drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color),
-      drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color),
-      setCursor(int16_t x, int16_t y),
-      setTextColor(uint16_t c),
+      drawBitmap(uint8_t x, uint8_t y, const uint8_t bitmap[], uint8_t w, uint8_t h, uint8_t color),
+      drawChar(uint8_t x, uint8_t y, unsigned char c, uint8_t color),
+      setCursor(uint8_t x, uint8_t y),
+      setTextColor(uint8_t c),
       setTextWrap(boolean w);
       
   virtual size_t write(uint8_t);
 
-  int16_t height(void) const;
-  int16_t width(void) const;
+  uint8_t height(void) const;
+  uint8_t width(void) const;
   
   // get current cursor position
-  int16_t getCursorX(void) const;
-  int16_t getCursorY(void) const;
+  uint8_t getCursorX(void) const;
+  uint8_t getCursorY(void) const;
 
 
 protected:
   
-  const int16_t
+  const uint8_t
       WIDTH,
       HEIGHT; // This is the 'raw' display w/h - never changes
-  int16_t
+  uint8_t
       _width,
       _height, // Display w/h as modified by current rotation
       cursor_x, cursor_y;
-  uint16_t
+  uint8_t
       textcolor;
   uint8_t
       rotation;
