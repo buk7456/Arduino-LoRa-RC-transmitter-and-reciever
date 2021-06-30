@@ -90,7 +90,7 @@ void eeCreateModel(uint8_t _mdlNo)
 
 void eeDeleteModel(uint8_t _mdlNo)
 {
-  //simply remove name setting by all characters in name to ascii 127
+  //simply remove name setting by all characters in name to 0xFF
   
   uint16_t _mdlOffset_ = getModelDataOffsetAddr(_mdlNo);
   
