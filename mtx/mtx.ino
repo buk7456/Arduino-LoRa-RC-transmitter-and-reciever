@@ -28,11 +28,13 @@
 
 #include "crc8.h"
 
+bool isRequestingPowerOff = false;
+
 // Declarations 
 void sendSerialData(); 
 void getSerialData();
 void checkBattery();
-uint16_t joinBytes(uint8_t _highByte, uint8_t _lowByte); //helper
+uint16_t joinBytes(uint8_t _highByte, uint8_t _lowByte); 
 
 //===================================== setup ======================================================
 
@@ -50,7 +52,6 @@ void setup()
 
   //init serial port
   Serial.begin(UART_BAUD_RATE);
-  delay(200);
   
   //init lcd
   display.begin();
@@ -141,19 +142,27 @@ void setup()
     changeToScreen(MODE_CALIB); 
     skipThrottleCheck = true;
   }
+ 
+  ///--------- Init battery reading ------------
+  battVoltsNow = battVoltsMax; 
+  for(uint8_t i = 0; i < 50; i++)
+  {
+    checkBattery();
+    delay(2);
+  }
   
-  ///-------------------------------------------
-  display.clearDisplay();
-  FullScreenMsg(PSTR("Welcome"));
-  display.display();
-  delay(1000);
+  ///----------- Play animation -----------------
+  uint32_t qq = millis() + 1000;
+  while(millis() < qq)
+  {
+    display.clearDisplay();
+    drawLoadingAnimation(60, 28, 2);
+    display.display();
+  }
 
   ///--------- Load data from eeprom -----------
   eeReadSysConfig();
   eeReadModelData(Sys.activeModel);
-
-  ///--------- Init battery reading ------------
-  battVoltsNow = battVoltsMax; 
 
   ///--------- Warn if throttle is not low -----
   if(!skipThrottleCheck)
@@ -178,14 +187,6 @@ void setup()
 
   ///--------- Init timers ---------------------
   timer1LastPaused = millis(); 
-  
-  ///--------- other initialisations -----------
-  //initialise battery volts
-  for(uint8_t i = 0; i < 30; i++)
-  {
-    checkBattery();
-    delay(5);
-  }
 
 }
 
@@ -209,6 +210,7 @@ void loop()
   unsigned long loopTime = millis() - loopStartTime;
   if(loopTime < fixedLoopTime) 
     delay(fixedLoopTime - loopTime);
+  
   // display.setCursor(0, 0); //benchmarking
   // display.print(loopTime); //benchmarking
 }
@@ -217,33 +219,61 @@ void loop()
 
 void sendSerialData()
 {
-  /** Master to Slave MCU communication format as below
-  byte 0 - First Status byte 
-    bit7 - 0
-    bit6 - backlight 1 on, 0 off
-    bit5 - bind state 1 bind 0 operate
-    bit4 - RF module, 1 on, 0 off 
-    bit3 - DigChA, 1 on, 0 off
-    bit2 - DigChB, 1 on, 0 off
-    bit1 - Failsafe, 1 means failsafe data, 0 normal data
-    bit0 - Reserved
-  byte 1 - Second status byte
-    bit7 - 0
-    bits 6 to 4 reserved
-    bit3 - telemetry request
-    bits 2 to 0 RF Power level (3bits)
-  byte 2 - Sound to play
-  byte 3 to 18 - Ch1 thru 8 data (2 bytes per channel, total 16 bytes)
-  byte 19 - CRC8
+  /* 
+    MASTER MCU TO SLAVE MCU COMMUNICATION  
+    - The transmit length is always fixed at 24 bytes.
+    - General format is as below.
+    ---------------------------------------------------------------
+      Description |  Status0  Status1  Audio   GeneralData  CRC8
+      Size        |  1 byte   1 byte   1 byte  20 bytes     1 byte
+      Offset      |  0        1        2       3            23
+    ---------------------------------------------------------------
   */
+
+  /* Status0 
+      bit0-2 RF power level
+      bit3   RF enabled
+      bit4   Backlight
+      bit5   Power off
+  */
+  enum {
+    FLAG_RF_ENABLED  = 0x08,
+    FLAG_BACKLIGHT   = 0x10,
+    FLAG_POWER_OFF   = 0x20,
+  };
   
-  uint8_t _data[20];
+  /* Status1
+      bit0  failsafe data
+      bit1  write receiver config
+      bit2  get receiver config 
+      bit3  get telemetry
+      bit4  enter bind mode 
+  */
+  enum {
+    FLAG_FAILSAFE_DATA    = 0x01,
+    FLAG_WRITE_RX_CONFIG  = 0x02,
+    FLAG_GET_RX_CONFIG    = 0x04,
+    FLAG_GET_TELEMETRY    = 0x08,
+    FLAG_ENTER_BIND       = 0x10,
+  };
+
+
+  ///----------- ENCODE ---------
+
+  uint8_t status0 = 0;
   
-  /// ---- status bytes
+  //rf power level
+  status0 |= (Sys.rfPower & 0x07);
   
-  uint8_t status1 = 0x00;
-  uint8_t status2 = 0x00;
+  //rf enabled
+  if(Sys.rfOutputEnabled)
+    status0 |= FLAG_RF_ENABLED;
   
+  //power off 
+  if(isRequestingPowerOff)
+    status0 |= FLAG_POWER_OFF;
+  
+  //backlight 
   static unsigned long lastBtnDownTime = 0;
   if(buttonCode > 0) 
     lastBtnDownTime = millis();
@@ -251,105 +281,146 @@ void sendSerialData()
   if(Sys.backlightMode == BACKLIGHT_ON 
      || (Sys.backlightMode == BACKLIGHT_5S  && elapsed < 5000UL )
      || (Sys.backlightMode == BACKLIGHT_15S && elapsed < 15000UL)
-     || (Sys.backlightMode == BACKLIGHT_60S && elapsed < 60000UL)) 
-    status1 |= 0x40;
-  
-  status1 |= (bindActivated & 0x01) << 5;
-  bindActivated = false;
-  
-  status1 |= (Sys.rfOutputEnabled & 0x01) << 4;
-  status1 |= DigChA << 3;
-  status1 |= DigChB << 2;
-
-  //alternately send failsafe or request telemetry
-  bool sendFailsafe = false;
-  static bool telemRequest = false;
-  if(thisLoopNum % (200 / fixedLoopTime) == 1) //every 200ms
-  {
-    telemRequest = !telemRequest;
-    if(telemRequest)
-      status2 |= (1 << 3);
-    else
-      sendFailsafe = true;
+     || (Sys.backlightMode == BACKLIGHT_60S && elapsed < 60000UL))
+  {     
+   status0 |= FLAG_BACKLIGHT;
   }
   
-  status1 |= (sendFailsafe & 0x01) << 1;
-  status2 |= Sys.rfPower;
-
-  _data[0] = status1;
-  _data[1] = status2;
-
-  /// ---- sounds
+  uint8_t status1 = 0;
+  
+  //bind
+  if(isRequestingBind)
+  {
+    status1 |= FLAG_ENTER_BIND;
+    isRequestingBind = false;
+  }
+  
+  //alternately send failsafe or request telemetry every 300ms
+  static bool isRequestingTelemetry = false;
+  if(thisLoopNum % (300 / fixedLoopTime) == 1) 
+  {
+    isRequestingTelemetry = !isRequestingTelemetry;
+    if(isRequestingTelemetry)
+      status1 |= FLAG_GET_TELEMETRY;
+    else
+      status1 |= FLAG_FAILSAFE_DATA;
+  }
+  
+  //requesting receiver configuration
+  if(isRequestingOutputChConfig)
+  {
+    status1 |= FLAG_GET_RX_CONFIG;
+    isRequestingOutputChConfig = false;
+    //unset other flags
+    status1 &= ~FLAG_GET_TELEMETRY; 
+  }
+  
+  //sending receiver configuration
+  if(sendOutputChConfig)
+  {
+    status1 |= FLAG_WRITE_RX_CONFIG;
+    sendOutputChConfig = false;
+    //unset other flags
+    status1 &= ~FLAG_FAILSAFE_DATA;
+    status1 &= ~FLAG_GET_TELEMETRY;    
+  }
+ 
+ 
+  uint8_t tmpBuff[24];
+  memset(tmpBuff, 0, sizeof(tmpBuff));
+  
+  tmpBuff[0] = status0;
+  tmpBuff[1] = status1;
+  
+  // Audio
   if((Sys.soundMode == SOUND_OFF)
       || (Sys.soundMode == SOUND_ALARMS && audioToPlay >= AUDIO_SWITCHMOVED)
       || (Sys.soundMode == SOUND_NOKEY && audioToPlay == AUDIO_KEYTONE))
     audioToPlay = AUDIO_NONE; 
     
-  _data[2] = audioToPlay; 
+  tmpBuff[2] = audioToPlay; 
   audioToPlay = AUDIO_NONE; 
   
-  /// ---- failsafe and channel data
-  if(sendFailsafe) 
+  //
+  if(status1 & FLAG_WRITE_RX_CONFIG) //receiver config data
+  {
+    for(uint8_t i = 0; i < 9; i++) //###
+      tmpBuff[3 + i] = OutputChConfig[i];
+  }
+  else if(status1 & FLAG_FAILSAFE_DATA) //failsafe data
   {
     for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
     {
       if(Model.Failsafe[i] == -101) //failsafe not specified, send 1023
       {
-        _data[3 + i*2] = 0x03;
-        _data[4 + i*2] = 0xFF;
+        tmpBuff[3 + i*2] = 0x03;
+        tmpBuff[4 + i*2] = 0xFF;
       }
       else //failsafe specified
       {
         int fsf = 5 * Model.Failsafe[i];
         fsf = constrain(fsf, 5 * Model.EndpointL[i], 5 * Model.EndpointR[i]);
         uint16_t val = (fsf + 500) & 0xFFFF;
-        _data[3 + i*2] = (val >> 8) & 0xFF;
-        _data[4 + i*2] = val & 0xFF;
+        tmpBuff[3 + i*2] = (val >> 8) & 0xFF;
+        tmpBuff[4 + i*2] = val & 0xFF;
       }
     }
   }
-  else
+  else //real time RC data
   {
     for(uint8_t i = 0; i < NUM_PRP_CHANNLES; i++)
     {
       uint16_t val = (ChOut[i] + 500) & 0xFFFF; 
-      _data[3 + i*2] = (val >> 8) & 0xFF;
-      _data[4 + i*2] = val & 0xFF;
+      tmpBuff[3 + i*2] = (val >> 8) & 0xFF;
+      tmpBuff[4 + i*2] = val & 0xFF;
     }
   }
   
-  _data[19] = crc8Maxim(_data, 19);
+  //add a crc
+  tmpBuff[23] = crc8Maxim(tmpBuff, 23);
   
-  Serial.write(_data, 20);
+
+  //Send to slave mcu
+  Serial.write(tmpBuff, sizeof(tmpBuff));
 }
 
 //==================================================================================================
 
 void getSerialData()
 {
-  /** Slave to Master mcu serial communication
-  Byte0   Bits 3 to 2 --> Bind status, Bits 1 to 0 --> 3pos switch state
-  Byte1   Transmitter packet rate
-  Byte2   Packet rate at receiver side
-  Byte3-4 Voltage telemetry
-  Byte5   CRC8
+  /* 
+  SLAVE TO MASTER MCU SERIAL COMMUNICATION
+  
+  Byte0     Bit7     --> Got receiver channel configuration
+            Bit 6    --> Request poweroff
+            Bits 5,4 --> Bind status
+            Bit 3    --> SwF
+            Bit 2    --> SwE 
+            Bits 1,0 --> 3pos switch (SwC) state
+  
+  Byte1     Receiver config status code
+  Byte2     Transmitter packet rate
+  Byte3     Packet rate at receiver side
+  Byte4-5   Voltage telemetry
+  Byte6-14  Receiver channel config Ch1 to Ch9
+  Byte15    CRC8
   */
   
-  const uint8_t msgLength = 6;
+  const uint8_t msgLength = 16;
   if (Serial.available() < msgLength)
   {
     return;
   }
   
-  uint8_t _data[msgLength]; 
-  memset(_data, 0, msgLength);
+  uint8_t tmpBuff[msgLength]; 
+  memset(tmpBuff, 0, msgLength);
 
   uint8_t cntr = 0;
   while (Serial.available() > 0)
   {
     if (cntr < msgLength) 
     {
-      _data[cntr] = Serial.read();
+      tmpBuff[cntr] = Serial.read();
       cntr++;
     }
     else //Discard any extra data
@@ -357,28 +428,60 @@ void getSerialData()
   }
   
   //Check if valid and extract
-  if(_data[msgLength - 1] == crc8Maxim(_data, msgLength - 1))
+  if(tmpBuff[msgLength - 1] == crc8Maxim(tmpBuff, msgLength - 1))
   {
-    bindStatus = (_data[0] >> 2) & 0x03;
-    SwCState = _data[0] & 0x03;
-    transmitterPacketRate = _data[1];
-    receiverPacketRate = _data[2];
+    bindStatusCode = (tmpBuff[0] >> 4) & 0x03;
+    
+    SwCState = tmpBuff[0] & 0x03;
+    SwEEngaged = (tmpBuff[0] >> 2) & 0x01;
+    SwFEngaged = (tmpBuff[0] >> 3) & 0x01;
+    
+    receiverConfigStatusCode = tmpBuff[1];
+    
+    transmitterPacketRate = tmpBuff[2];
+    receiverPacketRate = tmpBuff[3];
     
     //-- telemetry voltage --
-    telem_volts = joinBytes(_data[3], _data[4]);
-    //apply offset
-    if(telem_volts != 0x0FFF)
+    telem_volts = joinBytes(tmpBuff[4], tmpBuff[5]);
+
+    //-- power off request --
+    if((tmpBuff[0] >> 6) & 0x01)
     {
-      long _volts = telem_volts;
-      _volts += (long)Sys.telemVoltsOffset;
-      if(_volts < 0)
-        _volts = 0;
-      telem_volts = _volts & 0xFFFF;
+      //save all data to eeprom
+      eeSaveSysConfig();
+      eeSaveModelData(Sys.activeModel);
+      
+      //play animation
+      uint32_t qq = millis() + 1000;
+      while(millis() < qq)
+      {
+        display.clearDisplay();
+        drawLoadingAnimation(60, 28, 2);
+        display.display();
+      }
+      
+      //set power off flag and send to slave mcu, and enter infinite loop
+      isRequestingPowerOff = true;
+      sendSerialData();
+      while(1)
+      {
+      }
+    }
+    
+    //-- receiver channel configuration
+    if((tmpBuff[0] >> 7) & 0x01)
+    {
+      gotOutputChConfig = true;
+      for(uint8_t i = 0; i < 9; i++)
+      {
+        OutputChConfig[i] = tmpBuff[6 + i] & 0x0F;
+        maxOutputChConfig[i] = tmpBuff[6 + i] >> 4;
+      }
     }
   }
 }
 
-//--------------------------------------------------------------------------------------------------
+//==================================================================================================
 
 uint16_t joinBytes(uint8_t _highByte, uint8_t _lowByte)
 {
