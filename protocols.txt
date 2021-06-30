@@ -1,0 +1,79 @@
+
+General format of packet
+*********************************************************************
+------------------------------------------------------------------
+SrcID  DestID  PacketIdentifier  PayloadLen Payload        PacketCRC8
+1 byte 1 byte  4 bits            4 bits     0 to 15 bytes  1byte  
+------------------------------------------------------------------
+
+
+SrcID and DestID 
+*********************************************************************
+If packet is originating from transmitter, then SrcID is the TxID
+Similary if packet is originating from receiver, then SrcID is the RcvrID
+
+Allowed transmitter IDs range from 0x01 to 0xFF. TxID 0x00 reserved
+Allowed receiver IDs range from 0x01 to 0xFF, RxID 0X00 used when binding
+
+Packet Identifier types
+*********************************************************************
+Type:          Priority
+Bind           1
+AckBind        1
+ReadRxConfig   2
+SetRxConfig    2
+AckRxConfig    2
+RcData         3
+Telemetry      3
+
+
+Servo data
+*********************************************************************
+Servo data encoded with 10 bits. Some flags are also transmitted.
+
+Byte0   11111111
+Byte1   11222222
+Byte2   22223333
+Byte3   33333344
+Byte4   44444444
+Byte5   55555555
+Byte6   55666666
+Byte7   66667777
+Byte8   77777788
+Byte9   88888888
+Byte10  99999999
+Byte11  990ftddd 
+        Flags: 
+        f - Is failsafe data
+        t - return telemetry
+        ddd - The current tx rf power level
+
+
+Bind data
+*********************************************************************
+Transmitter to receiver: 
+Payload bytes0-n hop channels, each channel 1 byte.
+
+To acknowledge bind, the receiver simply returns its ID as payload with 
+packet Identifier as BindAck and srcID as 0x80
+
+
+Output Channel configuration settings
+*********************************************************************
+9 payload bytes are sent to receiver, 1 byte for each output channel.
+Values: 
+0  Set output as Digital
+1  Set output as ServoPWM
+2  Set analog PWM
+
+To acknowledge the settings, the receiver simply returns 
+an empty payload but with packet identifier as AckRxConfig
+
+
+Telemetry data from receiver
+*********************************************************************
+Payload 
+Byte0    Average packet rate seen by receiver
+Byte1    vvvvvvvv       
+Byte2    vvvv0000
+         v - voltage telemetry
