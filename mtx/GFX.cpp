@@ -7,6 +7,7 @@
     - Reimplemented drawHLine, drawVLine, drawRect, fillRect
     - Removed unused features like Bresenham's line algorithm, circles, triangles, round rectangles,
       fonts, etc.
+    - Using uint8_t types
 
   Copyright (c) 2013 Adafruit Industries.  All rights reserved.
 
@@ -36,31 +37,31 @@
 #include <avr/pgmspace.h>
 
 
-GFX::GFX(int16_t w, int16_t h) : WIDTH(w), HEIGHT(h)
+GFX::GFX(uint8_t w, uint8_t h) : WIDTH(w), HEIGHT(h)
 {
   _width = WIDTH;
   _height = HEIGHT;
   rotation = 0;
   cursor_y = cursor_x = 0;
-  textcolor = 0xFFFF;
+  textcolor = 0xFF;
   wrap = true;
 }
 
-void GFX::drawHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
+void GFX::drawHLine(uint8_t x, uint8_t y, uint8_t w, uint8_t color)
 {
-  for (int16_t i = 0; i < w; i++)
+  for (uint8_t i = 0; i < w; i++)
     drawPixel(x + i, y, color);
 }
 
 
-void GFX::drawVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
+void GFX::drawVLine(uint8_t x, uint8_t y, uint8_t h, uint8_t color)
 {
-  for (int16_t i = 0; i < h; i++)
+  for (uint8_t i = 0; i < h; i++)
     drawPixel(x, y+i, color);
 }
 
 
-void GFX::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+void GFX::drawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color)
 {
   drawHLine(x, y, w, color);
   drawHLine(x, y+h-1, w, color);
@@ -69,11 +70,11 @@ void GFX::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 }
 
 
-void GFX::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+void GFX::fillRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t color)
 {
-  for (int16_t i = 0; i < w; i++)
+  for (uint8_t i = 0; i < w; i++)
   {
-    for (int16_t j = 0; j < h; j++)
+    for (uint8_t j = 0; j < h; j++)
       drawPixel(x + i, y + j, color);
   }
 }
@@ -81,14 +82,14 @@ void GFX::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 
 // Draw a PROGMEM-resident 1-bit image at the specified (x,y) position,
 // using the specified foreground color (unset bits are transparent).
-void GFX::drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, int16_t h, uint16_t color)
+void GFX::drawBitmap(uint8_t x, uint8_t y, const uint8_t bitmap[], uint8_t w, uint8_t h, uint8_t color)
 {
-  int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
+  uint8_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
   uint8_t byte = 0;
 
-  for (int16_t j = 0; j < h; j++, y++)
+  for (uint8_t j = 0; j < h; j++, y++)
   {
-    for (int16_t i = 0; i < w; i++)
+    for (uint8_t i = 0; i < w; i++)
     {
       if (i & 7)
         byte <<= 1;
@@ -101,7 +102,7 @@ void GFX::drawBitmap(int16_t x, int16_t y, const uint8_t bitmap[], int16_t w, in
 }
 
 // Draw a character
-void GFX::drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color)
+void GFX::drawChar(uint8_t x, uint8_t y, unsigned char c, uint8_t color)
 {
   if (c >= 176)
     c++; // Handle 'classic' charset behavior
@@ -137,23 +138,23 @@ size_t GFX::write(uint8_t c)
   return 1;
 }
 
-void GFX::setCursor(int16_t x, int16_t y)
+void GFX::setCursor(uint8_t x, uint8_t y)
 {
   cursor_x = x;
   cursor_y = y;
 }
 
-int16_t GFX::getCursorX(void) const
+uint8_t GFX::getCursorX(void) const
 {
   return cursor_x;
 }
 
-int16_t GFX::getCursorY(void) const
+uint8_t GFX::getCursorY(void) const
 {
   return cursor_y;
 }
 
-void GFX::setTextColor(uint16_t c)
+void GFX::setTextColor(uint8_t c)
 {
   textcolor = c;
 }
@@ -164,12 +165,12 @@ void GFX::setTextWrap(boolean w)
 }
 
 // Return the size of the display (per current rotation)
-int16_t GFX::width(void) const
+uint8_t GFX::width(void) const
 {
   return _width;
 }
 
-int16_t GFX::height(void) const
+uint8_t GFX::height(void) const
 {
   return _height;
 }
