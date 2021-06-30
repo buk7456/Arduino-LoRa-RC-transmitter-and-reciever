@@ -4,7 +4,8 @@ void setDefaultModelBasicParams();
 void setDefaultModelMixerParams();
 void setDefaultModelMixerParams(uint8_t _mixNo);
 
-//------------------- SYSTEM PARAMS ----------------------------------------------------------------
+
+//====================== SYSTEM PARAMETERS =========================================================
 
 enum {
   SOUND_OFF = 0, 
@@ -44,7 +45,7 @@ struct sysParams {
   uint8_t inactivityMinutes = 10;
   
   uint8_t soundMode = SOUND_ALL; 
-  bool telemAlarmEnabled = true;
+  
   uint8_t backlightMode = BACKLIGHT_60S;
 
   int rollMax  = 1023, rollMin  = 0, rollCenterVal = 512;
@@ -54,16 +55,19 @@ struct sysParams {
   uint8_t deadZonePerc = 5; //in percentage of stick range
   
   //voltage telemetry
-  uint16_t telemVoltsThresh = 0; //as 10mV
-  int8_t telemVoltsOffset = 0;   //as 10mV
+  
+  bool telemAlarmEnabled = true;
+  bool telemVoltsOnHomeScreen = true;
   
 } Sys;
 
-//------------------- MODEL PARAMS -----------------------------------------------------------------
 
-#define NUM_PRP_CHANNLES 8  //Number of proportional channels ## Leave this
+//====================== MODEL PARAMETERS ==========================================================
 
-#define NUM_MIXSLOTS 10     //More slots results into less models and more ram usage 
+
+#define NUM_PRP_CHANNLES 9  //Number of proportional channels ## Leave this
+
+#define NUM_MIXSLOTS 12     //More slots results into less models and more ram usage 
 
 /* Structure for model information
 */
@@ -90,9 +94,6 @@ struct modelParams {
   
   int8_t Trim[4];         //for Ail, Ele, Thr, Rud inputs. Values -20 to 20
   
-  uint8_t Curve1Src;     
-  int8_t  Curve1Pts[5];    //interpolation points. Range -100 to 100
-  
   uint8_t Slow1Up;   // in tenths of a second
   uint8_t Slow1Down; // in tenths of a second
   uint8_t Slow1Src;  // only switches allowed as source
@@ -101,6 +102,8 @@ struct modelParams {
   uint8_t Timer1Operator;
   int8_t  Timer1Value;      //-100 to 100
   uint8_t Timer1InitMins;   //if 0, timer will count up, else count down
+  
+  uint16_t telemVoltsThresh; //as 10mV
 
   //------- mixer params ---------
   
@@ -114,8 +117,8 @@ struct modelParams {
   int8_t MixIn2Weight[NUM_MIXSLOTS]; //-100 to 100
   int8_t MixIn2Diff[NUM_MIXSLOTS];   //-100 to 100
   
-  uint8_t MixOperator[NUM_MIXSLOTS];  
-  uint8_t MixSwitch[NUM_MIXSLOTS];    
+  uint8_t MixOper_N_Switch[NUM_MIXSLOTS]; //upper 2 bits for operator, other 6 bits for the switch
+
   uint8_t MixOut[NUM_MIXSLOTS];  //index in mix sources array
   
 } Model; 
@@ -146,22 +149,24 @@ enum {
   //Same order as the name order in the UI
   IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
   IDX_100PERC,
-  IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD,
-  IDX_SLOW1, IDX_CRV1, 
+  IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD, IDX_SWE, IDX_SWF,
+  IDX_SLOW1,
   IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
   IDX_NONE, 
-  IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8,
+  IDX_CH1, IDX_CH2, IDX_CH3, IDX_CH4, IDX_CH5, IDX_CH6, IDX_CH7, IDX_CH8, IDX_CH9,
   IDX_VRT1, IDX_VRT2,
  
   NUM_MIXSOURCES //should be last
 };
 
-enum { //possible values in MixSwitch array
+enum { //possible values in MixSwitch array. Max 64 values
   SW_NONE = 0,
   SWA_UP, SWA_DOWN,
   SWB_UP, SWB_DOWN,
   SWC_UP, SWC_MID, SWC_DOWN, SWC_NOT_UP, SWC_NOT_MID, SWC_NOT_DOWN,
   SWD_UP, SWD_DOWN,
+  SWE_UP, SWE_DOWN,
+  SWF_UP, SWF_DOWN,
   
   NUM_MIXSWITCHES //should be last
 };
@@ -184,11 +189,9 @@ void setDefaultModelBasicParams()
     Model.EndpointL[i] = -100;
     Model.EndpointR[i] = 100;
     Model.Subtrim[i]   = 0;
-    if(i == 2) //specify failsafe on Channel 3
-      Model.Failsafe[i]  = -100;
-    else
-      Model.Failsafe[i]  = -101;
+    Model.Failsafe[i]  = -101;
   }
+  Model.Failsafe[2]  = -100; //specify failsafe on channel 3 (default throttle channel)
   
   //trim
   Model.Trim[0] = 0;
@@ -213,14 +216,6 @@ void setDefaultModelBasicParams()
   Model.ThrottlePts[3] = 50;
   Model.ThrottlePts[4] = 100;
   
-  //user defined curves
-  Model.Curve1Src = IDX_KNOB;
-  Model.Curve1Pts[0] = -100;
-  Model.Curve1Pts[1] = -50;
-  Model.Curve1Pts[2] = 0;
-  Model.Curve1Pts[3] = 50;
-  Model.Curve1Pts[4] = 100;
-  
   //custom slowed inputs
   Model.Slow1Src = IDX_SWC; 
   Model.Slow1Up = 5;
@@ -231,7 +226,9 @@ void setDefaultModelBasicParams()
   Model.Timer1Operator = GREATER_THAN;
   Model.Timer1Value = 0;
   Model.Timer1InitMins = 0;
-
+  
+  //Telemetry
+  Model.telemVoltsThresh = 0;
 }
 
 void setDefaultModelMixerParams(uint8_t _mixNo)
@@ -244,8 +241,7 @@ void setDefaultModelMixerParams(uint8_t _mixNo)
   Model.MixIn2Offset[_mixNo]  = 0;
   Model.MixIn2Weight[_mixNo]  = 0;
   Model.MixIn2Diff[_mixNo]    = 0;
-  Model.MixOperator[_mixNo]   = MIX_ADD; 
-  Model.MixSwitch[_mixNo]     = SW_NONE;
+  Model.MixOper_N_Switch[_mixNo] = MIX_ADD << 6 | SW_NONE;
   Model.MixOut[_mixNo]        = IDX_NONE;
 }
 
@@ -255,32 +251,35 @@ void setDefaultModelMixerParams()
     setDefaultModelMixerParams(i);
 }
 
-//---------------------- MISC ----------------------------------------------------------------------
 
-//---Output channels---
-int ChOut[NUM_PRP_CHANNLES];    //Proportional Channels. Centered at 0, range is -500 to 500.
-uint8_t DigChA = 0, DigChB = 0; //Digital channels. ChA is momentary, ChB is toggle.
+//====================== MISC =====================================================================
+
+
+//---- Output channels --------------------
+int ChOut[NUM_PRP_CHANNLES];  //Proportional Channels. Centered at 0, range is -500 to 500.
 
 int8_t mixerChOutGraphVals[NUM_PRP_CHANNLES];  //for graphing raw mixer output for channels. range -100 to 100
 
-int curve1SrcVal = 0;
 
-//---Sticks---
+//---- Sticks -----------------------------
 int rollIn, pitchIn, throttleIn, yawIn, knobIn; //Scaled stick values, range -500 to 500
 bool isCalibratingSticks = false;
-
 bool skipThrottleCheck = false;
 
-//---Switches---
+
+//---- Switches ---------------------------
 //2 position
 bool SwAEngaged = false;
 bool SwBEngaged = false;
 bool SwDEngaged = false;
+bool SwEEngaged = false;
+bool SwFEngaged = false;
 //3 position
 enum {SWUPPERPOS = 0, SWLOWERPOS = 1, SWMIDPOS = 2};
 uint8_t SwCState = SWUPPERPOS; 
 
-//---buttons---
+
+//---- Buttons and button events ----------
 uint8_t buttonCode = 0; 
 enum {
   SELECT_KEY = 1, 
@@ -297,40 +296,70 @@ uint8_t pressedButton = 0; //triggered once when the button goes down
 uint8_t clickedButton = 0; //triggered when the button is released before heldButton event
 uint8_t heldButton = 0;    //triggered when button is held down long enough
 
-//Model timers
+
+//---- Model timers -----------------------
 uint32_t timer1ElapsedTime = 0;
 uint32_t timer1LastElapsedTime = 0;
 uint32_t timer1LastPaused = 0;
 
-//---Transmitter Battery---
+
+//---- Transmitter Battery -----------------
 int battVoltsNow; //millivolts
 enum{BATTLOW = 0, BATTHEALTY};
 uint8_t battState = BATTHEALTY;
 
-//---Audio----
+
+//---- Audio ------------------------------
 enum{  
   AUDIO_NONE = 0, 
-  AUDIO_BATTERYWARN, AUDIO_THROTTLEWARN, AUDIO_TIMERELAPSED, AUDIO_INACTIVITY, AUDIO_TELEMWARN,
-  AUDIO_SWITCHMOVED, AUDIO_TRIM_AIL, AUDIO_TRIM_ELE, AUDIO_TRIM_THR, AUDIO_TRIM_RUD,
+  
+  AUDIO_BATTERYWARN, 
+  AUDIO_THROTTLEWARN, 
+  AUDIO_TIMERELAPSED, 
+  AUDIO_INACTIVITY, 
+  AUDIO_TELEMWARN,
+  AUDIO_BIND_SUCCESS,
+  AUDIO_TRIM_AIL, 
+  AUDIO_TRIM_ELE, 
+  AUDIO_TRIM_THR, 
+  AUDIO_TRIM_RUD,
+  AUDIO_TRIM_MOVED,
+  AUDIO_TRIM_MODE_ENTERED,
+  AUDIO_TRIM_MODE_EXITED,
+  
+  AUDIO_SWITCHMOVED,
+  
   AUDIO_KEYTONE
 };
 uint8_t audioToPlay = AUDIO_NONE;
 
-//---etc------
 
-bool bindActivated = false;
-uint8_t bindStatus = 0;  //1 on success, 2 on fail
+//---- Misc -------------------------------
+
+bool isRequestingBind = false;
+uint8_t bindStatusCode = 0;  //1 on success, 2 on fail
 
 uint32_t inputsLastMoved = 0; //inactivity detection
 
 uint8_t transmitterPacketRate = 0;
 uint8_t receiverPacketRate = 0;
 
-//Telemetry
-uint16_t telem_volts = 0x0FFF;     // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
 
-//Main loop control
-const uint8_t fixedLoopTime = 25; /*in milliseconds. Min 25, Max 30. Should be greater than 
+//---- Telemetry --------------------------
+uint16_t telem_volts = 0x0FFF; // in 10mV, sent by receiver with 12bits.  0x0FFF "No data"
+
+
+//---- Output channel configuration -----
+uint8_t OutputChConfig[9]; 
+uint8_t maxOutputChConfig[9];
+bool gotOutputChConfig = false;
+bool isRequestingOutputChConfig = false;
+bool sendOutputChConfig = false;
+uint8_t receiverConfigStatusCode = 0; //1 on success, 2 on fail
+
+
+//---- Main loop control -------------------
+const uint8_t fixedLoopTime = 27; /*in milliseconds. Min 25, Max 30. Should be greater than 
 the time taken by radio module to transmit the entire packet or else the window is missed 
 resulting in much less throughput. It should also be atleast the time taken to draw the UI, else 
 or else the timing becomes inconsistent*/
