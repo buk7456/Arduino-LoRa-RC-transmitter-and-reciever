@@ -36,7 +36,7 @@ Left aileron in Ch1, right aileron in Ch8. Using SwC to operate the flaperons.
 2. Ch8 =  100%Ail{ 25%Diff} + -50%SwC{-50offset}
 ```
 If desired, the flaperon deployment can be slowed with the 'Slow' function in Inputs screen, specifying 
-SwC as the source. When this is done, it is neccessary to manually edit the mix to use SwC* instead.
+SwC as the source. When this is done, it is necessary to manually edit the mix to use SwC* instead.
 
 #### Crow braking 
 Left ail servo in Ch1, Right Ail servo in Ch8, left flap servo in Ch5, right flap servo in Ch6.
@@ -52,7 +52,7 @@ thus crow braking.
 4. Ch6 =  100%Ch5
 ```
 If desired, the flap/crow deployment can be slowed with the 'Slow' function in Inputs screen, specifying 
-SwC as the source. When this is done, it is neccessary to manually edit the mix to use SwC* instead.
+SwC as the source. When this is done, it is necessary to manually edit the mix to use SwC* instead.
 
 #### Differential thrust
 Left motor in Ch3, right motor in Ch7. 
