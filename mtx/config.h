@@ -1,5 +1,5 @@
 //-------------------------------
-#define _SKETCHVERSION "1.7.0"
+#define _SKETCHVERSION "2.1.0"
 
 //-------- PINS -----------------
 
@@ -28,7 +28,7 @@
 #define PIN_KNOB       A4
 #define PIN_BATTVOLTS  A5
 
-//--------- LCD KS0108 ----------
+// --------- LCD KS0108 ----------
 #include "LCDKS0108.h"
 LCDKS0108 display = LCDKS0108(PIN_KS_RS, PIN_KS_EN, PIN_KS_CS1, PIN_KS_CS2, PIN_LATCH);
 
