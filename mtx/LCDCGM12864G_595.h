@@ -49,8 +49,8 @@ class LCDCGM12864G_595 : public GFX
     void clearDisplay(void);
     void display();
 
-    void drawPixel(int16_t x, int16_t y, uint16_t color);
-    uint8_t getPixel(int16_t x, int16_t y);
+    void drawPixel(uint8_t x, uint8_t y, uint8_t color);
+    uint8_t getPixel(uint8_t x, uint8_t y);
 
   private:
     int8_t _qrs, _qrd, _qrst, _latchPin;
