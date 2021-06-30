@@ -47,7 +47,7 @@ necessary to edit the frequency lists in the stx.ino and rx.ino files.
 
 ## User Interface
 - Three buttons are used for navigation; Up, Select, Down. Long press Select to go Back. 
-- Holding the Select key on home screen accesses the trims.
+- Holding the Up key on home screen accesses the trims.
 - Holding the Select key when booting opens the start-up menu (for stick recalibration, format eeprom, etc.)
 
 <p align="center">
