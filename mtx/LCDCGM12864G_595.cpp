@@ -18,32 +18,11 @@ LCDCGM12864G_595::LCDCGM12864G_595(int8_t QRS, int8_t QRD, int8_t QRST, int8_t l
 }
 
 // the most basic function, set a single pixel
-void LCDCGM12864G_595::drawPixel(int16_t x, int16_t y, uint16_t color)
+void LCDCGM12864G_595::drawPixel(uint8_t x, uint8_t y, uint8_t color)
 {
-  /*  
-  if ((x < 0) || (x >= _width) || (y < 0) || (y >= _height))
-    return;
-
-  int16_t t;
-  switch (rotation)
-  {
-    case 1:
-      t = x;
-      x = y;
-      y = LCDHEIGHT - 1 - t;
-      break;
-    case 2:
-      x = LCDWIDTH - 1 - x;
-      y = LCDHEIGHT - 1 - y;
-      break;
-    case 3:
-      t = x;
-      x = LCDWIDTH - 1 - y;
-      y = t;
-      break;
-  } */
-
-  if ((x < 0) || (x >= LCDWIDTH) || (y < 0) || (y >= LCDHEIGHT))
+  //Rotation code removed
+  
+  if ((x >= LCDWIDTH) || (y >= LCDHEIGHT))
     return;
 
   if (color)
@@ -53,9 +32,9 @@ void LCDCGM12864G_595::drawPixel(int16_t x, int16_t y, uint16_t color)
 }
 
 // the most basic function, get a single pixel
-uint8_t LCDCGM12864G_595::getPixel(int16_t x, int16_t y)
+uint8_t LCDCGM12864G_595::getPixel(uint8_t x, uint8_t y)
 {
-  if ((x < 0) || (x >= LCDWIDTH) || (y < 0) || (y >= LCDHEIGHT))
+  if ((x >= LCDWIDTH) || (y >= LCDHEIGHT))
     return 0;
 
   return (dispBuffer[x + (y / 8) * LCDWIDTH] >> (y % 8)) & 0x1;
