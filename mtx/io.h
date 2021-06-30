@@ -46,8 +46,8 @@ void readSwitchesAndButtons()
   SwAEngaged = _swa;
   SwBEngaged = _swb;
   SwDEngaged = _swd;
-  //SwCState returned from slave mcu.
-
+  //SwC, SwE, SwF read by slave mcu
+  
   //-- assign buttonCode --
   if(_selectKey) buttonCode = SELECT_KEY;
   else if(_upKey) buttonCode = UP_KEY;
@@ -58,11 +58,11 @@ void readSwitchesAndButtons()
     inputsLastMoved = millis();
   
   //-- play audio when switches are moved --
-  uint8_t switchesSum = SwAEngaged + SwBEngaged + SwCState + SwDEngaged;
+  uint8_t switchesSum = SwAEngaged + SwBEngaged + SwCState + SwDEngaged + SwEEngaged + SwFEngaged;
   static uint8_t lastSwitchesSum = 0;
   if(switchesSum != lastSwitchesSum)
   {
-    if(thisLoopNum > 10UL) //prevent unneccesary beep on startup due to SwC
+    if(thisLoopNum > 10) //prevent unneccesary beep on startup
       audioToPlay = AUDIO_SWITCHMOVED;
     lastSwitchesSum = switchesSum;
     inputsLastMoved = millis();
@@ -193,28 +193,28 @@ void computeChannelOutputs()
   ///--Mix source switches
   
   //Switch A
-  if(SwAEngaged == true) 
-    MixSources[IDX_SWA] = 500;
-  else
-    MixSources[IDX_SWA] = -500;
+  if(SwAEngaged == true) MixSources[IDX_SWA] = 500;
+  else MixSources[IDX_SWA] = -500;
   
   //Switch B
-  if(SwBEngaged == true) 
-    MixSources[IDX_SWB] = 500;
-  else
-    MixSources[IDX_SWB] = -500;
+  if(SwBEngaged == true) MixSources[IDX_SWB] = 500;
+  else MixSources[IDX_SWB] = -500;
   
   //Switch C (3 pos)
-  if(SwCState == SWLOWERPOS) 
-    MixSources[IDX_SWC] = 500;
-  else if(SwCState == SWUPPERPOS)
-    MixSources[IDX_SWC] = -500;
+  if(SwCState == SWLOWERPOS) MixSources[IDX_SWC] = 500;
+  else if(SwCState == SWUPPERPOS) MixSources[IDX_SWC] = -500;
   
   //Switch D
-  if(SwDEngaged == true) 
-    MixSources[IDX_SWD] = 500;
-  else 
-    MixSources[IDX_SWD] = -500;
+  if(SwDEngaged == true) MixSources[IDX_SWD] = 500;
+  else MixSources[IDX_SWD] = -500;
+  
+  //Switch E
+  if(SwEEngaged == true) MixSources[IDX_SWE] = 500;
+  else MixSources[IDX_SWE] = -500;
+  
+  //Switch F
+  if(SwFEngaged == true) MixSources[IDX_SWF] = 500;
+  else MixSources[IDX_SWF] = -500;
  
   ///--Mix source 100Perc
   MixSources[IDX_100PERC] = 500;
@@ -254,12 +254,6 @@ void computeChannelOutputs()
   MixSources[IDX_THRTL_CURV] += 5 * Model.Trim[2];
   MixSources[IDX_THRTL_CURV] = constrain(MixSources[IDX_THRTL_CURV], -500, 500);
   
-  //custom curve 1
-  curve1SrcVal = MixSources[Model.Curve1Src];
-  for(uint8_t i = 0; i < 5; i++)
-    ypoints[i] = 5 * Model.Curve1Pts[i];
-  MixSources[IDX_CRV1] = linearInterpolate(xpoints, ypoints, 5, curve1SrcVal);
-  
   ///--Mix source Slow1
   static int _valueNow = MixSources[IDX_SLOW1];
   MixSources[IDX_SLOW1] = applySlow(_valueNow, MixSources[Model.Slow1Src], Model.Slow1Up, Model.Slow1Down);
@@ -297,7 +291,8 @@ void computeChannelOutputs()
     long _output = _operand1;
     if(mixSwitchIsActive(_mixNum))
     {
-      switch(Model.MixOperator[_mixNum])
+      uint8_t _mixOper = Model.MixOper_N_Switch[_mixNum] >> 6;
+      switch(_mixOper)
       {
         case MIX_ADD:
           _output += _operand2;
@@ -523,7 +518,8 @@ int linearInterpolate(int xValues[], int yValues[], uint8_t numValues, int point
 bool mixSwitchIsActive(uint8_t _mixNum)
 {
   bool rslt = false;
-  switch(Model.MixSwitch[_mixNum])
+  uint8_t _mixSw = Model.MixOper_N_Switch[_mixNum] & 0x3F;
+  switch(_mixSw)
   {
     case SW_NONE: rslt = true; break; //SW_NONE is always active
     
@@ -543,6 +539,12 @@ bool mixSwitchIsActive(uint8_t _mixNum)
     
     case SWD_UP:  rslt = !SwDEngaged; break;
     case SWD_DOWN:  rslt =  SwDEngaged;  break;
+    
+    case SWE_UP:  rslt = !SwEEngaged; break;
+    case SWE_DOWN:  rslt =  SwEEngaged;  break;
+    
+    case SWF_UP:  rslt = !SwFEngaged; break;
+    case SWF_DOWN:  rslt =  SwFEngaged;  break;
   }
   return rslt;
 }
