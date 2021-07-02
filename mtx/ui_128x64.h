@@ -959,7 +959,7 @@ void HandleMainUI()
       
     case POPUP_RENAME_MODEL:
       {
-        display.drawRect(15,11,97,40,BLACK); //draw bounding box
+        display.drawRect(15,11,97,40,BLACK);
         
         display.setCursor(19,14);
         display.print(F("Rename MODEL"));
@@ -978,11 +978,11 @@ void HandleMainUI()
         //space  (ascii 32) --> 26
         //a to z (ascii 97 to 122) --> 27 to 52
         //Symbols and numbers (ascii 45 to 57) --> 53 to 65
-        
-        if(thisChar >= 65 && thisChar <= 90) thisChar = 90 - thisChar ;
-        else if(thisChar == 32) thisChar = 26;
-        else if(thisChar >= 97 && thisChar <= 122) thisChar -= 70;
-        else if(thisChar >= 45 && thisChar <= 57) thisChar += 8;
+
+        if(thisChar == 32)  thisChar = 26;
+        else if(thisChar <= 57) thisChar += 8;
+        else if(thisChar <= 90) thisChar = 90 - thisChar ;
+        else if(thisChar <= 122) thisChar -= 70;
         
         //adjust 
         thisChar = incDecOnUpDown(thisChar, 65, 0, NOWRAP, SLOW_CHANGE);
@@ -990,8 +990,8 @@ void HandleMainUI()
         //map back
         if(thisChar <= 25) thisChar = 90 - thisChar;
         else if(thisChar == 26) thisChar = 32; 
-        else if(thisChar >= 27 && thisChar <= 52) thisChar += 70;
-        else if(thisChar >= 53 && thisChar <= 65) thisChar -= 8;
+        else if(thisChar <= 52) thisChar += 70;
+        else if(thisChar <= 65) thisChar -= 8;
 
         //write
         Model.modelName[charPos] = thisChar;
@@ -1216,15 +1216,10 @@ void HandleMainUI()
           display.fillRect(99 + _stickInpt[_page]/20, 35 - _output, 3, 3, BLACK);
         }
     
-        //////////////// 5-POINT CURVES ////////////////////////////////////////
+        //////////////// THROTTLE CURVE ////////////////////////////////////////
         if(_page == THR_CURVE)
         {
-          uint8_t _maxFocusableItems = 3;
-          uint8_t _curveNameIdx = IDX_THRTL_CURV;
-          int8_t *ptr_CurvePts = Model.ThrottlePts;
-          int _inptSrc = throttleIn;
-
-          changeFocusOnUPDOWN(_maxFocusableItems);
+          changeFocusOnUPDOWN(3);
           toggleEditModeOnSelectClicked();
           
           static uint8_t _thisPt = 0;
@@ -1233,11 +1228,11 @@ void HandleMainUI()
           if(focusedItem == 2)
             _thisPt = incDecOnUpDown(_thisPt, 0, 4, WRAP, SLOW_CHANGE);
           else if(focusedItem == 3)
-            *(ptr_CurvePts + _thisPt) = incDecOnUpDown(*(ptr_CurvePts + _thisPt), -100, 100, NOWRAP, PRESSED_OR_HELD);
+            Model.ThrottlePts[_thisPt] = incDecOnUpDown(Model.ThrottlePts[_thisPt], -100, 100, NOWRAP, PRESSED_OR_HELD);
 
           //-----draw text
           display.setCursor(8, 11);
-          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[_curveNameIdx])), sizeof(txtBuff));
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(srcNames[IDX_THRTL_CURV])), sizeof(txtBuff));
           display.print(txtBuff);
           display.drawHLine(8, 19, strlen(txtBuff) * 6, BLACK);
           
@@ -1247,7 +1242,7 @@ void HandleMainUI()
         
           display.setCursor(0, 31);
           display.print(F("Val:   "));
-          display.print(*(ptr_CurvePts + _thisPt));
+          display.print(Model.ThrottlePts[_thisPt]);
           
           //-----draw graph
           //axes
@@ -1259,7 +1254,7 @@ void HandleMainUI()
           int xpts[5] = {-500, -250, 0, 250, 500};
           int ypts[5];
           for(uint8_t i = 0; i < 5; i++)
-            ypts[i] = *(ptr_CurvePts + i) * 5;
+            ypts[i] = Model.ThrottlePts[i] * 5;
           
           for (int xval = -25; xval <= 25; xval++) //50x50 grid so first point is -25
           {
@@ -1268,8 +1263,8 @@ void HandleMainUI()
           }
           
           //trace source
-          int yy = linearInterpolate(xpts, ypts, 5, _inptSrc) / 20;
-          display.fillRect(99 + (_inptSrc / 20), 35 - yy, 3, 3, BLACK);
+          int yy = linearInterpolate(xpts, ypts, 5, throttleIn) / 20;
+          display.fillRect(99 + (throttleIn / 20), 35 - yy, 3, 3, BLACK);
          
           //show point we are adjusting
           if(focusedItem == 2 || focusedItem == 3)
@@ -1351,6 +1346,8 @@ void HandleMainUI()
             else display.print(F(" 0"));
           }
         }
+        
+        ////// Show cursor
         
         if(focusedItem == 1) drawCursor(0, 11);
         else drawCursor(34, (focusedItem * 9) + 4);
@@ -1599,7 +1596,7 @@ void HandleMainUI()
       
     case POPUP_MOVE_MIX:
       {
-        display.drawRect(15,11,97,40,BLACK); //draw bounding box
+        display.drawRect(15, 11, 97, 40, BLACK);
         
         display.setCursor(19,14);
         display.print(F("Move mix#"));
@@ -1691,7 +1688,7 @@ void HandleMainUI()
       
     case POPUP_COPY_MIX:
       {
-        display.drawRect(15,11,97,40,BLACK); //draw bounding box
+        display.drawRect(15, 11, 97, 40, BLACK);
         
         display.setCursor(19,14);
         display.print(F("Copy mix#"));
