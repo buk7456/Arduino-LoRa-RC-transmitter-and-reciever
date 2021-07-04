@@ -6,7 +6,7 @@ Control just about anything RC
 </p>
 
 ## Features
-- 9 RC channels. All channels are transmitted with a 10 bit resolution.
+- 9 RC channels. All channels are transmitted with 10 bit resolution.
 - Configurable RC channel output signal. Servo PWM, Digital on-off, or 'normal' PWM.
 - Reverse, Subtrim, Endpoints, Failsafe.
 - Dual rates and expo for Ail, Ele, Rud.
@@ -80,12 +80,12 @@ The default mapping is Ail to Ch1, Ele to Ch2, Thrt to Ch3, Rud to Ch4, unless o
 ##### [Example mixes](mixer.md)
 
 ## Configuring RC channel outputs
-The receiver outputs can be configured from the transmitter to any of the three signal types; servo, digital on-off, or PWM.
-For instance PWM output could be used to control brushed DC motors without complex electronics. Also directly controlling 
+The receiver outputs can be configured from the transmitter to any of the three signal types; servo PWM, digital on-off, or 'normal' PWM.
+For instance 'normal' PWM output could be used to control brushed DC motors without complex electronics. Also directly controlling 
 components such as electromechanical relays and lights is made simple with the digital on-off output.
 <br>Note: 
 1. These settings are stored in the receiver, never in the transmitter.
-2. PWM is only supported on a few select pins, depending on the receiver pin mapping. 
+2. 'Normal' PWM is only supported on a few select pins, depending on the receiver pin mapping. 
 3. For safety, any changes made will only be effected upon rebooting the receiver.
 4. In digital on-off mode, output value range of -100 to -50 maps to LOW, -49 to 49 is ignored, 50 to 100 maps to HIGH.
 
