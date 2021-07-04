@@ -79,7 +79,7 @@ The default mapping is Ail to Ch1, Ele to Ch2, Thrt to Ch3, Rud to Ch4, unless o
 
 ##### [Example mixes](mixer.md)
 
-## Configuring channel output signal format
+## Configuring RC channel outputs
 The receiver outputs can be configured from the transmitter to any of the three signal types; servo, digital on-off, or PWM.
 For instance PWM output could be used to control brushed DC motors without complex electronics. Also directly controlling 
 components such as electromechanical relays and lights is made simple with the digital on-off output.
