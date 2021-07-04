@@ -360,7 +360,7 @@ void loop()
 
   //---------- FAILSAFE ----------
   
-  if(millis() - lastRCPacketMillis > 1500)
+  if(millis() - lastRCPacketMillis > 1000)
   {
     for(int i= 0; i < 9; i++)
     {
