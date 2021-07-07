@@ -19,7 +19,7 @@ Control just about anything RC
 - Receiver binding.
 - Frequency hopping.
 - External voltage telemetry.
-- Frame rate up to 40x between transmitter and receiver.
+- Transmitter to receiver update rate up to 40x
 
 ## License
 MIT license
