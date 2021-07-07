@@ -56,10 +56,10 @@ SwC as the source. When this is done, it is necessary to manually edit the mix t
 
 #### Differential thrust
 Left motor in Ch3, right motor in Ch7. 
-<br>We can use a switch e.g SwD to turn the differential thrust off while in the air.
+<br>We can use a switch e.g SwE to turn the differential thrust off while in the air.
 ```txt
-1. Ch3  = 100%Thrt + 40%yaw  [SwD_Down]  
-2. Ch7  = 100%Thrt + -40%yaw [SwD_Down]
+1. Ch3  = 100%Thrt + 40%yaw  [SwE_Down]  
+2. Ch7  = 100%Thrt + -40%yaw [SwE_Down]
 ``` 
 We can also mix in throttle cut controlled with SwA for both channels as follows.
 ```txt
