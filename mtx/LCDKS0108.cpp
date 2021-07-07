@@ -1,15 +1,12 @@
-#include <avr/pgmspace.h>
 
 #include "Arduino.h"
+#include <SPI.h>
+#include "GFX.h"
+#include "LCDKS0108.h"
 
 #ifndef _BV
 #define _BV(x) (1 << (x))
 #endif
-
-#include <stdlib.h>
-
-#include "GFX.h"
-#include "LCDKS0108.h"
 
 LCDKS0108::LCDKS0108(int8_t QRS, int8_t QEN, int8_t QCS1, int8_t QCS2, int8_t latchpin) : GFX(LCDWIDTH, LCDHEIGHT)
 {
