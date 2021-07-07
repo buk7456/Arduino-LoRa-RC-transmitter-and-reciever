@@ -1,13 +1,11 @@
 #include "Arduino.h"
+#include <SPI.h>
+#include "GFX.h"
+#include "LCDCGM12864G_595.h"
 
 #ifndef _BV
 #define _BV(x) (1 << (x))
 #endif
-
-#include <stdlib.h>
-
-#include "GFX.h"
-#include "LCDCGM12864G_595.h"
 
 LCDCGM12864G_595::LCDCGM12864G_595(int8_t QRS, int8_t QRD, int8_t QRST, int8_t latchpin) : GFX(LCDWIDTH, LCDHEIGHT)
 {
