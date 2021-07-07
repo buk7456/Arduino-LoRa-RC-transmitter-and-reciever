@@ -6,19 +6,19 @@ Control just about anything RC
 </p>
 
 ## Features
-- 9 RC channels. All channels are transmitted with 10 bit resolution.
-- Configurable RC channel output signal. Servo PWM, Digital on-off, or 'normal' PWM.
-- Reverse, Subtrim, Endpoints, Failsafe.
-- Dual rates and expo for Ail, Ele, Rud.
-- Throttle curve.
-- Flexible mixer system.
-- Adaptable timer and a stopwatch.
-- Model memory. Create, delete, copy, rename, and reset a model.
-- Sticks calibration.
-- Alarms, warnings.
-- Receiver binding.
-- Frequency hopping.
-- External voltage telemetry.
+- 9 RC channels. All channels are transmitted with 10 bit resolution
+- Configurable RC channel output signal. Servo PWM, Digital on-off, or 'normal' PWM
+- Reverse, Subtrim, Endpoints, Failsafe
+- Dual rates and expo for Ail, Ele, Rud
+- Throttle curve
+- Flexible mixer system
+- Adaptable timer and a stopwatch
+- Model memory. Create, delete, copy, rename, and reset a model
+- Sticks calibration
+- Alarms, warnings
+- Receiver binding
+- Frequency hopping
+- External voltage telemetry
 - Transmitter to receiver update rate up to 40x
 
 ## License
