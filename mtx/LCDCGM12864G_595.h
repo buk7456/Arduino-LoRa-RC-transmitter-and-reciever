@@ -27,10 +27,6 @@
 #ifndef _CGM12864G_595_H
 #define _CGM12864G_595_H
 
-#include "Arduino.h"
-
-#include <SPI.h>
-
 typedef volatile uint8_t PortReg;
 typedef uint8_t PortMask;
 
