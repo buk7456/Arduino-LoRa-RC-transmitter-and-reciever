@@ -2,13 +2,6 @@
 #ifndef _QQKS0108_H
 #define _QQKS0108_H
 
-#include "Arduino.h"
-
-typedef volatile uint8_t PortReg;
-typedef uint8_t PortMask;
-
-#include <SPI.h>
-
 #define BLACK 1
 #define WHITE 0
 
@@ -20,6 +13,9 @@ typedef uint8_t PortMask;
 #define SET_PAGE 0b10111000
 #define DISP_ON 0b00111111
 #define DISP_OFF 0b00111110
+
+typedef volatile uint8_t PortReg;
+typedef uint8_t PortMask;
 
 class LCDKS0108 : public GFX
 {
