@@ -1,3 +1,5 @@
+#pragma once
+
 //-------------------------------
 #define _SKETCHVERSION "2.1.0"
 
@@ -28,13 +30,9 @@
 #define PIN_KNOB       A4
 #define PIN_BATTVOLTS  A5
 
-// --------- LCD KS0108 ----------
-#include "LCDKS0108.h"
-LCDKS0108 display = LCDKS0108(PIN_KS_RS, PIN_KS_EN, PIN_KS_CS1, PIN_KS_CS2, PIN_LATCH);
-
-//--------- LCD CGM12864G -------
-// #include "LCDCGM12864G_595.h"
-// LCDCGM12864G_595 display = LCDCGM12864G_595(PIN_CGM_RSEL, PIN_CGM_RD, PIN_CGM_RST, PIN_LATCH);
+// --------- LCD ----------
+#define DISPLAY_KS0108
+// #define DISPLAY_CGM12864G
 
 //---------- Battery voltage ----
 const int battVoltsMin = 3500; //millivolts
