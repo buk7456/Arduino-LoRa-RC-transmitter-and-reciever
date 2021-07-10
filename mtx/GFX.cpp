@@ -102,11 +102,9 @@ void GFX::drawBitmap(uint8_t x, uint8_t y, const uint8_t bitmap[], uint8_t w, ui
 }
 
 // Draw a character
+// Code page 437 character set
 void GFX::drawChar(uint8_t x, uint8_t y, unsigned char c, uint8_t color)
 {
-  if (c >= 176)
-    c++; // Handle 'classic' charset behavior
-
   for (int8_t i = 0; i < 5; i++)
   { // Char bitmap = 5 columns
     uint8_t line = pgm_read_byte(&font[c * 5 + i]);
