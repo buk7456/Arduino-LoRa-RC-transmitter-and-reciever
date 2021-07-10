@@ -1,11 +1,19 @@
-/***************************************************************************************************
-* Code for receiver microcontroller
-* BUK 2020
-* buk7456@gmail.com
+/*
+  ==================================================================================================
 
-* Tested to compile on Arduino IDE 1.8.9 or later
-* Sketch should compile without warnings even with -WALL
-***************************************************************************************************/
+  Firmware for the receiver mcu.
+  Target mcu: Atmega328p
+
+  (c) 2020-2021 buk7456  
+  buk7456 at gmail dot com
+  
+  Released under the MIT Licence
+  
+  Tested to compile on Arduino IDE 1.8.9 or later.
+  The code should compile with no warnings even with -Wall.
+
+  ==================================================================================================
+*/
 
 #include <SPI.h>
 #include "LoRa.h"
@@ -59,7 +67,7 @@ uint8_t receiverID = 0;    //randomly generated on bind
 uint8_t idxRFPowerLevel = 0;
 
 #define MAX_PACKET_SIZE  19
-uint8_t Packet[MAX_PACKET_SIZE];
+uint8_t packet[MAX_PACKET_SIZE];
 
 enum{
   PAC_BIND                   = 0x0,
@@ -84,7 +92,7 @@ uint32_t lastRCPacketMillis = 0;
 int ch1to9Vals[9];
 int ch1to9Failsafes[9];
 
-uint8_t OutputChConfig[9]; //0 digital, 1 Servo, 2 PWM
+uint8_t outputChConfig[9]; //0 digital, 1 Servo, 2 PWM
 
 uint8_t maxOutputChConfig[9];
 
@@ -126,7 +134,7 @@ void setup()
     ch1to9Vals[i] = 0;
     ch1to9Failsafes[i] = 0;
     
-    OutputChConfig[i] = 1;
+    outputChConfig[i] = 1;
     maxOutputChConfig[i] = getMaxOutputChConfig(myOutputPins[i]);
   }
 
@@ -137,14 +145,14 @@ void setup()
     EEPROM.write(EE_ADR_RX_ID, receiverID);
     EEPROM.put(EE_ADR_FHSS_SCHEMA, fhss_schema);
     EEPROM.write(EE_ADR_INIT_FLAG, EE_INITFLAG);
-    EEPROM.put(EE_ADR_RX_CH_CONFIG, OutputChConfig);
+    EEPROM.put(EE_ADR_RX_CH_CONFIG, outputChConfig);
   }
   
   // Read from EEPROM
   transmitterID = EEPROM.read(EE_ADR_TX_ID);
   receiverID = EEPROM.read(EE_ADR_RX_ID);
   EEPROM.get(EE_ADR_FHSS_SCHEMA, fhss_schema);
-  EEPROM.get(EE_ADR_RX_CH_CONFIG, OutputChConfig);
+  EEPROM.get(EE_ADR_RX_CH_CONFIG, outputChConfig);
   
   // setup pins
   pinMode(PIN_LED_GREEN, OUTPUT);
@@ -306,14 +314,14 @@ void loop()
           //encode as follows: high nibble --> max supported config, low nibble --> the present output config
           uint8_t _configData[9];
           for(uint8_t i = 0; i < 9; i++)
-            _configData[i] = (maxOutputChConfig[i] << 4) | (OutputChConfig[i] & 0x0F);
+            _configData[i] = (maxOutputChConfig[i] << 4) | (outputChConfig[i] & 0x0F);
           
           uint8_t _packetLen = buildPacket(receiverID, transmitterID, PAC_READ_OUTPUT_CH_CONFIG, _configData, sizeof(_configData));
           
           delay(2);
           if(LoRa.beginPacket())
           {
-            LoRa.write(Packet, _packetLen);
+            LoRa.write(packet, _packetLen);
             LoRa.endPacket(); //block until done transmitting
             hop();
           }
@@ -332,7 +340,7 @@ void loop()
           uint8_t _packetLen = buildPacket(receiverID, transmitterID, PAC_ACK_OUTPUT_CH_CONFIG, NULL, 0);
           if(LoRa.beginPacket())
           {
-            LoRa.write(Packet, _packetLen);
+            LoRa.write(packet, _packetLen);
             LoRa.endPacket(); //block until done transmitting
             hop();
           }
@@ -469,7 +477,7 @@ void bind()
     uint8_t _packetLen = buildPacket(0x00, transmitterID, PAC_ACK_BIND, dataToSend, sizeof(dataToSend));
     if(LoRa.beginPacket())
     {
-      LoRa.write(Packet, _packetLen);
+      LoRa.write(packet, _packetLen);
       LoRa.endPacket(); //blocking
     }
 
@@ -539,7 +547,7 @@ void sendTelemetry()
   delay(1);
   if(LoRa.beginPacket())
   {
-    LoRa.write(Packet, _packetLen);
+    LoRa.write(packet, _packetLen);
     LoRa.endPacket(); //block until done transmitting
     hop();
   }
@@ -549,18 +557,18 @@ void sendTelemetry()
 
 uint8_t buildPacket(uint8_t srcID, uint8_t destID, uint8_t dataIdentifier, uint8_t *dataBuff, uint8_t dataLen)
 {
-  // Builds Packet and returns its length
+  // Builds packet and returns its length
   
-  Packet[0] = srcID;
-  Packet[1] = destID;
+  packet[0] = srcID;
+  packet[1] = destID;
   dataLen &= 0x0F; //limit
-  Packet[2] = (dataIdentifier << 4) | dataLen;
+  packet[2] = (dataIdentifier << 4) | dataLen;
   for(uint8_t i = 0; i < dataLen; i++)
   {
-    Packet[3 + i] = *dataBuff;
+    packet[3 + i] = *dataBuff;
     ++dataBuff;
   }
-  Packet[3 + dataLen] = crc8Maxim(Packet, 3 + dataLen);
+  packet[3 + dataLen] = crc8Maxim(packet, 3 + dataLen);
   return 4 + dataLen; 
 }
 
@@ -597,9 +605,9 @@ void writeOutputs()
     //setup outputs
     for(uint8_t i = 0; i < 9; i++)
     {
-      if(OutputChConfig[i] == 0)
+      if(outputChConfig[i] == 0)
         pinMode(myOutputPins[i], OUTPUT);
-      else if(OutputChConfig[i] == 1)
+      else if(outputChConfig[i] == 1)
         myServo[i].attach(myOutputPins[i]);
     }
     outputsInitialised = true;
@@ -607,7 +615,7 @@ void writeOutputs()
   
   for(uint8_t i = 0; i < 9; i++)
   {
-    if(OutputChConfig[i] == 0)     //digital mode
+    if(outputChConfig[i] == 0)     //digital mode
     {
       //range -500 to -250 becomes LOW
       //range -250 to 250 is ignored
@@ -617,13 +625,13 @@ void writeOutputs()
       else if(ch1to9Vals[i] >= 250)
         digitalWrite(myOutputPins[i], HIGH);
     }
-    else if(OutputChConfig[i] == 1) //servo mode
+    else if(outputChConfig[i] == 1) //servo mode
     {
       int val = map(ch1to9Vals[i], -500, 500, 1000, 2000);
       val = constrain(val, 1000, 2000);
       myServo[i].writeMicroseconds(val);
     }
-    else if(OutputChConfig[i] == 2) //pwm mode
+    else if(outputChConfig[i] == 2) //pwm mode
     {
       int val = map(ch1to9Vals[i], -500, 500, 0, 255);
       val = constrain(val, 0, 255);
