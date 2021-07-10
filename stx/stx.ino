@@ -1,11 +1,20 @@
-/***************************************************************************************************
-* Code for slave transmiter microcontroller 
-* BUK 2020
-* buk7456@gmail.com
+/*
+  ==================================================================================================
 
-* Tested to compile on Arduino IDE 1.8.9 or later
-* Sketch should compile without warnings even with -WALL
-***************************************************************************************************/
+  Firmware for the slave mcu of the rc transmitter.
+  Target mcu: Atmega328p
+
+  (c) 2020-2021 buk7456  
+  buk7456 at gmail dot com
+  
+  Released under the MIT Licence
+  
+  Tested to compile on Arduino IDE 1.8.9 or later.
+  The code should compile with no warnings even with -Wall.
+
+  ==================================================================================================
+*/
+
 
 #include <SPI.h>
 #include "LoRa.h"
@@ -93,7 +102,7 @@ const char* trimMovedSound = "trimMove:d=4,o=4,b=250:16a#7";
 //------------------------------------------------
 
 #define MAX_PACKET_SIZE  19
-uint8_t Packet[MAX_PACKET_SIZE];
+uint8_t packet[MAX_PACKET_SIZE];
 
 enum{
   PAC_BIND                   = 0x0,
@@ -139,7 +148,7 @@ uint8_t operatingMode = MODE_RC_DATA;
 
 bool requestPoweroff = false;
 
-uint8_t OutputChConfig[9];
+uint8_t outputChConfig[9];
 bool gotOutputChConfig = false;
 
 uint8_t receiverConfigStatusCode = 0; //1 on success, 2 on fail
@@ -325,7 +334,7 @@ void doSerialCommunication()
   {
     isSetOutputChConfig = true;
     for(uint8_t i = 0; i < 9; i++)
-      OutputChConfig[i] = tmpBuff[3 + i];
+      outputChConfig[i] = tmpBuff[3 + i];
   }
   else
   {
@@ -418,7 +427,7 @@ void doSerialCommunication()
   dataToSend[5] = telem_volts & 0xFF;
   
   for(uint8_t i = 0; i < 9; i++)
-    dataToSend[6 + i] = OutputChConfig[i];
+    dataToSend[6 + i] = outputChConfig[i];
   
   dataToSend[15] = crc8Maxim(dataToSend, 15);
   
@@ -441,7 +450,7 @@ void readPowerSwitch()
   
   if(digitalRead(PIN_POWER_OFF_SENSE) == HIGH)
   {
-    if(switchTimerInitiated == false)
+    if(!switchTimerInitiated)
     {
       swStartTime = millis();
       switchTimerInitiated = true;
@@ -703,7 +712,7 @@ void bind()
     if(LoRa.beginPacket())
     {
       uint8_t _packetLen = buildPacket(transmitterID, 0x00, PAC_BIND, fhss_schema, sizeof(fhss_schema)/sizeof(fhss_schema[0]));
-      LoRa.write(Packet, _packetLen);
+      LoRa.write(packet, _packetLen);
       LoRa.endPacket(true); //non-blocking
       delay(1);
       transmitInitiated = true;
@@ -713,7 +722,7 @@ void bind()
   /// ON DONE TRANSMIT, LISTEN FOR REPLY OR TIMEOUT 
   if(!LoRa.isTransmitting())
   {
-    if(isListeningForAck == false)
+    if(!isListeningForAck)
     {
       isListeningForAck = true;
       bindAckEntryTime = millis();
@@ -840,7 +849,7 @@ void transmitRCdata()
 
     if(LoRa.beginPacket())
     {
-      LoRa.write(Packet, _packetLen);
+      LoRa.write(packet, _packetLen);
       LoRa.endPacket(true); //async
       delay(1);
 
@@ -883,7 +892,7 @@ void getReceiverConfig()
     uint8_t _packetLen = buildPacket(transmitterID, receiverID, PAC_READ_OUTPUT_CH_CONFIG, NULL, 0);
     if(LoRa.beginPacket())
     {
-      LoRa.write(Packet, _packetLen);
+      LoRa.write(packet, _packetLen);
       LoRa.endPacket(true); //async
       delay(1);
 
@@ -928,7 +937,7 @@ void getReceiverConfig()
         {
           gotOutputChConfig = true;
           for(uint8_t i = 0; i < 9; i++)
-            OutputChConfig[i] = msgBuff[3 + i];
+            outputChConfig[i] = msgBuff[3 + i];
           
           //Change mode
           operatingMode = MODE_RC_DATA;
@@ -976,10 +985,10 @@ void transmitReceiverConfig()
   //Start transmit
   if(!transmitInitiated)
   {
-    uint8_t _packetLen = buildPacket(transmitterID, receiverID, PAC_SET_OUTPUT_CH_CONFIG, OutputChConfig, sizeof(OutputChConfig));
+    uint8_t _packetLen = buildPacket(transmitterID, receiverID, PAC_SET_OUTPUT_CH_CONFIG, outputChConfig, sizeof(outputChConfig));
     if(LoRa.beginPacket())
     {
-      LoRa.write(Packet, _packetLen);
+      LoRa.write(packet, _packetLen);
       LoRa.endPacket(true); //async
       delay(1);
 
@@ -1108,18 +1117,18 @@ void getTelemetry()
 
 uint8_t buildPacket(uint8_t srcID, uint8_t destID, uint8_t dataIdentifier, uint8_t *dataBuff, uint8_t dataLen)
 {
-  // Builds Packet and returns its length
+  // Builds packet and returns its length
   
-  Packet[0] = srcID;
-  Packet[1] = destID;
+  packet[0] = srcID;
+  packet[1] = destID;
   dataLen &= 0x0F; //limit
-  Packet[2] = (dataIdentifier << 4) | dataLen;
+  packet[2] = (dataIdentifier << 4) | dataLen;
   for(uint8_t i = 0; i < dataLen; i++)
   {
-    Packet[3 + i] = *dataBuff;
+    packet[3 + i] = *dataBuff;
     ++dataBuff;
   }
-  Packet[3 + dataLen] = crc8Maxim(Packet, 3 + dataLen);
+  packet[3 + dataLen] = crc8Maxim(packet, 3 + dataLen);
   return 4 + dataLen; 
 }
 
