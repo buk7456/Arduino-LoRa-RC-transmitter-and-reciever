@@ -1,10 +1,6 @@
 # Arduino Lora based RC system
 Control just about anything RC
 
-<p align="center">
-<img src="img1.jpg" width="515" height="508"/>
-</p>
-
 ## Features
 - 9 RC channels. All channels are transmitted with 10 bit resolution
 - Configurable RC channel output signal. Servo PWM, Digital on-off, or 'normal' PWM
@@ -25,6 +21,10 @@ Control just about anything RC
 MIT license
 
 ## Hardware
+<p align="center">
+<img src="img1.jpg" width="515" height="508"/>
+</p>
+
 #### Transmitter
 - 2x Atmega328p microcontrollers
 - 1x Semtech SX1276/77/78/79 based RF module 
