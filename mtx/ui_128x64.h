@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _UI_128X64_H_
+#define _UI_128X64_H_
 
 void initialiseDisplay();
 
@@ -13,3 +14,5 @@ void startStickCalibration();
 void handleStartupMenu(); 
 
 void handleMainUI(); 
+
+#endif
