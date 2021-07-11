@@ -1,7 +1,8 @@
+#ifndef _CRC8_H_
+#define _CRC8_H_
+
 // MAXIM 8-Bit CRC
 // Adapted from FastCRC lib at https://github.com/FrankBoesing/FastCRC
-
-#pragma once
 
 const uint8_t crc_table_maxim[256] PROGMEM = {
 	0x00, 0x5e, 0xbc, 0xe2, 0x61, 0x3f, 0xdd, 0x83,
@@ -49,3 +50,5 @@ uint8_t crc8Maxim(const uint8_t *data, uint16_t datalen)
 
 	return crc;
 }
+
+#endif
