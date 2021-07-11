@@ -1,23 +1,16 @@
 2.1
 --------
-- Receiver outputs can be configured from the transmitter to output servo, pwm, or digital (on-off) signals.
-- Redesigned the serial communication format and the air protocol.
-- Telemetry thresholds are stored on model basis.
-- Optimised GFX library. Now using the smallest datatypes.
-- Other minor optimisations.
-
-- 9 proportional channels, 1 digital channel.
-- Removed custom curve1.
-- Hardware mod: improved power switch to prevent accidental switch off when the power switch is lightly touched or bumped.
-
-- Hardware mod: added two switches E and F. Read by secondary mcu.
-- Removed mixer templates.
-- Improved sounds handling. Added OnTrimEnter and OnTrimExit. 
-- Added simple animation to toast messages.
+- Added two more switches SwE and SwF.
+- Added soft power latching control.
+- Improved sounds handling. Added sounds for trim mode entry and exit.
 - Show voltage telemetry on home screen.
 - Reduced occasional clashing of audio. 
-- Power down control.
-
+- 9 channels, all can be configured from the transmitter to output servo pwm, normal pwm, or digital (on-off) signals.
+- Redesigned the serial communication format and the air protocol.
+- Telemetry thresholds are stored on model basis.
+- Optimised GFX library.
+- UI improvements.
+- Code refactoring.
 
 1.7.0
 -----
