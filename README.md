@@ -12,13 +12,11 @@ Control just about anything RC
 - Model memory. Create, delete, copy, rename, and reset a model
 - Sticks calibration
 - Alarms, warnings
+- Adjustable RF power
 - Receiver binding
 - Frequency hopping
 - External voltage telemetry
 - Transmitter to receiver update rate up to 40x
-
-## License
-MIT license
 
 ## Hardware
 <p align="center">
@@ -89,8 +87,3 @@ components such as electromechanical relays and lights is made simple with the d
 3. For safety, any changes made will only be effected upon rebooting the receiver.
 4. In digital on-off mode, output value range of -100 to -50 maps to LOW, -49 to 49 is ignored, 50 to 100 maps to HIGH.
 
-## Testing
-I have done several tests on this system and found it reliable enough. 
-<br>The range I got with the SX1278 modules (433MHz at BW 250kHz, SF7, CR 4/5, 17dBm tx power, monopole antennas) was more than 2km line of sight in a semi urban area.
-<br>I have also tested the frequency hopping feature and it is stable enough. 
-<br>The transmitter to receiver update rate is more than 35 times a second which is sufficient to control an RC model. 
