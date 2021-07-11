@@ -2,7 +2,7 @@
 Control just about anything RC
 
 <p align="center">
-<img src="img1.jpg" width="590" height="554"/>
+<img src="img1.jpg" width="515" height="508"/>
 </p>
 
 ## Features
@@ -94,4 +94,3 @@ I have done several tests on this system and found it reliable enough.
 <br>The range I got with the SX1278 modules (433MHz at BW 250kHz, SF7, CR 4/5, 17dBm tx power, monopole antennas) was more than 2km line of sight in a semi urban area.
 <br>I have also tested the frequency hopping feature and it is stable enough. 
 <br>The transmitter to receiver update rate is more than 35 times a second which is sufficient to control an RC model. 
-
