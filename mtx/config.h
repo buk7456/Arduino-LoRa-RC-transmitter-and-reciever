@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
 
 //-------------------------------
 #define _SKETCHVERSION "2.1.0"
@@ -41,3 +42,6 @@ const int battVfactor  = 503;  //scaling factor
 
 //-------------------------------
 #define UART_BAUD_RATE 115200  //should match secondary mcu baud
+
+
+#endif
