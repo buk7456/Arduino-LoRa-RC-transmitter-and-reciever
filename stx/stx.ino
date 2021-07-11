@@ -23,14 +23,17 @@
 #include "NonBlockingRtttl.h"
 
 // Pins 
-#define PIN_BUZZER          9
+
 #define PIN_LCD_BACKLIGHT   6
-#define PIN_SWC_UPPER_POS   A4 
+#define PIN_BUZZER          9
+
 #define PIN_SWC_LOWER_POS   A5
-#define PIN_POWER_LATCH     A3
-#define PIN_POWER_OFF_SENSE A1
-#define PIN_SWE             7
+#define PIN_SWC_UPPER_POS   A4 
+#define PIN_SWE             A3
 #define PIN_SWF             A2
+
+#define PIN_POWER_OFF_SENSE A1
+#define PIN_POWER_LATCH     A0
 
 //--------------- Freq allocation --------------------
 
@@ -194,7 +197,7 @@ void setup()
   pinMode(PIN_SWC_UPPER_POS, INPUT_PULLUP);
   pinMode(PIN_SWC_LOWER_POS, INPUT_PULLUP);
   pinMode(PIN_SWF, INPUT_PULLUP);
-  pinMode(PIN_SWE, INPUT);
+  pinMode(PIN_SWE, INPUT_PULLUP);
   
   // EEPROM init
   if (EEPROM.read(EE_ADR_INIT_FLAG) != EE_INITFLAG)
@@ -392,19 +395,19 @@ void doSerialCommunication()
   }
   
   // read the 3 position switch. upperPos is 0, lowerPos is 1, midPos is 2
-  uint8_t SwCState = 2;
+  uint8_t swCState = 2;
   if(!digitalRead(PIN_SWC_UPPER_POS)) 
-    SwCState = 0;
+    swCState = 0;
   else if(!digitalRead(PIN_SWC_LOWER_POS)) 
-    SwCState = 1;
+    swCState = 1;
   
   //read SwE and SwF
-  bool SwEEngaged = false;
-  if(digitalRead(PIN_SWE))
-    SwEEngaged = true;
-  bool SwFEngaged = false;
+  bool swEEngaged = false;
+  if(!digitalRead(PIN_SWE))
+    swEEngaged = true;
+  bool swFEngaged = false;
   if(!digitalRead(PIN_SWF)) 
-    SwFEngaged = true;
+    swFEngaged = true;
   
   //get power switch state
   readPowerSwitch();
@@ -416,9 +419,9 @@ void doSerialCommunication()
   dataToSend[0] |= (gotOutputChConfig & 0x01) << 7;
   dataToSend[0] |= (requestPoweroff & 0x01) << 6;
   dataToSend[0] |= (bindStatusCode & 0x03) << 4; 
-  dataToSend[0] |= (SwFEngaged & 0x01) << 3;
-  dataToSend[0] |= (SwEEngaged & 0x01) << 2;
-  dataToSend[0] |= SwCState & 0x03;
+  dataToSend[0] |= (swFEngaged & 0x01) << 3;
+  dataToSend[0] |= (swEEngaged & 0x01) << 2;
+  dataToSend[0] |= swCState & 0x03;
   
   dataToSend[1] = receiverConfigStatusCode;
   dataToSend[2] = txPktsPs;
