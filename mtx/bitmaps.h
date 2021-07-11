@@ -1,5 +1,5 @@
-#ifndef BITMAPS_H_
-#define BITMAPS_H_
+#ifndef _BITMAPS_H_
+#define _BITMAPS_H_
 
 #include <avr/pgmspace.h>
 
