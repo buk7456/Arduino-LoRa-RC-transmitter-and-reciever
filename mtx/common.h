@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _COMMON_H_
+#define _COMMON_H_
 
 void setDefaultSystemParams();
 void setDefaultModelName();
@@ -278,3 +279,5 @@ enum { //possible values in MixSwitch array. Max 64 values
   NUM_MIXSWITCHES //should be last
 };
 
+
+#endif
