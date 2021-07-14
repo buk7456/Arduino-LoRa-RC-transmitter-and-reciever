@@ -20,7 +20,7 @@ Control just about anything RC
 
 ## Hardware
 <p align="center">
-<img src="img1.jpg" width="515" height="508"/>
+<img src="img1.jpg" width="785" height="560"/>
 </p>
 
 #### Transmitter
