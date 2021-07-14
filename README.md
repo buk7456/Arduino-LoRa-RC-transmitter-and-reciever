@@ -9,7 +9,7 @@ Control just about anything RC
 - Throttle curve
 - Flexible mixer system
 - Adaptable timer and a stopwatch
-- Model memory. Create, delete, copy, rename, and reset a model
+- Model memory. Create, delete, copy, rename, and reset models
 - Sticks calibration
 - Alarms, warnings
 - Adjustable RF power
