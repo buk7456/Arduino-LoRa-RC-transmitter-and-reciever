@@ -187,72 +187,44 @@ void computeChannelOutputs()
   mixSources[IDX_KNOB] = knobIn;
   
   ///--Mix source switches
+  mixSources[IDX_SWA] = swAEngaged ? 500 : -500;
+  mixSources[IDX_SWB] = swBEngaged ? 500 : -500;
+  mixSources[IDX_SWC] = swCState == SWLOWERPOS ? 500 : swCState == SWUPPERPOS ? -500 : 0;
+  mixSources[IDX_SWD] = swDEngaged ? 500 : -500;
+  mixSources[IDX_SWE] = swEEngaged ? 500 : -500;
+  mixSources[IDX_SWF] = swFEngaged ? 500 : -500;
   
-  //Switch A
-  if(swAEngaged) mixSources[IDX_SWA] = 500;
-  else mixSources[IDX_SWA] = -500;
-  
-  //Switch B
-  if(swBEngaged) mixSources[IDX_SWB] = 500;
-  else mixSources[IDX_SWB] = -500;
-  
-  //Switch C (3 pos)
-  if(swCState == SWLOWERPOS) mixSources[IDX_SWC] = 500;
-  else if(swCState == SWUPPERPOS) mixSources[IDX_SWC] = -500;
-  
-  //Switch D
-  if(swDEngaged) mixSources[IDX_SWD] = 500;
-  else mixSources[IDX_SWD] = -500;
-  
-  //Switch E
-  if(swEEngaged) mixSources[IDX_SWE] = 500;
-  else mixSources[IDX_SWE] = -500;
-  
-  //Switch F
-  if(swFEngaged) mixSources[IDX_SWF] = 500;
-  else mixSources[IDX_SWF] = -500;
- 
   ///--Mix source 100Perc
   mixSources[IDX_100PERC] = 500;
   
-  ///--Mix source Ail, Ele, Thr, Rud, Custom curves
+  ///--Mix source Ail, Ele, Rud
+  int _stickIn[3] = {rollIn, pitchIn, yawIn};
+  uint8_t _idx[3] = {IDX_AIL, IDX_ELE, IDX_RUD};
+  for(uint8_t i = 0; i < 3; i++)
+  {
+    if(!swBEngaged || ((Model.dualRate >> i) & 1) == 0)
+      mixSources[_idx[i]]  = calcRateExpo(_stickIn[i],  Model.rateNormal[i], Model.expoNormal[i]);
+    else
+      mixSources[_idx[i]]  = calcRateExpo(_stickIn[i],  Model.rateSport[i], Model.expoSport[i]);
+    //add trim
+    uint8_t _idxTrim = i; if(i == 2) _idxTrim++;
+    mixSources[_idx[i]] += 5 * Model.trim[_idxTrim];
+    
+    mixSources[_idx[i]] = constrain(mixSources[_idx[i]], -500, 500); 
+  }
   
-  //Ail
-  if(!swBEngaged || ((Model.dualRate >> AILRTE) & 1) == 0)
-    mixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.rateNormal[AILRTE], Model.expoNormal[AILRTE]);
-  else
-    mixSources[IDX_AIL]  = calcRateExpo(rollIn,  Model.rateSport[AILRTE], Model.expoSport[AILRTE]);
-  mixSources[IDX_AIL] += 5 * Model.trim[0];
-  mixSources[IDX_AIL] = constrain(mixSources[IDX_AIL], -500, 500);
-  
-  //Ele
-  if(!swBEngaged || ((Model.dualRate >> ELERTE) & 1) == 0)
-    mixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.rateNormal[ELERTE], Model.expoNormal[ELERTE]);
-  else
-    mixSources[IDX_ELE]  = calcRateExpo(pitchIn, Model.rateSport[ELERTE], Model.expoSport[ELERTE]);
-  mixSources[IDX_ELE] += 5 * Model.trim[1];
-  mixSources[IDX_ELE] = constrain(mixSources[IDX_ELE], -500, 500);
-  
-  //Rud
-  if(!swBEngaged || ((Model.dualRate >> RUDRTE) & 1) == 0)
-    mixSources[IDX_RUD] = calcRateExpo(yawIn, Model.rateNormal[RUDRTE], Model.expoNormal[RUDRTE]);
-  else
-    mixSources[IDX_RUD] = calcRateExpo(yawIn, Model.rateSport[RUDRTE], Model.expoSport[RUDRTE]);
-  mixSources[IDX_RUD] += 5 * Model.trim[3];
-  mixSources[IDX_RUD] = constrain(mixSources[IDX_RUD], -500, 500);
-  
-  //Thr
+  ///--Mix source throttle curve
   int xpoints[5] = {-500, -250, 0, 250, 500};
   int ypoints[5];
   for(uint8_t i = 0; i < 5; i++)
     ypoints[i] = 5 * Model.throttlePts[i];
   mixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
-  mixSources[IDX_THRTL_CURV] += 5 * Model.trim[2];
-  mixSources[IDX_THRTL_CURV] = constrain(mixSources[IDX_THRTL_CURV], -500, 500);
+  mixSources[IDX_THRTL_CURV] += 5 * Model.trim[2]; //add trim
+  mixSources[IDX_THRTL_CURV] = constrain(mixSources[IDX_THRTL_CURV], -500, 500); 
   
   ///--Mix source Slow1
   static int _valueNow = mixSources[IDX_SLOW1];
-  mixSources[IDX_SLOW1] = applySlow(_valueNow, mixSources[Model.slow1Src], Model.slow1Up, Model.slow1Down);
+  mixSources[IDX_SLOW1] = applySlow(_valueNow, mixSources[Model.slow1Src], Model.slow1Up * 100, Model.slow1Down * 100);
   _valueNow = mixSources[IDX_SLOW1];
   
   ///--Predefined mixes
@@ -422,25 +394,16 @@ int calcRateExpo(int _input, int _rate, int _expo)
 //--------------------------------------------------------------------------------------------------
 int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fallTime)
 {
-  //convert times to ms
-  _riseTime *= 100; 
-  _fallTime *= 100;
-  
-  //scale by 10
-  _currentVal *= 10;
-  _targetVal *= 10;
-  
-  //calc
   if(_currentVal < _targetVal && _riseTime > 0)
   {
-    int _step = (1000L * fixedLoopTime * 10) / _riseTime;
+    int _step = (1000L * fixedLoopTime) / _riseTime;
     _currentVal += _step;
     if(_currentVal > _targetVal)
       _currentVal = _targetVal;
   }
   else if(_currentVal > _targetVal && _fallTime > 0) 
   {
-    int _step = (1000L * fixedLoopTime * 10) / _fallTime;
+    int _step = (1000L * fixedLoopTime) / _fallTime;
     _currentVal -= _step;
     if(_currentVal < _targetVal)
       _currentVal = _targetVal;
@@ -450,7 +413,7 @@ int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fal
     _currentVal = _targetVal;
   }
   
-  return _currentVal / 10; //scale back
+  return _currentVal;
 }
 
 //--------------------------------------------------------------------------------------------------
