@@ -189,7 +189,7 @@ void computeChannelOutputs()
   ///--Mix source switches
   mixSources[IDX_SWA] = swAEngaged ? 500 : -500;
   mixSources[IDX_SWB] = swBEngaged ? 500 : -500;
-  mixSources[IDX_SWC] = swCState == SWLOWERPOS ? 500 : swCState == SWUPPERPOS ? -500 : 0;
+  mixSources[IDX_SWC] = (swCState == SWLOWERPOS) ? 500 : ((swCState == SWUPPERPOS) ? -500 : 0);
   mixSources[IDX_SWD] = swDEngaged ? 500 : -500;
   mixSources[IDX_SWE] = swEEngaged ? 500 : -500;
   mixSources[IDX_SWF] = swFEngaged ? 500 : -500;
@@ -479,29 +479,29 @@ bool mixSwitchIsActive(uint8_t _mixNum)
   uint8_t _mixSw = Model.mixOper_N_Switch[_mixNum] & 0x3F;
   switch(_mixSw)
   {
-    case SW_NONE: rslt = true; break; //SW_NONE is always active
+    case SW_NONE:   rslt = true; break; //SW_NONE is always active
     
-    case SWA_UP:  rslt = !swAEngaged; break;
+    case SWA_UP:    rslt = !swAEngaged;  break;
     case SWA_DOWN:  rslt =  swAEngaged;  break;
     
-    case SWB_UP:  rslt = !swBEngaged; break;
+    case SWB_UP:    rslt = !swBEngaged;  break;
     case SWB_DOWN:  rslt =  swBEngaged;  break;
     
-    case SWC_UP:  rslt = swCState == SWUPPERPOS? true : false; break;
-    case SWC_MID: rslt = swCState == SWMIDPOS?   true : false; break; 
-    case SWC_DOWN:  rslt = swCState == SWLOWERPOS? true : false; break;
+    case SWC_UP:    rslt = (swCState == SWUPPERPOS); break;
+    case SWC_MID:   rslt = (swCState == SWMIDPOS);   break; 
+    case SWC_DOWN:  rslt = (swCState == SWLOWERPOS); break;
 
-    case SWC_NOT_UP:  rslt = swCState == SWUPPERPOS? false : true; break;
-    case SWC_NOT_MID: rslt = swCState == SWMIDPOS?   false : true; break;
-    case SWC_NOT_DOWN:  rslt = swCState == SWLOWERPOS? false : true; break;
+    case SWC_NOT_UP:   rslt = (swCState != SWUPPERPOS); break;
+    case SWC_NOT_MID:  rslt = (swCState != SWMIDPOS);   break;
+    case SWC_NOT_DOWN: rslt = (swCState != SWLOWERPOS); break;
     
-    case SWD_UP:  rslt = !swDEngaged; break;
+    case SWD_UP:    rslt = !swDEngaged;  break;
     case SWD_DOWN:  rslt =  swDEngaged;  break;
     
-    case SWE_UP:  rslt = !swEEngaged; break;
+    case SWE_UP:    rslt = !swEEngaged;  break;
     case SWE_DOWN:  rslt =  swEEngaged;  break;
     
-    case SWF_UP:  rslt = !swFEngaged; break;
+    case SWF_UP:    rslt = !swFEngaged;  break;
     case SWF_DOWN:  rslt =  swFEngaged;  break;
   }
   return rslt;
