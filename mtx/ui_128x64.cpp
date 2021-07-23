@@ -413,10 +413,10 @@ void handleMainUI()
   static uint32_t _tWarnEntryLoopNum = 0;
   static bool _tWarnStarted = false;
   
-  if(Sys.telemAlarmEnabled && receiverPacketRate > 0)
+  if(Sys.telemAlarmEnabled && telem_volts != 0x0FFF)
   {
     //check and increment or decrement counter
-    if(telem_volts < Model.telemVoltsThresh && telem_volts != 0x0FFF)
+    if(telem_volts < Model.telemVoltsThresh)
     {
       if(!_tWarnStarted) 
         ++_tCounter;
@@ -438,7 +438,7 @@ void handleMainUI()
       audioToPlay = AUDIO_TELEMWARN;
   }
   
-  if(!Sys.rfOutputEnabled)
+  if(telem_volts == 0x0FFF)
   {
     _tCounter = 0;
     _tWarnStarted = false;
