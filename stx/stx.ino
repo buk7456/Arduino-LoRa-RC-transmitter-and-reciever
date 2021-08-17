@@ -88,7 +88,7 @@ uint8_t audioToPlay = AUDIO_NONE;
 //Sounds in rtttl format
 const char* battLowSound = "txbattlow:d=4,o=5,b=290:4p,4c6,32p,4a#,32p,4g.";
 const char* warnSound = "warn:d=4,o=4,b=160:4e5";
-const char* shortBeepSound = "shortBeep:d=4,o=4,b=250:16p,16d5";
+const char* shortBeepSound = "shortBeep:d=4,o=4,b=250:16d5";
 const char* timerElapsedSound = "timerElapsed:d=4,o=5,b=210:16p,16b6,16p,8b6";
 const char* trimAilSound = "ail:d=4,o=4,b=160:16a5";
 const char* trimEleSound = "ele:d=4,o=4,b=160:16b5";
