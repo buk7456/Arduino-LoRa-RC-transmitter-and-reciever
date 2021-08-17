@@ -24,16 +24,16 @@ Left servo in Ch1, right servo in Ch2
 #### Aileron differential
 Left aileron in Ch1, right aileron in Ch8
 ```txt
-1. Ch1 = -100%Ail{-25%Diff}
-2. Ch8 =  100%Ail{ 25%Diff}
+1. Ch1 = -100%Ail{25%Diff}
+2. Ch8 =  100%Ail{25%Diff}
 ```
 #### Flaperon
 Left aileron in Ch1, right aileron in Ch8. Using SwC to operate the flaperons. 
 <br>When SwC is in upper position, flaperons are off. 
 <br>In middle position we deploy half flaperons, and in lower position we deploy full flaperons.
 ```txt
-1. Ch1 = -100%Ail{-25%Diff} + -50%SwC{-50offset}
-2. Ch8 =  100%Ail{ 25%Diff} + -50%SwC{-50offset}
+1. Ch1 = -100%Ail{25%Diff} + -50%SwC{-50offset}
+2. Ch8 =  100%Ail{25%Diff} + -50%SwC{-50offset}
 ```
 If desired, the flaperon deployment can be slowed with the 'Slow' function in Inputs screen, specifying 
 SwC as the source. When this is done, it is necessary to manually edit the mix to use SwC* instead.
@@ -46,8 +46,8 @@ Left ail servo in Ch1, Right Ail servo in Ch8, left flap servo in Ch5, right fla
 <br>When SwC is in lower position, both ailerons move upward and full flaps are deployed
 thus crow braking.
 ```txt
-1. Ch1 = -100%Ail{-25%Diff} + 50%SwC{100%Diff}
-2. Ch8 =  100%Ail{ 25%Diff} + 50%SwC{100%Diff}
+1. Ch1 = -100%Ail{25%Diff} + 50%SwC{100%Diff}
+2. Ch8 =  100%Ail{25%Diff} + 50%SwC{100%Diff}
 3. Ch5 = -50%SwC{-50offset}
 4. Ch6 =  100%Ch5
 ```
