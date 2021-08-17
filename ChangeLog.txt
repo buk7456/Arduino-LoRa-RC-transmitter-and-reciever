@@ -1,5 +1,10 @@
 2.1
 --------
+17Aug2021
+- Fixed undesirable behaviour of differential in mixer when trim is non-zero
+- Order of operation in mixer is changed. Now as weight->offset->differential->trim(weighted)
+
+July2021
 - Added two more switches SwE and SwF.
 - Added soft power latching control.
 - Improved sounds handling. Added sounds for trim mode entry and exit.
@@ -11,6 +16,7 @@
 - Optimised GFX library.
 - UI improvements.
 - Code refactoring.
+
 
 1.7.0
 -----
