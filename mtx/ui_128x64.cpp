@@ -1088,7 +1088,7 @@ void handleMainUI()
         {
           if(thisMdl == Sys.activeModel)
           {
-            makeToast(F("Can't copy"), 2500, 0);
+            makeToast(F("Cannot copy"), 2500, 0);
             changeToScreen(MODE_MODEL);
           }
           else
@@ -1104,7 +1104,7 @@ void handleMainUI()
       
     case CONFIRMATION_MODEL_COPY:
       {
-        drawFullScreenMsg(PSTR("All model data and\ntelemetry will be\noverwritten.\nContinue?\n\nYes [Up]  \nNo  [Down]"));
+        drawFullScreenMsg(PSTR("Model data will be\noverwritten.\nContinue?\n\nYes [Up]  \nNo  [Down]"));
         if(clickedButton == UP_KEY)
         {
           //temporarily store model name as we shall maintain it 
@@ -1136,7 +1136,7 @@ void handleMainUI()
       
     case CONFIRMATION_MODEL_RESET:
       {
-        drawFullScreenMsg(PSTR("All model data and\ntelemetry will be\nreset. Continue?\n\nYes [Up]  \nNo  [Down]"));
+        drawFullScreenMsg(PSTR("Model data will\nbe reset.\nContinue?\n\nYes [Up]  \nNo  [Down]"));
         if(clickedButton == UP_KEY)
         {
           setDefaultModelBasicParams();
@@ -1440,18 +1440,21 @@ void handleMainUI()
         display.print(F("%"));
         
         display.setCursor(0, 40);
-        display.print(F("Dfrntl:  "));
-        display.print(Model.mixIn1Diff[thisMixNum]);
+        display.print(F("Offset:  "));
+        display.print(Model.mixIn1Offset[thisMixNum]);
         display.print(F("%"));
         display.setCursor(97, 40);
-        display.print(Model.mixIn2Diff[thisMixNum]);
+        display.print(Model.mixIn2Offset[thisMixNum]);
         display.print(F("%"));
         
         display.setCursor(0, 48);
-        display.print(F("Offset:  "));
-        display.print(Model.mixIn1Offset[thisMixNum]);
+        display.print(F("Dfrntl:  "));
+        display.print(Model.mixIn1Diff[thisMixNum]);
+        display.print(F("%"));
         display.setCursor(97, 48);
-        display.print(Model.mixIn2Offset[thisMixNum]);
+        display.print(Model.mixIn2Diff[thisMixNum]);
+        display.print(F("%"));
+        
         
         display.setCursor(0, 56);
         display.print(F("Opertr:  "));
@@ -1492,10 +1495,10 @@ void handleMainUI()
           Model.mixIn1[thisMixNum] = incDecOnUpDown(Model.mixIn1[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 4) //adjust weight 1
           Model.mixIn1Weight[thisMixNum] = incDecOnUpDown(Model.mixIn1Weight[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
-        else if(focusedItem == 5) //adjust differential 1
-          Model.mixIn1Diff[thisMixNum] = incDecOnUpDown(Model.mixIn1Diff[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
-        else if(focusedItem == 6) //adjust offset 1
+        else if(focusedItem == 5) //adjust offset 1
           Model.mixIn1Offset[thisMixNum] = incDecOnUpDown(Model.mixIn1Offset[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
+        else if(focusedItem == 6) //adjust differential 1
+          Model.mixIn1Diff[thisMixNum] = incDecOnUpDown(Model.mixIn1Diff[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 7) //change operator
         {
           uint8_t _mixOper = Model.mixOper_N_Switch[thisMixNum] >> 6;
@@ -1507,10 +1510,10 @@ void handleMainUI()
           Model.mixIn2[thisMixNum] = incDecOnUpDown(Model.mixIn2[thisMixNum], 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
         else if(focusedItem == 9) //adjust weight 2
           Model.mixIn2Weight[thisMixNum] = incDecOnUpDown(Model.mixIn2Weight[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
-        else if(focusedItem == 10) //adjust differential 2
-          Model.mixIn2Diff[thisMixNum] = incDecOnUpDown(Model.mixIn2Diff[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
-        else if(focusedItem == 11) //adjust offset 2
+        else if(focusedItem == 10) //adjust offset 2
           Model.mixIn2Offset[thisMixNum] = incDecOnUpDown(Model.mixIn2Offset[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
+        else if(focusedItem == 11) //adjust differential 2
+          Model.mixIn2Diff[thisMixNum] = incDecOnUpDown(Model.mixIn2Diff[thisMixNum], -100, 100, NOWRAP, PRESSED_OR_HELD);
         else if(focusedItem == 12) //change switch
         {
           uint8_t _mixSw = Model.mixOper_N_Switch[thisMixNum] & 0x3F;
@@ -1994,7 +1997,7 @@ void handleMainUI()
             if(receiverConfigStatusCode > 0)
             {
               if(receiverConfigStatusCode == 1)
-                makeToast(F("Saved. Reboot rcvr"), 3000, 0);
+                makeToast(F("Saved, reboot rcvr"), 3000, 0);
               else if(receiverConfigStatusCode == 2)
                 makeToast(F("Error saving"), 2500, 0);
               
@@ -2462,23 +2465,23 @@ void drawToast()
   uint32_t _currTime = millis();
   if (_currTime >= toastStartTime && _currTime < toastExpireTime)
   {
-    const int transitionDuration = 250; //in milliseconds
+    const int transitionDuration = 180; //in milliseconds
     
     uint8_t ypos;
   
     if(_currTime < (toastStartTime + transitionDuration)) //slideup
-      ypos = 63 - ((_currTime - toastStartTime) * 13) / transitionDuration;
+      ypos = 63 - ((_currTime - toastStartTime) * 9) / transitionDuration;
     else if((_currTime + transitionDuration) > toastExpireTime) //slide down
-      ypos = 63 - ((toastExpireTime - _currTime) * 13) / transitionDuration;
+      ypos = 63 - ((toastExpireTime - _currTime) * 9) / transitionDuration;
     else
-      ypos = 50;
+      ypos = 54;
 
     uint8_t _txtWidthPix = 6 * strlen_P((const char*)toastText); //(const char*) casts
     uint8_t x_offset = (display.width() - _txtWidthPix) / 2; //middle align
-    display.drawRect(x_offset - 3, ypos, _txtWidthPix + 5, 13, WHITE);
-    display.fillRect(x_offset - 2, ypos + 1, _txtWidthPix + 3, 11, BLACK);
+    display.drawRect(x_offset - 3, ypos, _txtWidthPix + 5, 10, WHITE);
+    display.fillRect(x_offset - 2, ypos + 1, _txtWidthPix + 3, 9, BLACK);
     display.setTextColor(WHITE);
-    display.setCursor(x_offset, ypos + 3);
+    display.setCursor(x_offset, ypos + 2);
     display.println(toastText);
     display.setTextColor(BLACK);
   }
