@@ -6,7 +6,7 @@
 int deadzoneAndMap(int _input, int _minVal, int _centerVal, int _maxVal, int _deadzn, int _mapMin, int _mapMax);
 int linearInterpolate(int xValues[], int yValues[], uint8_t numValues, int pointX);
 int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fallTime);
-long weightAndOffset(int _input, int _weight, int _diff, int _offset);
+int weightAndOffset(int _input, int _weight, int _offset, int _diff);
 bool mixSwitchIsActive(uint8_t _mixNum);
 void evaluateTimer1(int16_t srcVal);
 
@@ -206,11 +206,6 @@ void computeChannelOutputs()
       mixSources[_idx[i]]  = calcRateExpo(_stickIn[i],  Model.rateNormal[i], Model.expoNormal[i]);
     else
       mixSources[_idx[i]]  = calcRateExpo(_stickIn[i],  Model.rateSport[i], Model.expoSport[i]);
-    //add trim
-    uint8_t _idxTrim = i; if(i == 2) _idxTrim++;
-    mixSources[_idx[i]] += 5 * Model.trim[_idxTrim];
-    
-    mixSources[_idx[i]] = constrain(mixSources[_idx[i]], -500, 500); 
   }
   
   ///--Mix source throttle curve
@@ -219,8 +214,6 @@ void computeChannelOutputs()
   for(uint8_t i = 0; i < 5; i++)
     ypoints[i] = 5 * Model.throttlePts[i];
   mixSources[IDX_THRTL_CURV] = linearInterpolate(xpoints, ypoints, 5, throttleIn);
-  mixSources[IDX_THRTL_CURV] += 5 * Model.trim[2]; //add trim
-  mixSources[IDX_THRTL_CURV] = constrain(mixSources[IDX_THRTL_CURV], -500, 500); 
   
   ///--Mix source Slow1
   static int _valueNow = mixSources[IDX_SLOW1];
@@ -229,10 +222,18 @@ void computeChannelOutputs()
   
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
-  mixSources[IDX_CH1] = mixSources[IDX_AIL];  //send Ail  to Ch1
-  mixSources[IDX_CH2] = mixSources[IDX_ELE];  //send Ele  to Ch2
-  mixSources[IDX_CH3] = mixSources[IDX_THRTL_CURV]; //Send Thrt to Ch3
-  mixSources[IDX_CH4] = mixSources[IDX_RUD];  //Send Rud  to Ch4
+  //send Ail  to Ch1
+  mixSources[IDX_CH1] = mixSources[IDX_AIL] + 5 * Model.trim[0];        
+  mixSources[IDX_CH1] = constrain(mixSources[IDX_CH1], -500, 500);
+  //send Ele  to Ch2
+  mixSources[IDX_CH2] = mixSources[IDX_ELE] + 5 * Model.trim[1];        
+  mixSources[IDX_CH2] = constrain(mixSources[IDX_CH2], -500, 500);
+  //Send Thrt to Ch3
+  mixSources[IDX_CH3] = mixSources[IDX_THRTL_CURV] + 5 * Model.trim[2]; 
+  mixSources[IDX_CH3] = constrain(mixSources[IDX_CH3], -500, 500);
+  //Send Rud  to Ch4
+  mixSources[IDX_CH4] = mixSources[IDX_RUD] + 5 * Model.trim[3];        
+  mixSources[IDX_CH4] = constrain(mixSources[IDX_CH4], -500, 500);
   
   ///--FREE MIXER
   for(uint8_t _mixNum = 0; _mixNum < NUM_MIXSLOTS; _mixNum++)
@@ -244,15 +245,39 @@ void computeChannelOutputs()
     long _operand1 = 0;
     if(Model.mixIn1[_mixNum] != IDX_NONE) 
     {
-      _operand1 = weightAndOffset(mixSources[Model.mixIn1[_mixNum]], Model.mixIn1Weight[_mixNum], 
-                                  Model.mixIn1Diff[_mixNum], Model.mixIn1Offset[_mixNum]);
+      _operand1 = weightAndOffset(mixSources[Model.mixIn1[_mixNum]], 
+                                  Model.mixIn1Weight[_mixNum], 
+                                  Model.mixIn1Offset[_mixNum], 
+                                  Model.mixIn1Diff[_mixNum]);
+      
+      //Handle trim here so that differential works as expected
+      if(Model.mixIn1[_mixNum] >= IDX_AIL && Model.mixIn1[_mixNum] <= IDX_RUD)
+      {
+        uint8_t _idxTrim = Model.mixIn1[_mixNum] - IDX_AIL;
+        int _trim = Model.trim[_idxTrim];
+        _operand1 += (_trim * 5 * Model.mixIn1Weight[_mixNum]) / 100;
+      } 
+      
+      _operand1 = constrain(_operand1, -500, 500);
     }
     //---Input2---
     long _operand2 = 0;
     if(Model.mixIn2[_mixNum] != IDX_NONE) 
     {
-      _operand2 = weightAndOffset( mixSources[Model.mixIn2[_mixNum]], Model.mixIn2Weight[_mixNum], 
-                                   Model.mixIn2Diff[_mixNum], Model.mixIn2Offset[_mixNum]);
+      _operand2 = weightAndOffset(mixSources[Model.mixIn2[_mixNum]], 
+                                  Model.mixIn2Weight[_mixNum], 
+                                  Model.mixIn2Offset[_mixNum], 
+                                  Model.mixIn2Diff[_mixNum]);
+                                  
+      //Handle trim here so that differential works as expected
+      if(Model.mixIn2[_mixNum] >= IDX_AIL && Model.mixIn2[_mixNum] <= IDX_RUD)
+      {
+        uint8_t _idxTrim = Model.mixIn2[_mixNum] - IDX_AIL;
+        int _trim = Model.trim[_idxTrim];
+        _operand2 += (_trim * 5 * Model.mixIn2Weight[_mixNum]) / 100;
+      } 
+      
+      _operand2 = constrain(_operand2, -500, 500);
     }
     
     //--- Mix the inputs ---
@@ -418,27 +443,29 @@ int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fal
 
 //--------------------------------------------------------------------------------------------------
 
-long weightAndOffset(int _input, int _weight, int _diff, int _offset)
+int weightAndOffset(int _input, int _weight, int _offset, int _diff)
 {
-  //calc left and right weights basing on differential
-  int _wtR, _wtL; 
-  if(_diff >= 0)
-  {
-    _wtR = _weight;
-    _wtL = (_weight * (100 - _diff))/100;
-  }
-  else 
-  {
-    _wtL = _weight;
-    _wtR = (_weight * (100 + _diff))/100;
-  }
-  //Compute output and add offset
-  _weight = _input > 0 ? _wtR : _wtL;
+  //apply weight 
   long _outVal = _input;
   _outVal *= _weight;
   _outVal /= 100;
+  
+  //apply offset
   _outVal += _offset * 5;
-  return _outVal;
+  
+  //apply differential
+  if(_diff > 0 && _outVal < 0)
+  {
+    _outVal *= (100 - _diff);
+    _outVal /= 100;
+  }
+  else if(_diff < 0 && _outVal > 0)
+  {
+    _outVal *= (100 + _diff);
+    _outVal /= 100;
+  }
+
+  return int(_outVal);
 }
 
 //--------------------------------------------------------------------------------------------------
