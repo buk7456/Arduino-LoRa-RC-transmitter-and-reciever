@@ -455,24 +455,16 @@ uint16_t joinBytes(uint8_t _highByte, uint8_t _lowByte)
 
 void checkBattery()
 {
-  /* Apply smoothing to measurement. Cant afford to store any data points due to limited RAM,
-  so we cant use the usual moving average method. Instead we implement exponential recursive
-  smoothing as described here
-  https://www.megunolink.com/articles/coding/3-methods-filter-noisy-arduino-measurements/
-  It works by subtracting out the mean each time, and adding in a new point. */
-  
-  /*_NUM_SAMPLES parameter defines number of samples to average over. Higher value results in slower
-  response.
-  Formula x = x - x/n + a/n  */
-  
-  const int _NUM_SAMPLES = 20;
-  
-  long anaRd = ((long)analogRead(PIN_BATTVOLTS) * battVfactor) / 100;
-  long battV = ((long)battVoltsNow * (_NUM_SAMPLES - 1) + anaRd) / _NUM_SAMPLES; 
-  battVoltsNow = int(battV); 
+  //Low pass filtered using exponential smoothing
+  //As the implementation here uses integer math and the technique is recursive, 
+  //there is loss of precision but this doesn't matter much here.
+  const int smoothFactor = 5; //>0,<100
+  long sample = ((long)analogRead(PIN_BATTVOLTS) * battVfactor) / 100;
+  long battV = ((sample * smoothFactor) + ((100 - smoothFactor) * (long)battVoltsNow)) / 100;
+  battVoltsNow = int(battV);
   
   if (battVoltsNow <= battVoltsMin)
     battState = BATTLOW;
   else if (battVoltsNow > (battVoltsMin + 100)) //100mV hysteris
-    battState = BATTHEALTY;
+    battState = BATTHEALTY; 
 }
