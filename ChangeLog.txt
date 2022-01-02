@@ -1,21 +1,24 @@
 2.1
 --------
+02Jan2022
+- Support for KS0108 lcds with active low chip select pins. Enable by uncommenting CS_ACTIVE_LOW in the LCDKS0108.h file
+
 17Aug2021
-- Fixed undesirable behaviour of differential in mixer when trim is non-zero
-- Order of operation in mixer is changed. Now as weight->offset->differential->trim(weighted)
+ - Fixed undesirable behaviour of differential in mixer when trim is non-zero
+ - Order of operation in mixer is changed. Now as weight->offset->differential->trim(weighted)
 
 July2021
-- Added two more switches SwE and SwF.
-- Added soft power latching control.
-- Improved sounds handling. Added sounds for trim mode entry and exit.
-- Show voltage telemetry on home screen.
-- Reduced occasional clashing of audio. 
-- 9 channels, all can be configured from the transmitter to output servo pwm, normal pwm, or digital (on-off) signals.
-- Redesigned the serial communication format and the air protocol.
-- Telemetry thresholds are stored on model basis.
-- Optimised GFX library.
-- UI improvements.
-- Code refactoring.
+ - Added two more switches SwE and SwF.
+ - Added soft power latching control.
+ - Improved sounds handling. Added sounds for trim mode entry and exit.
+ - Show voltage telemetry on home screen.
+ - Reduced occasional clashing of audio. 
+ - 9 channels, all can be configured from the transmitter to output servo pwm, normal pwm, or digital (on-off) signals.
+ - Redesigned the serial communication format and the air protocol.
+ - Telemetry thresholds are stored on model basis.
+ - Optimised GFX library.
+ - UI improvements.
+ - Code refactoring.
 
 
 1.7.0
