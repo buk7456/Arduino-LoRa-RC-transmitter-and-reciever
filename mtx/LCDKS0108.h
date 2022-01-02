@@ -2,17 +2,19 @@
 #ifndef _QQKS0108_H
 #define _QQKS0108_H
 
+// #define CS_ACTIVE_LOW  //uncomment this if the chip select pins are active low
+
 #define BLACK 1
 #define WHITE 0
 
 #define LCDWIDTH 128
 #define LCDHEIGHT 64
 
-#define START_LINE 0b11000000
-#define SET_ADDRESS 0b01000000
-#define SET_PAGE 0b10111000
-#define DISP_ON 0b00111111
-#define DISP_OFF 0b00111110
+#define START_LINE    0b11000000
+#define SET_Y_ADDRESS 0b01000000
+#define SET_PAGE      0b10111000
+#define DISP_ON       0b00111111
+#define DISP_OFF      0b00111110
 
 typedef volatile uint8_t PortReg;
 typedef uint8_t PortMask;
@@ -40,7 +42,7 @@ class LCDKS0108 : public GFX
     PortMask qrspinmask, qenpinmask, qcs1pinmask, qcs2pinmask, latchpinmask;
 
     void lcdCommand(uint8_t command);
-    void setNewPage(unsigned char PageData);
+    void setPage(uint8_t pageNo);
 };
 
 #endif
