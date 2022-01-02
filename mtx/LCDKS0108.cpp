@@ -65,72 +65,69 @@ void LCDKS0108::begin()
   latchPort = portOutputRegister(digitalPinToPort(_latchPin));
   latchpinmask = digitalPinToBitMask(_latchPin);
 
+  delay(50);
 
   //initialise lcd
   SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-  lcdCommand(DISP_OFF);
-  lcdCommand(START_LINE);
   lcdCommand(DISP_ON);
-  lcdCommand(SET_ADDRESS);
-  lcdCommand(SET_PAGE);
+  lcdCommand(START_LINE);
   SPI.endTransaction();
 }
 
-void LCDKS0108::setNewPage(unsigned char PageData)
+void LCDKS0108::setPage(uint8_t pageNo)
 {
-  PageData = PageData + SET_PAGE;
-  lcdCommand(PageData);
-  lcdCommand(SET_ADDRESS);
+  lcdCommand(SET_PAGE | pageNo);
+  lcdCommand(SET_Y_ADDRESS);
 }
 
 void LCDKS0108::display(void)
 {
   SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-  
-  uint8_t data;
-  uint8_t column = 0, page = 0;
 
-  setNewPage(0);
-
-  for (uint16_t j = 0; j < 1024; j++)
+  uint16_t dataIdx = 0;
+  for(uint8_t page = 0; page < 8; page++)
   {
-    data = dispBuffer[j];
+    setPage(page);
 
-    if (column == 128)
+    bool isCS2 = false;
+    //enable chip1
+#if defined (CS_ACTIVE_LOW)
+    *qcs1port &= ~qcs1pinmask;  
+    *qcs2port |= qcs2pinmask;
+#else
+    *qcs1port |= qcs1pinmask;  
+    *qcs2port &= ~qcs2pinmask; 
+#endif 
+
+    for(uint8_t column = 0; column < 128; column++)
     {
-      column = 0;
-      page += 1;
-      setNewPage(page);
+      if(!isCS2 && column >= 64) 
+      {
+        isCS2 = true;
+        //enable chip2
+#if defined (CS_ACTIVE_LOW)
+        *qcs2port &= ~qcs2pinmask;
+        *qcs1port |= qcs1pinmask;
+#else 
+        *qcs2port |= qcs2pinmask; 
+        *qcs1port &= ~qcs1pinmask;
+#endif
+      }
+      
+      *qrsport |= qrspinmask; //rs high
+      
+      *latchPort &= ~latchpinmask; //latch low
+      SPI.transfer(dispBuffer[dataIdx++]);
+      *latchPort |= latchpinmask; //latch high
+      
+      //toggle EN
+      delayMicroseconds(3);
+      *qenport |= qenpinmask;  //EN high
+      delayMicroseconds(3);
+      *qenport &= ~qenpinmask; //EN low
     }
-
-    if (column <= 63)
-    {
-      *qcs1port |= qcs1pinmask;  //cs1 high
-      *qcs2port &= ~qcs2pinmask; //cs2 low
-    }
-
-    if (column >= 64)
-    {
-      *qcs2port |= qcs2pinmask;  //cs2 high
-      *qcs1port &= ~qcs1pinmask; //cs1 low
-    }
-
-    *qrsport |= qrspinmask;      //rs high
-    
-    *latchPort &= ~latchpinmask; //latch low
-
-    SPI.transfer(data);
-
-    *latchPort |= latchpinmask; //latch high
-
-    //toggle EN
-    *qenport |= qenpinmask;  //EN high
-    delayMicroseconds(3);
-    *qenport &= ~qenpinmask; //EN low
-
-    column++;
   }
-  
+
   SPI.endTransaction();
 }
 
@@ -143,20 +140,22 @@ void LCDKS0108::clearDisplay(void) //Clear virtual buffer
 inline void LCDKS0108::lcdCommand(uint8_t command)
 {
   //enable both controllers
+#if defined (CS_ACTIVE_LOW)
+  *qcs1port &= ~qcs1pinmask;
+  *qcs2port &= ~qcs2pinmask;
+#else
   *qcs1port |= qcs1pinmask;
   *qcs2port |= qcs2pinmask;
+#endif
 
-  //drive RS to low
-  *qrsport &= ~qrspinmask;
+  *qrsport &= ~qrspinmask; //rs low
 
   *latchPort &= ~latchpinmask; //latch low
-
-  //send command
   SPI.transfer(command);
-
   *latchPort |= latchpinmask; //latch high
 
   //Toggle EN
+  delayMicroseconds(3);
   *qenport |= qenpinmask; //EN high
   delayMicroseconds(3);
   *qenport &= ~qenpinmask; //EN low
