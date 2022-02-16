@@ -10,7 +10,7 @@
 #include "common.h"
 #include "eestore.h"
 
-const uint8_t eeSysDataStartAddress = 3; 
+const uint8_t eeSysDataStartAddress = 2; 
 uint8_t eeModelDataStartAddress;
 
 uint16_t getModelDataOffsetAddr(uint8_t _mdlNo);
