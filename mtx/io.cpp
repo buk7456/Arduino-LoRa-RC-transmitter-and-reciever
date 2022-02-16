@@ -591,21 +591,36 @@ static const uint8_t sineForm[] PROGMEM = {
 
 int generateWaveform()
 {
-  int period = Model.funcgenPeriod * 100;
-  long timeInstance = millis() % period;
+  /*
+  When the period is being adjusted there is sudden discontinuity in the result that causes the servo to jerk. 
+  We thus need a way to smoothly transition to the new period. 
+  One approach is to wait for peak or zero crossing before applying the new period. However this 
+  sucks if the period is long.
+  The better approach is to add some calculated offset to millis. We want the result to be the same 
+  upon change so the ratio (timeInstance/period) for old and new period has to be the same.
+  */
   
-  static int result = 0;
-  if(isAdjustingFuncgenPeriod) //prevent unpredicatable result
+  int period = Model.funcgenPeriod * 100;
+  static int oldPeriod = 0;
+  static int oldRatio = 0;  //(oldTimeInstance/oldPeriod)*scalingfactor1000
+  static int offset = 0;
+  if(period != oldPeriod)
   {
-    isAdjustingFuncgenPeriod = false;
-    return result;
+    oldPeriod = period;
+    int newT = millis() % period;
+    offset = (((long) period * oldRatio)/1000L) - newT; 
   }
+  
+  int timeInstance = (millis() + offset) % period;
+  oldRatio = (timeInstance * 1000L) / period; //store old ratio
+  
+  int result = 0;
   
   switch(Model.funcgenWaveform)
   {
     case FUNC_SINE:
     {
-      uint8_t index = (timeInstance * 99)/(period - 1);
+      uint8_t index = (timeInstance * 99L)/(period - 1);
       //get value at this index. Map index to a time value
       int valL = (5 * pgm_read_byte(&sineForm[index])) - 500;
       int tL = map(index, 0, 99, 0, period - 1);
@@ -614,7 +629,7 @@ int generateWaveform()
       int valR = (5 * pgm_read_byte(&sineForm[index])) - 500;
       int tR = map(index, 0, 99, 0, period - 1);
       //linear interpolate
-      result = valL + (((timeInstance - tL)*(valR - valL))/(tR - tL));
+      result = valL + (((long)(timeInstance - tL)*(valR - valL))/(tR - tL));
     }
     break;
     
