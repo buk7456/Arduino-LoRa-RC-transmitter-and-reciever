@@ -59,9 +59,9 @@ void setup()
   bool formatEE = false;
  
   /// Check signature. If its not matching, then assume it's a fresh mcu and format the eeprom
-  uint16_t fileSignature;
+  uint8_t fileSignature;
   EEPROM.get(EE_FILE_SIGNATURE_ADDR, fileSignature);
-  if(fileSignature != 0xE7D9) //force format
+  if(fileSignature != EE_FILE_SIGNATURE) //force format
   {
     showEEWarning();
     while(buttonCode == 0)
@@ -107,7 +107,7 @@ void setup()
     //write flag
     EEPROM.write(EE_INITFLAG_ADDR, eeInitFlag);
     //write signature
-    fileSignature = 0xE7D9;
+    fileSignature = EE_FILE_SIGNATURE;
     EEPROM.put(EE_FILE_SIGNATURE_ADDR, fileSignature);
     
     startStickCalibration();
