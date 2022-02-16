@@ -92,3 +92,10 @@ Assuming the throttle servo is in Ch3,
 1. Virt1 = -50%Thrt{50 offset} * 20%knob{20 offset}
 2. Ch3 = 100%Thrt + 100%Virt1
 ```
+#### Servo tester
+We can program a simple servo tester that moves a servo back and forth indefinitely.
+In the inputs screen, navigate to Function generator page, then select desired movement type (sine, square, triangle, or sawtooth) and period, then go back to the Mixer screen.
+Assuming the servo is connected to Ch9,
+```txt
+1. Ch9 = 100%fgen
+```
