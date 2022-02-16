@@ -112,9 +112,6 @@ extern uint8_t receiverConfigStatusCode; //1 on success, 2 on fail
 //-----------------------------------------
 extern uint8_t maxNumOfModels;
 
-//-----------------------------------------
-extern bool isAdjustingFuncgenPeriod;
-
 //---- Main loop control -------------------
 #define fixedLoopTime 27 
 /*in milliseconds. Min 25, Max 30. Should be greater than 
