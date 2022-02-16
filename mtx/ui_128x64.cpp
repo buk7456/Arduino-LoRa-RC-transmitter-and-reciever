@@ -1390,11 +1390,7 @@ void handleMainUI()
           if(focusedItem == 2)
             Model.funcgenWaveform = incDecOnUpDown(Model.funcgenWaveform, 0, NUM_FUNC_WAVEFORMS - 1, WRAP, SLOW_CHANGE);
           else if(focusedItem == 3)
-          {
             Model.funcgenPeriod = incDecOnUpDown(Model.funcgenPeriod, 5, 200, NOWRAP, PRESSED_OR_HELD);
-            if(isEditMode && (heldButton == UP_KEY || heldButton == DOWN_KEY))
-              isAdjustingFuncgenPeriod = true;
-          }
         }
         
         ////////////////// RAW /////////////////////////////////////////////////
