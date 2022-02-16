@@ -2,7 +2,7 @@
 #define _CONFIG_H_
 
 //-------------------------------
-#define _SKETCHVERSION "2.1.0"
+#define _SKETCHVERSION "2.2"
 
 //-------- PINS -----------------
 
