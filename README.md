@@ -67,6 +67,7 @@ Mixer slots are evaluated sequentially.
 <br> Mixer sources can be any of the following
 - Raw stick inputs (roll, pitch, thrt, yaw, knob)
 - Constants (max)
+- Function generator
 - Switches (SwA, SwB, SwC, SwD, SwE, SwF)
 - Slowed input (appears with an asterisk)
 - Curves (Ail, Ele, Thrt, Rud)
