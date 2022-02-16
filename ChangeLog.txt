@@ -1,7 +1,13 @@
+2.2
+--------
+16Feb2022
+ - Added a simple function generator. Useful for testing stuff like servos. 
+   It can be configured to output periodic motion line sine, square, triangle, and sawtooth.
+
 2.1
 --------
 02Jan2022
-- Support for KS0108 lcds with active low chip select pins. Enable by uncommenting CS_ACTIVE_LOW in the LCDKS0108.h file
+ - Support for KS0108 lcds with active low chip select pins. Enable by uncommenting CS_ACTIVE_LOW in the LCDKS0108.h file
 
 17Aug2021
  - Fixed undesirable behaviour of differential in mixer when trim is non-zero
