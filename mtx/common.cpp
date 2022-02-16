@@ -47,6 +47,7 @@ uint8_t receiverPacketRate = 0;
 
 uint16_t telem_volts = 0x0FFF;
 
+bool isAdjustingFuncgenPeriod = false;
 
 uint8_t outputChConfig[9]; 
 uint8_t maxOutputChConfig[9];
@@ -121,6 +122,9 @@ void setDefaultModelBasicParams()
   Model.slow1Src = IDX_SWC; 
   Model.slow1Up = 5;
   Model.slow1Down = 5;
+  
+  Model.funcgenWaveform = FUNC_SINE;
+  Model.funcgenPeriod = 5;
   
   Model.timer1ControlSrc = IDX_NONE;
   Model.timer1Operator = GREATER_THAN;
