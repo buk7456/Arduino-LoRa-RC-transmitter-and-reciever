@@ -1,8 +1,10 @@
 #ifndef _EESTORE_H_
 #define _EESTORE_H_
 
-#define EE_FILE_SIGNATURE_ADDR 0  //2 bytes
-#define EE_INITFLAG_ADDR       2  //1 byte
+#define EE_FILE_SIGNATURE_ADDR 0  //1 byte
+#define EE_INITFLAG_ADDR       1  //1 byte
+
+#define EE_FILE_SIGNATURE  0xBD
 
 void eraseEEPROM();
 
