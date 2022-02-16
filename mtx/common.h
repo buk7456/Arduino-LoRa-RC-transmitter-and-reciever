@@ -112,6 +112,9 @@ extern uint8_t receiverConfigStatusCode; //1 on success, 2 on fail
 //-----------------------------------------
 extern uint8_t maxNumOfModels;
 
+//-----------------------------------------
+extern bool isAdjustingFuncgenPeriod;
+
 //---- Main loop control -------------------
 #define fixedLoopTime 27 
 /*in milliseconds. Min 25, Max 30. Should be greater than 
@@ -178,18 +181,18 @@ enum {
 
 typedef struct {
   //------- first entity is the modelName ----
-  char modelName[9]; //8chars + Null
+  char modelName[7]; //6 chars + Null
   
   //------- basic params ---------
   
-  uint16_t reverse; // each bit represents a channel. 1 is on, 0 is off
+  uint16_t reverse;       // each bit represents a channel. 1 is on, 0 is off
   int8_t endpointL[NUM_PRP_CHANNLES];   //left endpoint, -100 to 0
   int8_t endpointR[NUM_PRP_CHANNLES];   //right endpoint, 0 to 100
   int8_t subtrim[NUM_PRP_CHANNLES];     //-20 to 20
   int8_t failsafe[NUM_PRP_CHANNLES];    //-101 to 100. -101 means off
 
   // Ail, Ele, Rud
-  uint8_t dualRate;  //Bit0 Ail, Bit1 Ele, Bit2 Rud  
+  uint8_t dualRate;       //Bit0 Ail, Bit1 Ele, Bit2 Rud  
   int8_t rateNormal[3];   //0 to 100
   int8_t rateSport[3];    //0 to 100
   int8_t expoNormal[3];   //-100 to 100
@@ -199,14 +202,17 @@ typedef struct {
   
   int8_t trim[4];         //for Ail, Ele, Thr, Rud inputs. Values -20 to 20
   
-  uint8_t slow1Up;   // in tenths of a second
-  uint8_t slow1Down; // in tenths of a second
-  uint8_t slow1Src;  // only switches allowed as source
+  uint8_t slow1Up;        // in tenths of a second
+  uint8_t slow1Down;      // in tenths of a second
+  uint8_t slow1Src;       // only switches allowed as source
+  
+  uint8_t funcgenWaveform;
+  uint8_t funcgenPeriod;  // in tenths of a second
 
   uint8_t timer1ControlSrc;
   uint8_t timer1Operator;
-  int8_t  timer1Value;      //-100 to 100
-  uint8_t timer1InitMins;   //if 0, timer will count up, else count down
+  int8_t  timer1Value;    //-100 to 100
+  uint8_t timer1InitMins; //if 0, timer will count up, else count down
   
   uint16_t telemVoltsThresh; //as 10mV
 
@@ -252,11 +258,19 @@ enum {
   NUM_MIXOPERATORS //should be last
 };
 
+enum {
+  FUNC_SINE = 0,
+  FUNC_SAWTOOTH,
+  FUNC_TRIANGLE,
+  FUNC_SQUARE,
+  NUM_FUNC_WAVEFORMS
+};
+
 enum { 
   //Mixer sources. These are indexes in mix sources array
   //Same order as the name order in the UI
   IDX_ROLL = 0, IDX_PITCH, IDX_THRTL_RAW, IDX_YAW, IDX_KNOB, 
-  IDX_100PERC,
+  IDX_100PERC, IDX_FUNCGEN,
   IDX_SWA, IDX_SWB, IDX_SWC, IDX_SWD, IDX_SWE, IDX_SWF,
   IDX_SLOW1,
   IDX_AIL, IDX_ELE, IDX_THRTL_CURV, IDX_RUD,
