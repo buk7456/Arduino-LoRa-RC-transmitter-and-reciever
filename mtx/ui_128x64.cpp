@@ -94,35 +94,36 @@ char const srcName2[]  PROGMEM = "thrt";
 char const srcName3[]  PROGMEM = "yaw";
 char const srcName4[]  PROGMEM = "knob";
 char const srcName5[]  PROGMEM = "max";
-char const srcName6[]  PROGMEM = "SwA"; 
-char const srcName7[]  PROGMEM = "SwB"; 
-char const srcName8[]  PROGMEM = "SwC"; 
-char const srcName9[]  PROGMEM = "SwD"; 
-char const srcName10[] PROGMEM = "SwE"; 
-char const srcName11[] PROGMEM = "SwF"; 
-char const srcName12[] PROGMEM = "Slow";
-char const srcName13[] PROGMEM = "Ail";
-char const srcName14[] PROGMEM = "Ele";
-char const srcName15[] PROGMEM = "Thrt";
-char const srcName16[] PROGMEM = "Rud";
-char const srcName17[] PROGMEM = "None";
-char const srcName18[] PROGMEM = "Ch1";
-char const srcName19[] PROGMEM = "Ch2";
-char const srcName20[] PROGMEM = "Ch3";
-char const srcName21[] PROGMEM = "Ch4";
-char const srcName22[] PROGMEM = "Ch5";
-char const srcName23[] PROGMEM = "Ch6";
-char const srcName24[] PROGMEM = "Ch7";
-char const srcName25[] PROGMEM = "Ch8";
-char const srcName26[] PROGMEM = "Ch9";
-char const srcName27[] PROGMEM = "Virt1";
-char const srcName28[] PROGMEM = "Virt2";
+char const srcName6[]  PROGMEM = "fgen";
+char const srcName7[]  PROGMEM = "SwA"; 
+char const srcName8[]  PROGMEM = "SwB"; 
+char const srcName9[]  PROGMEM = "SwC"; 
+char const srcName10[] PROGMEM = "SwD"; 
+char const srcName11[] PROGMEM = "SwE"; 
+char const srcName12[] PROGMEM = "SwF"; 
+char const srcName13[] PROGMEM = "Slow";
+char const srcName14[] PROGMEM = "Ail";
+char const srcName15[] PROGMEM = "Ele";
+char const srcName16[] PROGMEM = "Thrt";
+char const srcName17[] PROGMEM = "Rud";
+char const srcName18[] PROGMEM = "None";
+char const srcName19[] PROGMEM = "Ch1";
+char const srcName20[] PROGMEM = "Ch2";
+char const srcName21[] PROGMEM = "Ch3";
+char const srcName22[] PROGMEM = "Ch4";
+char const srcName23[] PROGMEM = "Ch5";
+char const srcName24[] PROGMEM = "Ch6";
+char const srcName25[] PROGMEM = "Ch7";
+char const srcName26[] PROGMEM = "Ch8";
+char const srcName27[] PROGMEM = "Ch9";
+char const srcName28[] PROGMEM = "Virt1";
+char const srcName29[] PROGMEM = "Virt2";
 
 const char* const srcNames[] PROGMEM = {
   srcName0, srcName1, srcName2, srcName3, srcName4, srcName5, srcName6, srcName7, 
   srcName8, srcName9, srcName10,srcName11, srcName12, srcName13, srcName14,
   srcName15, srcName16, srcName17, srcName18, srcName19, srcName20, srcName21, 
-  srcName22, srcName23, srcName24, srcName25, srcName26, srcName27, srcName28
+  srcName22, srcName23, srcName24, srcName25, srcName26, srcName27, srcName28, srcName29
 };
 
 //Mix control switch strings
@@ -206,6 +207,16 @@ char const tmrOperatorStr3[] PROGMEM = "abs<";
 const char* const tmrOperatorStr[] PROGMEM = {
   tmrOperatorStr0, tmrOperatorStr1, tmrOperatorStr2, tmrOperatorStr3
 };
+
+//Function generator strings
+char const funcgenStr0[] PROGMEM = "Sine";
+char const funcgenStr1[] PROGMEM = "Sawtooth";
+char const funcgenStr2[] PROGMEM = "Triangle";
+char const funcgenStr3[] PROGMEM = "Square";
+const char* const funcgenStr[] PROGMEM = {  
+  funcgenStr0, funcgenStr1, funcgenStr2, funcgenStr3
+};
+
 
 //-- Main menu strings. Max 16 characters per string
 #define NUM_ITEMS_MAIN_MENU 9
@@ -738,6 +749,7 @@ void handleMainUI()
           Model.timer1ControlSrc = incDecOnUpDown(Model.timer1ControlSrc, 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
           //Validate sources. Allowed sources are raw sticks, knob, switches, channels, virtuals
           while(Model.timer1ControlSrc == IDX_100PERC 
+                || Model.timer1ControlSrc == IDX_FUNCGEN
                 || (Model.timer1ControlSrc >= IDX_SLOW1 && Model.timer1ControlSrc <= IDX_RUD))
           {
             Model.timer1ControlSrc = incDecOnUpDown(Model.timer1ControlSrc, 0, NUM_MIXSOURCES - 1, NOWRAP, SLOW_CHANGE);
@@ -1177,11 +1189,11 @@ void handleMainUI()
       {
         drawHeader((char *)pgm_read_word(&mainMenu[MODE_INPUTS]));
 
-        enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE, SLOW1, RAW_INPUTS};
+        enum{AIL_CURVE = 0, ELE_CURVE = 1, RUD_CURVE = 2, THR_CURVE, SLOW1, FUNCGEN, RAW_INPUTS};
         static uint8_t _page = AIL_CURVE;
         
         if (focusedItem == 1)
-          _page = incDecOnUpDown(_page, 0, 5, WRAP, SLOW_CHANGE);
+          _page = incDecOnUpDown(_page, 0, 6, WRAP, SLOW_CHANGE);
           
         ///////////////// RATES AND EXPO ////////////////////////////////////////
         if(_page == AIL_CURVE || _page == ELE_CURVE || _page == RUD_CURVE)  
@@ -1349,7 +1361,42 @@ void handleMainUI()
           else if(focusedItem == 4)
             Model.slow1Src = incDecOnUpDown(Model.slow1Src, IDX_SWA, IDX_SWF, NOWRAP, PRESSED_OR_HELD);
         }
-
+        
+        
+        ////////////////// FUNCTION GENERATOR /////////////////////////////////
+        if(_page == FUNCGEN)
+        {
+          changeFocusOnUPDOWN(3);
+          toggleEditModeOnSelectClicked();
+          
+          display.setCursor(8, 11);
+          strlcpy_P(txtBuff, PSTR("FuncGen"), sizeof(txtBuff));
+          display.print(txtBuff);
+          display.drawHLine(8, 19, strlen(txtBuff) * 6, BLACK);
+          
+          display.setCursor(0, 22);
+          display.print(F("Wave:  "));
+          strlcpy_P(txtBuff, (char *)pgm_read_word(&(funcgenStr[Model.funcgenWaveform])), sizeof(txtBuff));
+          display.print(txtBuff);
+          
+          display.setCursor(0, 31);
+          display.print(F("Prd:   "));
+          display.print(Model.funcgenPeriod / 10);
+          display.print(F("."));
+          display.print(Model.funcgenPeriod % 10);
+          display.print(F("s"));
+          
+          
+          if(focusedItem == 2)
+            Model.funcgenWaveform = incDecOnUpDown(Model.funcgenWaveform, 0, NUM_FUNC_WAVEFORMS - 1, WRAP, SLOW_CHANGE);
+          else if(focusedItem == 3)
+          {
+            Model.funcgenPeriod = incDecOnUpDown(Model.funcgenPeriod, 5, 200, NOWRAP, PRESSED_OR_HELD);
+            if(isEditMode && (heldButton == UP_KEY || heldButton == DOWN_KEY))
+              isAdjustingFuncgenPeriod = true;
+          }
+        }
+        
         ////////////////// RAW /////////////////////////////////////////////////
         if(_page == RAW_INPUTS)
         {
