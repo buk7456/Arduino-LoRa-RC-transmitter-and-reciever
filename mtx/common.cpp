@@ -47,8 +47,6 @@ uint8_t receiverPacketRate = 0;
 
 uint16_t telem_volts = 0x0FFF;
 
-bool isAdjustingFuncgenPeriod = false;
-
 uint8_t outputChConfig[9]; 
 uint8_t maxOutputChConfig[9];
 bool gotOutputChConfig = false;
