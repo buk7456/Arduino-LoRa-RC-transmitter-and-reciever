@@ -9,6 +9,7 @@ int applySlow(int _currentVal, int _targetVal, uint16_t _riseTime, uint16_t _fal
 int weightAndOffset(int _input, int _weight, int _offset, int _diff);
 bool mixSwitchIsActive(uint8_t _mixNum);
 void evaluateTimer1(int16_t srcVal);
+int generateWaveform();
 
 //==================================================================================================
 
@@ -219,6 +220,9 @@ void computeChannelOutputs()
   static int _valueNow = mixSources[IDX_SLOW1];
   mixSources[IDX_SLOW1] = applySlow(_valueNow, mixSources[Model.slow1Src], Model.slow1Up * 100, Model.slow1Down * 100);
   _valueNow = mixSources[IDX_SLOW1];
+  
+  ///--Mix source FuncGen
+  mixSources[IDX_FUNCGEN] = generateWaveform();
   
   ///--Predefined mixes
   //So we don't waste the limited mixer slots
@@ -570,4 +574,74 @@ void evaluateTimer1(int16_t srcVal)
   }
   else
     timer1ElapsedTime = timer1LastElapsedTime + millis() - timer1LastPaused;
+}
+
+//--------------------------------------------------------------------------------------------------
+
+// Table for generating stepped sine waveform. 100 values
+// Values have been offset about 100 so range is 0 to 200
+static const uint8_t sineForm[] PROGMEM = {
+  100, 106, 113, 119, 125, 131, 137, 143, 148, 154, 159, 164, 168, 173, 177, 181, 184, 188, 190, 
+  193, 195, 197, 198, 199, 200, 
+  200, 200, 199, 198, 197, 195, 193, 190, 188, 184, 181, 177, 173, 168, 164, 159, 154, 148, 143, 
+  137, 131, 125, 119, 113, 106, 
+  100, 94, 87, 81, 75, 69, 63, 57, 52, 46, 41, 36, 32, 27, 23, 19, 16, 12, 10, 7, 5, 3, 2, 1, 0, 
+  0, 0, 1, 2, 3, 5, 7, 10, 12, 16, 19, 23, 27, 32, 36, 41, 46, 52, 57, 63, 69, 75, 81, 87, 94, 
+};
+
+int generateWaveform()
+{
+  int period = Model.funcgenPeriod * 100;
+  long timeInstance = millis() % period;
+  
+  static int result = 0;
+  if(isAdjustingFuncgenPeriod) //prevent unpredicatable result
+  {
+    isAdjustingFuncgenPeriod = false;
+    return result;
+  }
+  
+  switch(Model.funcgenWaveform)
+  {
+    case FUNC_SINE:
+    {
+      uint8_t index = (timeInstance * 99)/(period - 1);
+      //get value at this index. Map index to a time value
+      int valL = (5 * pgm_read_byte(&sineForm[index])) - 500;
+      int tL = map(index, 0, 99, 0, period - 1);
+      //increment index, get value, map index to a time value
+      index++; if(index > 99) index = 0;
+      int valR = (5 * pgm_read_byte(&sineForm[index])) - 500;
+      int tR = map(index, 0, 99, 0, period - 1);
+      //linear interpolate
+      result = valL + (((timeInstance - tL)*(valR - valL))/(tR - tL));
+    }
+    break;
+    
+    case FUNC_SAWTOOTH:
+    {
+      result = map(timeInstance, 0, period - 1, -500, 500);
+    }
+    break;
+    
+    case FUNC_TRIANGLE:
+    {
+      if(timeInstance < (period/2))
+        result = map(timeInstance, 0, period/2 - 1, -500, 500);
+      else
+        result = map(timeInstance, period/2, period - 1, 500, -500);
+    }
+    break;
+    
+    case FUNC_SQUARE:
+    {
+      if(timeInstance < (period/2))
+        result = -500;
+      else
+        result = 500;
+    }
+    break;
+  }
+  
+  return result;
 }
