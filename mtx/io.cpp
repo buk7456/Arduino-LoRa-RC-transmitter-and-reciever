@@ -607,8 +607,8 @@ int generateWaveform()
   if(period != oldPeriod)
   {
     oldPeriod = period;
-    int newT = millis() % period;
-    offset = (((long) period * oldRatio)/1000L) - newT; 
+    int newTimeInstance = millis() % period;
+    offset = (((long) period * oldRatio)/1000L) - newTimeInstance; 
   }
   
   int timeInstance = (millis() + offset) % period;
