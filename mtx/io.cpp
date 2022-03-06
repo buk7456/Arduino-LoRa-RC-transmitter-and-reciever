@@ -157,11 +157,11 @@ void readSticks()
   else if(knobIn < -25) _knobRegion = _NEG_SIDE;
   
   //detect inactivity
-  static int16_t _lastSticksAvg = 0;
-  int16_t _sticksAvg = (rollIn + pitchIn + throttleIn + yawIn + knobIn) / 5;
-  if(abs(_sticksAvg - _lastSticksAvg) > 6) //3% of 1000 is 30, divide by 5
+  static int16_t _lastSticksSum = 0;
+  int16_t _sticksSum = rollIn + pitchIn + throttleIn + yawIn + knobIn;
+  if(abs(_sticksSum - _lastSticksSum) > 30) //3% of 1000
   {
-    _lastSticksAvg = _sticksAvg;
+    _lastSticksSum = _sticksSum;
     inputsLastMoved = millis();
   }
 
@@ -592,27 +592,29 @@ static const uint8_t sineForm[] PROGMEM = {
 int generateWaveform()
 {
   /*
-  When the period is being adjusted there is sudden discontinuity in the result that causes the servo to jerk. 
+  When the period is being adjusted there is a sudden discontinuity in the result that causes the servo to jerk. 
   We thus need a way to smoothly transition to the new period. 
   One approach is to wait for peak or zero crossing before applying the new period. However this 
-  sucks if the period is long.
-  The better approach is to add some calculated offset to millis. We want the result to be the same 
-  upon change so the ratio (timeInstance/period) for old and new period has to be the same.
+  isn't ideal if the period is long.
+  The better approach is to add some calculated offset to millis so that we maintain the next ratio of 
+  timeInstance/period upon change.
   */
   
   int period = Model.funcgenPeriod * 100;
-  static int oldPeriod = 0;
-  static int oldRatio = 0;  //(oldTimeInstance/oldPeriod)*scalingfactor1000
+  static int oldPeriod = 500;
   static int offset = 0;
+  
+  int timeInstance = (millis() + offset) % oldPeriod;
+  int nextRatio = (timeInstance * 1000L) / oldPeriod;  //scalingfactor 1000 just to avoid floating point math
+  
   if(period != oldPeriod)
   {
     oldPeriod = period;
     int newTimeInstance = millis() % period;
-    offset = (((long) period * oldRatio)/1000L) - newTimeInstance; 
+    offset = (((long) period * nextRatio)/1000L) - newTimeInstance; 
   }
   
-  int timeInstance = (millis() + offset) % period;
-  oldRatio = (timeInstance * 1000L) / period; //store old ratio
+  timeInstance = (millis() + offset) % period; //recalculate
   
   int result = 0;
   
