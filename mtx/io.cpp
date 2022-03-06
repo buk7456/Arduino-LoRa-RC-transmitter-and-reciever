@@ -591,15 +591,13 @@ static const uint8_t sineForm[] PROGMEM = {
 
 int generateWaveform()
 {
-  /*
-  When the period is being adjusted there is a sudden discontinuity in the result that causes the servo to jerk. 
-  We thus need a way to smoothly transition to the new period. 
-  One approach is to wait for peak or zero crossing before applying the new period. However this 
-  isn't ideal if the period is long.
-  The better approach is to add some calculated offset to millis so that we maintain the next ratio of 
-  timeInstance/period upon change.
-  */
-  
+  // When the period is being adjusted there is a sudden discontinuity in the result that causes the servo to jerk. 
+  // We thus need a way to smoothly transition to the new period. 
+  // One approach is to wait for peak or zero crossing before applying the new period. However this 
+  // isn't ideal if the period is long.
+  // The better approach is to add some calculated offset to millis so that we maintain the next ratio of 
+  // timeInstance/period upon change.
+
   int period = Model.funcgenPeriod * 100;
   static int oldPeriod = 500;
   static int offset = 0;
@@ -622,16 +620,14 @@ int generateWaveform()
   {
     case FUNC_SINE:
     {
-      uint8_t index = (timeInstance * 99L)/(period - 1);
-      //get value at this index. Map index to a time value
-      int valL = (5 * pgm_read_byte(&sineForm[index])) - 500;
-      int tL = map(index, 0, 99, 0, period - 1);
-      //increment index, get value, map index to a time value
-      index++; if(index > 99) index = 0;
-      int valR = (5 * pgm_read_byte(&sineForm[index])) - 500;
-      int tR = map(index, 0, 99, 0, period - 1);
-      //linear interpolate
-      result = valL + (((long)(timeInstance - tL)*(valR - valL))/(tR - tL));
+      //--fixed point arithmetic with 2 decimal places for fractional part--
+      int index = (timeInstance * 10000L)/period; /*upper 2 digits are the actual index in the LUT,
+      the lower 2 digits are the fractional part used for linear interpolation*/
+      uint8_t indexLUT = index / 100; //100 is scaling factor
+      int valL = 5 * pgm_read_byte(&sineForm[indexLUT]) - 500;
+      indexLUT++; if(indexLUT > 99) indexLUT = 0;
+      int valR = 5 * pgm_read_byte(&sineForm[indexLUT]) - 500;
+      result = valL + (((valR - valL)*(index % 100))/100); //100 is scaling factor
     }
     break;
     
@@ -660,5 +656,6 @@ int generateWaveform()
     break;
   }
   
+  result = constrain(result, -500, 500);
   return result;
 }
