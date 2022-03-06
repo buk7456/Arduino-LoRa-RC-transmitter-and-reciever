@@ -1,5 +1,8 @@
 2.2
 --------
+06Mar2022
+ - Fixed minor glitch in function generator.
+ 
 16Feb2022
  - Added a simple function generator. Useful for testing stuff like servos. 
    It can be configured to output periodic motion like sine, square, triangle, and sawtooth.
