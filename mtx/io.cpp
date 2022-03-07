@@ -596,7 +596,8 @@ int generateWaveform()
   // One approach is to wait for peak or zero crossing before applying the new period. However this 
   // isn't ideal if the period is long.
   // The better approach is to add some calculated offset to millis so that we maintain the next ratio of 
-  // timeInstance/period upon change.
+  // timeInstance/period upon change. 
+  // To get the offset the equation used is (newTimeInstance + offset)/period = nextRatio
 
   int period = Model.funcgenPeriod * 100;
   static int oldPeriod = 500;
