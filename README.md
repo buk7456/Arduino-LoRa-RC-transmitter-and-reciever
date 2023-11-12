@@ -1,3 +1,4 @@
+# Note: This project has been superseded by [freeTX](https://github.com/buk7456/freeTX)
 # Arduino Lora based RC system
 Control just about anything RC
 
